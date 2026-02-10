@@ -51,7 +51,7 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
       {users.map((u) => (
         <div
           key={u.id}
-          className={`group flex items-center px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 relative ${
+          className={`group flex items-center px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
             selectedUserId === u.id ? 'bg-blue-50/50' : ''
           }`}
           onClick={() => onSelectUser(u.id)}
@@ -95,28 +95,28 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
 
           {/* Floating Action Icons (show on hover) */}
           <div
-            className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-10"
+            className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
             style={{ minWidth: 60 }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Priority */}
-            <button className="flex flex-col items-center group/act" onClick={() => onAction('priority')} tabIndex={-1}>
+            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('priority')} tabIndex={-1}>
               <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
-              <span className="mb-1 text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-0.5 py-0.5 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Mark as qualified
               </span>
             </button>
             {/* Delete */}
-            <button className="flex flex-col items-center group/act" onClick={() => onAction('delete')} tabIndex={-1}>
+            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('delete')} tabIndex={-1}>
               <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
-              <span className="mb-1 text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-0.5 py-0.5 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -top-5 left-1 -translate-x-1/2 whitespace-nowrap">
+              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Unqualify and remove user from inbox
               </span>
             </button>
             {/* Unread */}
-            <button className="flex flex-col items-center group/act" onClick={() => onAction('unread')} tabIndex={-1}>
+            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('unread')} tabIndex={-1}>
               <FolderMoveIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
-              <span className="mb-1 text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-0.5 py-0.5 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Move to priority inbox
               </span>
             </button>
