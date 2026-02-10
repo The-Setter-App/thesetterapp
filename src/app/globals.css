@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Icon square box styling */
+.icon-box {
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	background-color: #f0f0f0;
+}
+
+/* Custom Checkbox from custom-checkbox.css */
+.custom-checkbox {
+  width: 4px;
+  height: 1.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #fff;
+  border: 2px solid #a78bfa;
+  border-radius: 3px;
+  display: inline-block;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+.custom-checkbox:checked {
+  background-color: #8b5cf6;
+  border-color: #8b5cf6;
+}
+.custom-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.38rem;
+  top: 0.18rem;
+  width: 0.5rem;
+  height: 0.9rem;
+  border: solid #fff;
+  border-width: 0 0.22rem 0.22rem 0;
+  border-radius: 0.25rem;
+  transform: rotate(45deg);
+  box-sizing: border-box;
+  display: block;
+}

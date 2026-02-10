@@ -1,0 +1,84 @@
+"use client";
+
+import { Message } from '@/types/inbox';
+import { useMemo } from 'react';
+
+interface ChatWindowProps {
+  messages: Message[];
+}
+
+const PlayIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+  </svg>
+);
+
+const VolumeIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
+    <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
+  </svg>
+);
+
+const StarIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+  </svg>
+);
+
+const AudioWave = ({ color }: { color: string }) => {
+  const heights = useMemo(() => {
+    return [...Array(20)].map(() => Math.random() * 100);
+  }, []);
+
+  return (
+    <div className="flex items-center space-x-0.5 h-4 mx-2">
+      {heights.map((height, i) => (
+        <div key={i} className={`w-0.5 rounded-full ${color}`} style={{ height: `${height}%` }} />
+      ))}
+    </div>
+  );
+};
+
+export default function ChatWindow({ messages }: ChatWindowProps) {
+  return (
+    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      {messages.map((msg) => (
+        <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
+          <div
+            className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
+              msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'
+            } ${msg.type === 'audio' ? 'flex items-center min-w-[240px]' : ''}`}
+          >
+            {msg.type === 'text' ? (
+              <span>{msg.text}</span>
+            ) : (
+              <>
+                {/* Play Button */}
+                <button className={`p-2 rounded-full flex-shrink-0 flex items-center justify-center ${msg.fromMe ? 'bg-white text-[#8771FF]' : 'bg-gray-500 text-white'}`}>
+                  <PlayIcon className="w-3.5 h-3.5 fill-current" />
+                </button>
+
+                {/* Audio Wave */}
+                <AudioWave color={msg.fromMe ? 'bg-white' : 'bg-gray-400'} />
+
+                <span className={`text-xs font-mono ml-auto mr-3 ${msg.fromMe ? 'text-white/80' : 'text-gray-500'}`}>{msg.duration}</span>
+
+                {/* Volume Icon */}
+                <VolumeIcon className={`w-5 h-5 ${msg.fromMe ? 'text-white' : 'text-gray-400'}`} />
+              </>
+            )}
+          </div>
+          {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
+        </div>
+      ))}
+
+      {/* Status Update Marker */}
+      <div className="flex flex-col items-center py-6">
+        <StarIcon className="w-6 h-6 text-yellow-400 mb-2" />
+        <div className="font-bold text-sm text-gray-800">Status Update: Qualified</div>
+        <div className="text-[10px] text-gray-400">Wednesday 9:07 PM</div>
+      </div>
+    </div>
+  );
+}
