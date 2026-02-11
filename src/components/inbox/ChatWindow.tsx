@@ -6,6 +6,10 @@ import { useMemo } from 'react';
 interface ChatWindowProps {
   messages: Message[];
   loading?: boolean;
+  statusUpdate?: {
+    status: string;
+    timestamp: Date | string;
+  };
 }
 
 const PlayIcon = ({ className }: { className?: string }) => (
@@ -41,7 +45,7 @@ const AudioWave = ({ color }: { color: string }) => {
   );
 };
 
-export default function ChatWindow({ messages, loading }: ChatWindowProps) {
+export default function ChatWindow({ messages, loading, statusUpdate }: ChatWindowProps) {
   if (loading && messages.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
@@ -56,6 +60,26 @@ export default function ChatWindow({ messages, loading }: ChatWindowProps) {
       </div>
     );
   }
+
+  const formatStatusTimestamp = (timestamp: Date | string) => {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const dayName = days[date.getDay()];
+    const monthName = months[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const minutesStr = minutes < 10 ? `0${minutes}` : minutes;
+    
+    return `${dayName}, ${monthName} ${day}, ${year} ${hours}:${minutesStr} ${ampm}`;
+  };
 
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -123,11 +147,13 @@ export default function ChatWindow({ messages, loading }: ChatWindowProps) {
       ))}
 
       {/* Status Update Marker */}
-      <div className="flex flex-col items-center py-6">
-        <StarIcon className="w-6 h-6 text-yellow-400 mb-2" />
-        <div className="font-bold text-sm text-gray-800">Status Update: Qualified</div>
-        <div className="text-[10px] text-gray-400">Wednesday 9:07 PM</div>
-      </div>
+      {statusUpdate && (
+        <div className="flex flex-col items-center py-6">
+          <StarIcon className="w-6 h-6 text-yellow-400 mb-2" />
+          <div className="font-bold text-sm text-gray-800">Status Update: {statusUpdate.status}</div>
+          <div className="text-[10px] text-gray-400">{formatStatusTimestamp(statusUpdate.timestamp)}</div>
+        </div>
+      )}
     </div>
   );
 }
