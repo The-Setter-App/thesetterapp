@@ -254,6 +254,8 @@ export default function InboxSidebar() {
         <p className="text-xs text-gray-400 mb-4">Your unified chat workspace.</p>
 
         <div className="flex gap-2 mb-4">
+          
+          {/*Search bar  */}
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <SearchIcon className="h-4 w-4 text-gray-400" />
@@ -265,6 +267,8 @@ export default function InboxSidebar() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          {/* Filter button */}
           <button className="px-3 py-2 bg-white border border-gray-100 rounded-lg text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 flex items-center">
             <FilterIcon className="w-4 h-4 mr-1.5" />
             Filters
