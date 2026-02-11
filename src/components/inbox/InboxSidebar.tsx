@@ -40,27 +40,6 @@ const CheckIcon = ({ className }: { className?: string }) => (
 
 const statusOptions: StatusType[] = ['New Lead', 'In-Contact', 'Qualified', 'Unqualified', 'Retarget', 'Won', 'No-Show', 'Booked'];
 
-const statusColors: Record<StatusType, string> = {
-  'New Lead': '#F89EE3',
-  'In-Contact': '#25D366',
-  'Qualified': '#FFC300',
-  'Unqualified': '#FF0000',
-  'Retarget': '#2C6CD6',
-  'Won': '#059700',
-  'No-Show': '#FF7847',
-  'Booked': '#501884',
-};
-
-const statusIconPaths: Record<StatusType, string> = {
-  'New Lead': '/icons/status/NewLead.svg',
-  'In-Contact': '/icons/status/InContact.svg',
-  'Qualified': '/icons/status/Qualified.svg',
-  'Unqualified': '/icons/status/Unqualified.svg',
-  'Retarget': '/icons/status/Retarget.svg',
-  'Won': '/icons/status/Won.svg',
-  'No-Show': '/icons/status/NoShow.svg',
-  'Booked': '/icons/status/Booked.svg',
-};
 
 export default function InboxSidebar() {
   const router = useRouter();
@@ -73,8 +52,7 @@ export default function InboxSidebar() {
   const [loading, setLoading] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
-  const [assignedToFilter] = useState<string>('all'); // Placeholder for future
-  const [accountsFilter] = useState<string>('all');   // Placeholder for future
+ 
 
   const refetchInFlightRef = useRef(false);
 
