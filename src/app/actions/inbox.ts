@@ -11,6 +11,7 @@ import {
   findConversationByRecipientId,
   updateUserStatus 
 } from '@/lib/inboxRepository';
+import { sseEmitter } from '@/app/api/sse/route';
 import type { User, Message } from '@/types/inbox';
 
 /**
@@ -196,6 +197,11 @@ export async function updateUserStatusAction(
 ): Promise<void> {
   try {
     await updateUserStatus(recipientId, newStatus);
+    // Emit SSE event for real-time update
+    sseEmitter.emit('message', {
+      type: 'user_status_updated',
+      data: { userId: recipientId, status: newStatus }
+    });
     console.log(`[InboxActions] Updated status for ${recipientId} to ${newStatus}`);
   } catch (error) {
     console.error('[InboxActions] Error updating user status:', error);

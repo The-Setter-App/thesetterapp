@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSSE } from "@/hooks/useSSE";
 import { User, StatusType } from "@/types/inbox";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 
@@ -53,6 +54,41 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
+
+  // Always fetch latest user from DB on mount and when status changes
+  async function fetchUserStatus() {
+    try {
+      const res = await fetch(`/api/user-status?recipientId=${user.recipientId || user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status) setCurrentStatus(data.status);
+      }
+    } catch (err) {
+      // fallback: do nothing
+    }
+  }
+
+  useEffect(() => {
+    fetchUserStatus();
+    // Listen for custom event (for local tab updates)
+    const handler = (e: any) => {
+      if (e.detail?.userId === (user.recipientId || user.id)) {
+        fetchUserStatus();
+      }
+    };
+    window.addEventListener('userStatusUpdated', handler);
+    return () => window.removeEventListener('userStatusUpdated', handler);
+    // eslint-disable-next-line
+  }, [user.recipientId, user.id]);
+
+  // Listen for SSE status updates (for cross-tab and real-time updates)
+  useSSE('/api/sse', {
+    onMessage: (msg) => {
+      if (msg.type === 'new_message' && msg.data && 'userId' in msg.data && msg.data.userId === (user.recipientId || user.id)) {
+        fetchUserStatus();
+      }
+    }
+  });
   const displayName = user.name.replace("@", "");
 
   const handleStatusSelect = async (newStatus: StatusType) => {
@@ -60,15 +96,13 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
     setShowStatusDropdown(false);
     try {
       await updateUserStatusAction(user.recipientId || user.id, newStatus);
-      // Update UI immediately
-      setCurrentStatus(newStatus);
-      
-      // Emit custom event for real-time updates across the app
+      // Emit custom event for local tab
       window.dispatchEvent(
         new CustomEvent('userStatusUpdated', {
           detail: { userId: user.recipientId || user.id, status: newStatus },
         })
       );
+      // Optionally: send SSE event from backend for cross-tab
     } catch (error) {
       console.error("Failed to update status:", error);
     } finally {

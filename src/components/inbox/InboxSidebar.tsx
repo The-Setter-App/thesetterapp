@@ -94,9 +94,20 @@ export default function InboxSidebar() {
   }, [selectedUserId, refetchConversations]);
 
   useSSE('/api/sse', {
-    onMessage: (message) => {
+    onMessage: (message: any) => {
       if (message.type === 'new_message') handleSidebarMessageEvent(message.data, false);
       else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true);
+      else if (message.type === 'user_status_updated') {
+        // Real-time update of user status in sidebar
+        setUsers((prev) => {
+          const idx = prev.findIndex((u) => u.recipientId === message.data.userId);
+          if (idx === -1) return prev;
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], status: message.data.status };
+          setCachedUsers(updated).catch(e => console.error(e));
+          return updated;
+        });
+      }
     }
   });
 

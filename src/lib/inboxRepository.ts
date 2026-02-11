@@ -50,22 +50,27 @@ export async function saveConversationsToDb(conversations: User[]): Promise<void
   if (conversations.length === 0) return;
   const client = await clientPromise;
   const db = client.db(DB_NAME);
-  
-  const operations = conversations.map(conv => {
+
+  const operations = await Promise.all(conversations.map(async conv => {
     // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
     const { unread, ...convWithoutUnread } = conv;
+    // Preserve custom status if already set in DB
+    const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conv.id });
+    if (existing && existing.status) {
+      convWithoutUnread.status = existing.status;
+    }
     return {
       updateOne: {
         filter: { id: conv.id },
-        update: { 
+        update: {
           $set: convWithoutUnread,
           $setOnInsert: { unread: 0 }
         },
         upsert: true
       }
     };
-  });
-  
+  }));
+
   await db.collection(CONVERSATIONS_COLLECTION).bulkWrite(operations);
 }
 
