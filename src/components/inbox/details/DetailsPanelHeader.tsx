@@ -1,6 +1,31 @@
 "use client";
 
-import { User } from "@/types/inbox";
+import { useState, useEffect } from "react";
+import { User, StatusType } from "@/types/inbox";
+import { updateUserStatusAction } from "@/app/actions/inbox";
+
+const STATUS_OPTIONS: StatusType[] = [
+  "New Lead",
+  "Qualified",
+  "Booked",
+  "In-Contact",
+  "Won",
+  "No-Show",
+  "Unqualified",
+  "Retarget",
+];
+
+// Map status to icon path
+const statusIconPaths: Record<StatusType, string> = {
+  'Won': '/icons/status-colors/Won.svg',
+  'Unqualified': '/icons/status-colors/Unqualified.svg',
+  'Booked': '/icons/status-colors/Booked.svg',
+  'New Lead': '/icons/status-colors/NewLead.svg',
+  'Qualified': '/icons/status-colors/Qualified.svg',
+  'No-Show': '/icons/status-colors/NoShow.svg',
+  'In-Contact': '/icons/status-colors/InContact.svg',
+  'Retarget': '/icons/status-colors/Retarget.svg',
+};
 
 const CopyIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -8,18 +33,48 @@ const CopyIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-  </svg>
-);
+const StatusIcon = ({ status, className }: { status: StatusType; className?: string }) => {
+  const iconPath = statusIconPaths[status];
+  if (!iconPath) return null;
+  return (
+    <img 
+      src={iconPath} 
+      alt={status} 
+      className={className || "w-5 h-5"}
+    />
+  );
+};
 
 interface DetailsPanelHeaderProps {
   user: User;
 }
 
 export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
   const displayName = user.name.replace("@", "");
+
+  const handleStatusSelect = async (newStatus: StatusType) => {
+    setIsUpdating(true);
+    setShowStatusDropdown(false);
+    try {
+      await updateUserStatusAction(user.recipientId || user.id, newStatus);
+      // Update UI immediately
+      setCurrentStatus(newStatus);
+      
+      // Emit custom event for real-time updates across the app
+      window.dispatchEvent(
+        new CustomEvent('userStatusUpdated', {
+          detail: { userId: user.recipientId || user.id, status: newStatus },
+        })
+      );
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="pt-8 pb-4 px-6 flex flex-col items-center">
@@ -42,13 +97,56 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
       <p className="text-sm text-gray-300 mb-5">我知道你知道.</p>
 
       {/* Status Button */}
-      <button className="flex items-center justify-center w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 mb-4">
-        <StarIcon className="w-5 h-5 text-yellow-500 mr-2" />
-        <span className="text-sm font-bold text-gray-800">{user.status} - Update</span>
-        <svg className="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      <div className="relative w-full mb-4">
+        <button
+          onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+          disabled={isUpdating}
+          className="flex items-center justify-center w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 disabled:opacity-50"
+        >
+          <StatusIcon status={currentStatus} className="w-5 h-5 mr-2" />
+          <span className="text-sm font-bold text-gray-800">
+            {currentStatus} {isUpdating ? "..." : "- Update"}
+          </span>
+          <svg
+            className={`w-4 h-4 text-gray-400 ml-2 transition-transform ${
+              showStatusDropdown ? "rotate-90" : ""
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+
+        {/* Status Dropdown Menu */}
+        {showStatusDropdown && !isUpdating && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+            <div className="max-h-64 overflow-y-auto">
+              {STATUS_OPTIONS.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleStatusSelect(status)}
+                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center ${
+                    currentStatus === status
+                      ? "bg-[#8771FF] text-white" // No hover for selected
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                  disabled={isUpdating}
+                >
+                  <StatusIcon status={status} className="w-4 h-4 mr-2" />
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Contact Fields */}
       <div className="w-full space-y-0">

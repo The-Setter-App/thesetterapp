@@ -165,3 +165,19 @@ export async function updateConversationMetadata(
     update
   );
 }
+
+/**
+ * Update user status by recipientId
+ */
+export async function updateUserStatus(
+  recipientId: string,
+  newStatus: string
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+
+  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
+    { recipientId },
+    { $set: { status: newStatus } }
+  );
+}

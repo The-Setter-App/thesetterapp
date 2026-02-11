@@ -34,6 +34,34 @@ export default function InboxSidebar() {
   const refetchInFlightRef = useRef(false);
 
   /**
+   * Listen for real-time status updates from DetailsPanelHeader
+   */
+  useEffect(() => {
+    const handleStatusUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { userId, status } = customEvent.detail;
+      
+      // Update the user with the new status
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.recipientId === userId || user.id === userId
+            ? { ...user, status }
+            : user
+        )
+      );
+      
+      // Also update the cache
+      setUsers((prev) => {
+        setCachedUsers(prev).catch(e => console.error('Failed to cache users:', e));
+        return prev;
+      });
+    };
+
+    window.addEventListener('userStatusUpdated', handleStatusUpdate);
+    return () => window.removeEventListener('userStatusUpdated', handleStatusUpdate);
+  }, []);
+
+  /**
    * Re-fetch the full conversation list from the server and update state + cache.
    * Used when an SSE event references a conversation we don't have locally
    * (e.g., a brand-new DM from someone not yet in the list).
@@ -254,7 +282,7 @@ export default function InboxSidebar() {
         <p className="text-xs text-gray-400 mb-4">Your unified chat workspace.</p>
 
         <div className="flex gap-2 mb-4">
-          
+
           {/*Search bar  */}
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

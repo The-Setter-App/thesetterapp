@@ -8,7 +8,8 @@ import {
   getMessagesFromDb, 
   saveMessagesToDb,
   updateConversationMetadata,
-  findConversationByRecipientId 
+  findConversationByRecipientId,
+  updateUserStatus 
 } from '@/lib/inboxRepository';
 import type { User, Message } from '@/types/inbox';
 
@@ -179,6 +180,25 @@ export async function sendNewMessage(
     })();
   } catch (error) {
     console.error('[InboxActions] Error sending message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user status by recipientId
+ * 
+ * @param recipientId - The participant's Instagram user ID (URL key)
+ * @param newStatus - The new status value
+ */
+export async function updateUserStatusAction(
+  recipientId: string,
+  newStatus: string
+): Promise<void> {
+  try {
+    await updateUserStatus(recipientId, newStatus);
+    console.log(`[InboxActions] Updated status for ${recipientId} to ${newStatus}`);
+  } catch (error) {
+    console.error('[InboxActions] Error updating user status:', error);
     throw error;
   }
 }
