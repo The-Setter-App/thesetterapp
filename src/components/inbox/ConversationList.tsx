@@ -16,8 +16,8 @@ const statusColorIcons = {
 
 interface ConversationListProps {
   users: User[];
-  selectedUserId: number;
-  onSelectUser: (id: number) => void;
+  selectedUserId: string;
+  onSelectUser: (id: string) => void;
   onAction: (action: 'priority' | 'unread' | 'delete') => void;
 }
 
@@ -50,11 +50,11 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
       {users.map((u) => (
         <div
-          key={u.id}
+          key={u.recipientId || u.id}
           className={`group flex items-center px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
-            selectedUserId === u.id ? 'bg-blue-50/50' : ''
+            selectedUserId === u.recipientId ? 'bg-blue-50/50' : ''
           }`}
-          onClick={() => onSelectUser(u.id)}
+          onClick={() => onSelectUser(u.recipientId || u.id)}
         >
           <div className="relative flex-shrink-0">
             {u.avatar ? (

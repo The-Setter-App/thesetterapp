@@ -1,0 +1,50 @@
+import { NextRequest } from 'next/server';
+import { EventEmitter } from 'events';
+
+// Global event emitter for SSE broadcasts
+export const sseEmitter = new EventEmitter();
+sseEmitter.setMaxListeners(100); // Support up to 100 concurrent connections
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    start(controller) {
+      // Send initial connection message
+      const initialMessage = `data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`;
+      controller.enqueue(encoder.encode(initialMessage));
+
+      // Handler for new messages
+      const messageHandler = (data: unknown) => {
+        const message = `data: ${JSON.stringify(data)}\n\n`;
+        controller.enqueue(encoder.encode(message));
+      };
+
+      // Register listener
+      sseEmitter.on('message', messageHandler);
+
+      // Heartbeat to keep connection alive
+      const heartbeat = setInterval(() => {
+        controller.enqueue(encoder.encode(': heartbeat\n\n'));
+      }, 30000); // Every 30 seconds
+
+      // Cleanup on close
+      request.signal.addEventListener('abort', () => {
+        sseEmitter.off('message', messageHandler);
+        clearInterval(heartbeat);
+        controller.close();
+      });
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable buffering for nginx
+    },
+  });
+}

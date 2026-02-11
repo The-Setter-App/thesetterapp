@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 interface ChatWindowProps {
   messages: Message[];
+  loading?: boolean;
 }
 
 const PlayIcon = ({ className }: { className?: string }) => (
@@ -40,19 +41,58 @@ const AudioWave = ({ color }: { color: string }) => {
   );
 };
 
-export default function ChatWindow({ messages }: ChatWindowProps) {
+export default function ChatWindow({ messages, loading }: ChatWindowProps) {
+  if (loading && messages.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className={`flex flex-col ${i % 2 === 0 ? 'items-end' : 'items-start'}`}>
+            <div className={`rounded-2xl p-4 max-w-[60%] animate-pulse ${i % 2 === 0 ? 'bg-[#F3F0FF]' : 'bg-gray-100'}`}>
+              <div className={`h-4 bg-gray-200 rounded mb-2 ${i % 2 === 0 ? 'w-48' : 'w-32'}`}></div>
+              <div className="h-3 w-20 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       {messages.map((msg) => (
         <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
           <div
-            className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
+            className={`max-w-[80%] rounded-2xl text-sm ${
               msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'
-            } ${msg.type === 'audio' ? 'flex items-center min-w-[240px]' : ''}`}
+            } ${msg.type === 'audio' ? 'flex items-center min-w-[240px] px-4 py-3' : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-4 py-3'}`}
           >
-            {msg.type === 'text' ? (
+            {msg.type === 'text' && (
               <span>{msg.text}</span>
-            ) : (
+            )}
+            
+            {msg.type === 'image' && msg.attachmentUrl && (
+              <div>
+                <img 
+                  src={msg.attachmentUrl} 
+                  alt="Attachment" 
+                  className="rounded-xl max-w-full max-h-96 object-cover"
+                />
+                {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+              </div>
+            )}
+            
+            {msg.type === 'video' && msg.attachmentUrl && (
+              <div>
+                <video 
+                  src={msg.attachmentUrl} 
+                  controls 
+                  className="rounded-xl max-w-full max-h-96"
+                />
+                {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+              </div>
+            )}
+            
+            {msg.type === 'audio' && (
               <>
                 {/* Play Button */}
                 <button className={`p-2 rounded-full flex-shrink-0 flex items-center justify-center ${msg.fromMe ? 'bg-white text-[#8771FF]' : 'bg-gray-500 text-white'}`}>
@@ -67,6 +107,15 @@ export default function ChatWindow({ messages }: ChatWindowProps) {
                 {/* Volume Icon */}
                 <VolumeIcon className={`w-5 h-5 ${msg.fromMe ? 'text-white' : 'text-gray-400'}`} />
               </>
+            )}
+            
+            {msg.type === 'file' && (
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span>{msg.text || 'File attachment'}</span>
+              </div>
             )}
           </div>
           {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
