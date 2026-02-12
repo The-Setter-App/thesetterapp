@@ -114,6 +114,29 @@ class InboxCache {
        console.error(`[InboxCache] Error clearing cache:`, error);
     }
   }
+
+  async reset(): Promise<void> {
+    try {
+      // Close any open connection first
+      if (this.dbPromise) {
+        const db = await this.dbPromise;
+        db.close();
+        this.dbPromise = null;
+      }
+      
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(DB_NAME);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => {
+          console.warn('[InboxCache] Delete database blocked by another tab');
+          resolve(); // Don't hang the app
+        };
+      });
+    } catch (error) {
+      console.error('[InboxCache] Error resetting cache:', error);
+    }
+  }
 }
 
 const inboxCache = new InboxCache();
@@ -140,4 +163,8 @@ export async function updateCachedMessages(recipientId: string, updater: (msgs: 
 
 export async function clearCache(): Promise<void> {
   return inboxCache.clear();
+}
+
+export async function resetCache(): Promise<void> {
+  return inboxCache.reset();
 }

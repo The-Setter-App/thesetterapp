@@ -40,18 +40,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   useEffect(() => {
     async function loadUser() {
       try {
-        // Try to find user in cache first (populated by Sidebar)
+        // Show cached user instantly for perceived speed
         const cachedUsers = await getCachedUsers();
         const foundUser = cachedUsers?.find(u => u.recipientId === selectedUserId);
         
         if (foundUser) {
           setUser(foundUser);
-        } else {
-          // If not in cache, fetch fresh
-          const users = await getInboxUsers();
-          const target = users.find(u => u.recipientId === selectedUserId);
-          if (target) setUser(target);
         }
+
+        // Always fetch fresh from server to pick up avatar / status updates
+        const users = await getInboxUsers();
+        const target = users.find(u => u.recipientId === selectedUserId);
+        if (target) setUser(target);
       } catch (err) {
         console.error('Error loading user:', err);
       }
@@ -257,13 +257,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         {/* Chat Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center">
-            {user?.avatar ? (
-              <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full object-cover mr-3" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-400 to-yellow-300 mr-3 flex items-center justify-center text-white font-bold text-xs">
-                ●
-              </div>
-            )}
+            <img 
+              src={user?.avatar || "/images/no_profile.jpg"} 
+              alt={user?.name || "User"} 
+              className="w-10 h-10 rounded-full object-cover mr-3" 
+            />
             <div>
               <div className="font-bold text-sm text-gray-900">{user?.name?.replace('@', '') || 'Loading...'}</div>
               <div className="text-xs text-gray-400">{user?.name || ''}</div>

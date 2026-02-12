@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { LayoutDashboard, Inbox, Calendar as CalendarIconLucide, LogOut, type LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { logout } from '@/app/actions/auth';
+import { resetCache } from '@/lib/clientCache';
 
 // 2. CSS Filter for the remaining image-based icons (Leads, SetterAI, Settings)
 const PURPLE_FILTER = "brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(228deg) brightness(89%) contrast(93%)";
@@ -130,6 +131,7 @@ const Sidebar = () => {
               </button>
               <button 
                 onClick={async () => {
+                  await resetCache();
                   await logout();
                   setShowLogoutDialog(false);
                 }}

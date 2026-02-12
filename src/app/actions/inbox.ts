@@ -1,6 +1,6 @@
 'use server';
 
-import { fetchConversations, fetchMessages, sendMessage } from '@/lib/graphApi';
+import { fetchConversations, fetchMessages, sendMessage, fetchUserProfile } from '@/lib/graphApi';
 import { mapConversationToUser, mapGraphMessageToAppMessage } from '@/lib/mappers';
 import { getUserCredentials } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
@@ -12,7 +12,8 @@ import {
   saveMessagesToDb,
   updateConversationMetadata,
   findConversationByRecipientId,
-  updateUserStatus 
+  updateUserStatus,
+  updateUserAvatar
 } from '@/lib/inboxRepository';
 import { sseEmitter } from '@/app/api/sse/route';
 import type { User, Message } from '@/types/inbox';
@@ -111,6 +112,27 @@ export async function getInboxUsers(): Promise<User[]> {
         const filtered = excludeSelfConversations(users, creds.instagramUserId);
         await saveConversationsToDb(filtered, ownerEmail);
         console.log('[InboxActions] Background sync complete');
+
+        // Fetch profile pics for conversations that don't have one yet
+        const savedConversations = await getConversationsFromDb(ownerEmail);
+        const withoutAvatar = savedConversations.filter(u => !u.avatar && u.recipientId);
+
+        if (withoutAvatar.length > 0) {
+          console.log(`[InboxActions] Fetching profile pics for ${withoutAvatar.length} user(s)...`);
+          await Promise.all(
+            withoutAvatar.map(async (u) => {
+              try {
+                const profilePic = await fetchUserProfile(u.recipientId!, accessToken, creds.graphVersion);
+                if (profilePic) {
+                  await updateUserAvatar(u.recipientId!, ownerEmail, profilePic);
+                  console.log(`[InboxActions] Updated avatar for ${u.recipientId}`);
+                }
+              } catch (err) {
+                console.warn(`[InboxActions] Failed to fetch profile pic for ${u.recipientId}:`, err);
+              }
+            })
+          );
+        }
       } catch (err) {
         console.error('[InboxActions] Background sync failed:', err);
       }

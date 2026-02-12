@@ -30,12 +30,18 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   const db = client.db(DB_NAME);
   
   // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
-  const { unread, ...conversationWithoutUnread } = conversation;
+  // Also exclude avatar if it is null to prevent overwriting existing avatars with null
+  const { unread, avatar, ...rest } = conversation;
+
+  const setPayload: any = { ...rest, ownerEmail };
+  if (avatar) {
+    setPayload.avatar = avatar;
+  }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { id: conversation.id, ownerEmail },
     { 
-      $set: { ...conversationWithoutUnread, ownerEmail },
+      $set: setPayload,
       $setOnInsert: { unread: 0 }
     },
     { upsert: true }
@@ -52,17 +58,26 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
 
   const operations = await Promise.all(conversations.map(async conv => {
     // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
-    const { unread, ...convWithoutUnread } = conv;
+    // Also exclude avatar if it is null
+    const { unread, avatar, ...rest } = conv;
+    
     // Preserve custom status if already set in DB
     const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conv.id, ownerEmail });
-    if (existing && existing.status) {
-      convWithoutUnread.status = existing.status;
+    
+    const setPayload: any = { ...rest, ownerEmail };
+    if (avatar) {
+      setPayload.avatar = avatar;
     }
+
+    if (existing && existing.status) {
+      setPayload.status = existing.status;
+    }
+    
     return {
       updateOne: {
         filter: { id: conv.id, ownerEmail },
         update: {
-          $set: { ...convWithoutUnread, ownerEmail },
+          $set: setPayload,
           $setOnInsert: { unread: 0 }
         },
         upsert: true
@@ -194,5 +209,22 @@ export async function updateUserStatus(
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { recipientId, ownerEmail },
     { $set: { status: newStatus } }
+  );
+}
+
+/**
+ * Update user avatar
+ */
+export async function updateUserAvatar(
+  recipientId: string,
+  ownerEmail: string,
+  avatarUrl: string
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+
+  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
+    { recipientId, ownerEmail },
+    { $set: { avatar: avatarUrl } }
   );
 }

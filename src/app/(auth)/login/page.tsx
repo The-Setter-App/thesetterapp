@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { clearCache } from "@/lib/clientCache";
+import { resetCache } from "@/lib/clientCache";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +11,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    // Clear cache on mount to ensure clean state
+    resetCache().catch(console.error);
+  }, []);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +61,9 @@ export default function LoginPage() {
 
       // Successful login
       try {
-        await clearCache();
+        await resetCache();
       } catch (e) {
-        console.error("Failed to clear cache on login:", e);
+        console.error("Failed to reset cache on login:", e);
       }
       
       router.push('/dashboard');

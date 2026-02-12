@@ -113,17 +113,11 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
   return (
     <div className="pt-8 pb-4 px-6 flex flex-col items-center">
       {/* Avatar */}
-      {user.avatar ? (
-        <img
-          src={user.avatar}
-          alt={user.name}
-          className="w-16 h-16 rounded-full object-cover mb-4 shadow-lg shadow-orange-100"
-        />
-      ) : (
-        <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-orange-500 to-yellow-400 mb-4 shadow-lg shadow-orange-100 flex items-center justify-center text-white font-bold text-2xl">
-          ●
-        </div>
-      )}
+      <img
+        src={user.avatar || "/images/no_profile.jpg"}
+        alt={user.name}
+        className="w-16 h-16 rounded-full object-cover mb-4 shadow-lg shadow-orange-100"
+      />
 
       {/* Name & Handle */}
       <h3 className="font-bold text-xl text-gray-900">{displayName}</h3>

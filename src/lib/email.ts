@@ -10,7 +10,7 @@ export async function sendOTPEmail(email: string, otp: string) {
 
   try {
     const data = await resend.emails.send({
-      from: 'Setter App <onboarding@resend.dev>',
+      from: 'Setter App <test@thesetter.app>',
       to: [email],
       subject: 'Your Login Code',
       html: `

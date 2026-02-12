@@ -5,9 +5,10 @@ import {
   findConversationIdByParticipant, 
   saveMessageToDb, 
   updateConversationMetadata, 
-  saveConversationsToDb 
+  saveConversationsToDb,
+  updateUserAvatar
 } from '@/lib/inboxRepository';
-import { fetchConversations } from '@/lib/graphApi';
+import { fetchConversations, fetchUserProfile } from '@/lib/graphApi';
 import { mapConversationToUser, getRelativeTime } from '@/lib/mappers';
 import { getUserByInstagramId } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
@@ -280,6 +281,22 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           incrementUnread
         );
         console.log(`[Webhook] Updated metadata for conversation ${conversationId}`);
+
+        // Fetch and update profile picture for incoming messages
+        if (!fromMe && !isEcho) {
+          try {
+            const accessToken = decryptData(creds.accessToken);
+            // Fetch profile pic for the sender (who is the external user)
+            const profilePic = await fetchUserProfile(senderId, accessToken, creds.graphVersion);
+            
+            if (profilePic) {
+              await updateUserAvatar(senderId, ownerEmail, profilePic);
+              console.log(`[Webhook] Updated avatar for ${senderId}`);
+            }
+          } catch (err) {
+            console.error(`[Webhook] Failed to update avatar for ${senderId}:`, err);
+          }
+        }
       } catch (err) {
         console.error('[Webhook] Failed to update conversation metadata:', err);
       }

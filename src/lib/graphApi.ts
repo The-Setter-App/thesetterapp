@@ -138,3 +138,34 @@ export async function sendMessage(
     throw error;
   }
 }
+
+/**
+ * Fetch the profile picture of a user
+ * @param userId - The user ID
+ */
+export async function fetchUserProfile(
+  userId: string,
+  accessToken: string,
+  graphVersion: string = DEFAULT_GRAPH_VERSION
+): Promise<string | null> {
+  const baseUrl = `https://graph.facebook.com/${graphVersion}`;
+  const url = new URL(`${baseUrl}/${userId}`);
+  url.searchParams.append('fields', 'profile_pic');
+  url.searchParams.append('access_token', accessToken);
+
+  try {
+    const response = await fetch(url.toString());
+    
+    if (!response.ok) {
+        // We don't want to throw here, just return null as it's not critical
+        console.warn(`[GraphAPI] Failed to fetch profile pic for ${userId}: ${response.status}`);
+        return null;
+    }
+
+    const data = await response.json();
+    return data.profile_pic || null;
+  } catch (error) {
+    console.error(`[GraphAPI] Error fetching profile pic for ${userId}:`, error);
+    return null;
+  }
+}
