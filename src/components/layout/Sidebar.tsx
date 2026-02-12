@@ -108,19 +108,23 @@ const Sidebar = () => {
 
       {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 w-full max-w-sm p-6 flex flex-col items-center text-center animate-in fade-in zoom-in duration-200">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
-              <LogOut className="w-6 h-6 text-red-500" />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-[340px] overflow-hidden">
+            {/* Dialog Body */}
+            <div className="px-6 pt-7 pb-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#f0ecff] to-[#e8e3ff] flex items-center justify-center mb-4">
+                <LogOut className="w-5 h-5 text-[#8771FF]" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 mb-1">Log out of Setter?</h3>
+              <p className="text-sm text-gray-400">
+                You'll need to sign in again to access your account.
+              </p>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Logout</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to log out of your account?
-            </p>
-            <div className="flex gap-3 w-full">
+            {/* Dialog Footer */}
+            <div className="px-6 py-4 bg-[#FAFAFA] border-t border-gray-100 flex gap-3">
               <button 
                 onClick={() => setShowLogoutDialog(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all"
               >
                 Cancel
               </button>
@@ -129,9 +133,9 @@ const Sidebar = () => {
                   await logout();
                   setShowLogoutDialog(false);
                 }}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#8771FF] hover:bg-[#7461e6] active:scale-[0.98] rounded-xl shadow-sm transition-all"
               >
-                Logout
+                Log Out
               </button>
             </div>
           </div>

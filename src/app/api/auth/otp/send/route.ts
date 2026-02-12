@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createOTP } from '@/lib/userRepository';
+import { sendOTPEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -11,15 +12,15 @@ export async function POST(request: Request) {
     
     const otp = await createOTP(email);
     
-    // In a production environment, this would be sent via email provider (e.g., SendGrid, Resend)
-    // For development/demo purposes, we log it to the server console.
-    console.log('================================================');
-    console.log(`🔐 LOGIN OTP for ${email}: ${otp}`);
-    console.log('================================================');
+    // Send OTP via email using Resend
+    await sendOTPEmail(email, otp);
+    
+    // Keep console log for development debugging if needed, but safe to remove if strict
+    console.log(`🔐 OTP sent to ${email}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error sending OTP:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
   }
 }
