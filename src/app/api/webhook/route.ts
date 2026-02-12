@@ -188,7 +188,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     console.log('[Webhook] Conversation ID not found in DB. Fetching fresh list from Graph API...');
     try {
       const accessToken = decryptData(creds.accessToken);
-      const rawConvs = await fetchConversations(creds.pageId, accessToken, creds.graphVersion);
+      const rawConvs = await fetchConversations(creds.pageId, accessToken, 50, creds.graphVersion);
       const users = rawConvs.data.map(c => mapConversationToUser(c, instagramUserId));
       await saveConversationsToDb(users, ownerEmail);
       

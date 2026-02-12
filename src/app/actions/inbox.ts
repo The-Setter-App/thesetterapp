@@ -105,7 +105,7 @@ export async function getInboxUsers(): Promise<User[]> {
         }
 
         const accessToken = decryptData(creds.accessToken);
-        const response = await fetchConversations(creds.pageId, accessToken, creds.graphVersion);
+        const response = await fetchConversations(creds.pageId, accessToken, 50, creds.graphVersion);
         const users = response.data.map((conv) => mapConversationToUser(conv, creds.instagramUserId));
         // Filter out self-conversations before persisting
         const filtered = excludeSelfConversations(users, creds.instagramUserId);
@@ -229,6 +229,28 @@ export async function sendNewMessage(
           const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, warmCreds.instagramUserId));
           await saveMessagesToDb(messages, conversationId, ownerEmail);
           console.log('[InboxActions] Pre-warmed MongoDB message cache after send');
+
+          // Emit SSE event for real-time multi-device sync
+          // Graph API usually returns newest messages first. We look for our sent message.
+          const latestMessage = messages.find(m => m.fromMe && m.text === text) || messages[0];
+          
+          if (latestMessage) {
+            sseEmitter.emit('message', {
+              type: 'message_echo',
+              timestamp: new Date().toISOString(),
+              data: {
+                senderId: warmCreds.instagramUserId,
+                recipientId: recipientId,
+                messageId: latestMessage.id,
+                text: latestMessage.text,
+                attachments: [],
+                timestamp: latestMessage.timestamp ? new Date(latestMessage.timestamp).getTime() : Date.now(),
+                conversationId: conversationId,
+                fromMe: true,
+              },
+            });
+            console.log('[InboxActions] Emitted SSE sync event for sent message');
+          }
         }
       } catch (prewarmError) {
         console.warn('[InboxActions] Pre-warm failed (non-critical):', prewarmError);

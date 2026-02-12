@@ -25,21 +25,17 @@ const DEFAULT_GRAPH_VERSION = 'v24.0';
 export async function fetchConversations(
   pageId: string, 
   accessToken: string,
+  limit: number = 50,
   graphVersion: string = DEFAULT_GRAPH_VERSION
 ): Promise<RawGraphConversationsResponse> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
 
   const url = new URL(`${baseUrl}/${pageId}/conversations`);
-  url.searchParams.append('fields', 'id,updated_time,participants,messages.limit(3){from,to,message,created_time,id}');
+  // Reduced messages limit to 1 to prevent "reduce amount of data" errors
+  url.searchParams.append('fields', 'id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}');
   url.searchParams.append('platform', 'instagram');
+  url.searchParams.append('limit', limit.toString());
   url.searchParams.append('access_token', accessToken);
-
-  // DEBUG: Log credentials being used (remove after fixing)
-  console.log(`[GraphAPI DEBUG] pageId: ${pageId}`);
-  console.log(`[GraphAPI DEBUG] graphVersion: ${graphVersion}`);
-  console.log(`[GraphAPI DEBUG] accessToken starts with: ${accessToken.substring(0, 15)}...`);
-  console.log(`[GraphAPI DEBUG] accessToken length: ${accessToken.length}`);
-  console.log(`[GraphAPI DEBUG] Full URL (without token): ${baseUrl}/${pageId}/conversations`);
 
   try {
     const response = await fetch(url.toString());
