@@ -28,7 +28,7 @@ export function getRelativeTime(dateString: string): string {
  */
 export function mapConversationToUser(
   raw: RawGraphConversation,
-  userId: string = process.env.FB_USER_ID || ''
+  userId: string
 ): User {
   // Find the participant who is NOT your Instagram user (i.e., the other person)
   const recipient = raw.participants.data.find((p) => p.id !== userId);
@@ -84,7 +84,7 @@ function getStatusColor(status: StatusType): string {
  */
 export function mapGraphMessageToAppMessage(
   raw: RawGraphMessage,
-  userId: string = process.env.FB_USER_ID || ''
+  userId: string
 ): Message {
   // Determine if message is from "me" (your Instagram account) or the other user
   const fromMe = raw.from.id === userId;

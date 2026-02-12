@@ -2,6 +2,8 @@
 
 import { fetchConversations, fetchMessages, sendMessage } from '@/lib/graphApi';
 import { mapConversationToUser, mapGraphMessageToAppMessage } from '@/lib/mappers';
+import { getOwnerCredentials } from '@/lib/userRepository';
+import { decryptData } from '@/lib/crypto';
 import { 
   getConversationsFromDb, 
   saveConversationsToDb, 
@@ -68,8 +70,16 @@ export async function getInboxUsers(): Promise<User[]> {
     const syncPromise = (async () => {
       try {
         console.log('[InboxActions] Background syncing conversations...');
-        const response = await fetchConversations();
-        const users = response.data.map((conv) => mapConversationToUser(conv));
+        
+        const creds = await getOwnerCredentials();
+        if (!creds?.instagramUserId) {
+          console.warn('[InboxActions] Cannot sync: Missing Instagram credentials');
+          return;
+        }
+
+        const accessToken = decryptData(creds.accessToken);
+        const response = await fetchConversations(creds.pageId, accessToken, creds.graphVersion);
+        const users = response.data.map((conv) => mapConversationToUser(conv, creds.instagramUserId));
         await saveConversationsToDb(users);
         console.log('[InboxActions] Background sync complete');
       } catch (err) {
@@ -119,8 +129,16 @@ export async function getConversationMessages(recipientId: string): Promise<Mess
     const syncPromise = (async () => {
       try {
         console.log(`[InboxActions] Background syncing messages for ${conversationId}...`);
-        const rawMessages = await fetchMessages(conversationId);
-        const apiMessages = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg));
+        
+        const creds = await getOwnerCredentials();
+        if (!creds?.instagramUserId) {
+          console.warn('[InboxActions] Cannot sync messages: Missing Instagram credentials');
+          return;
+        }
+
+        const accessToken = decryptData(creds.accessToken);
+        const rawMessages = await fetchMessages(conversationId, accessToken, creds.graphVersion);
+        const apiMessages = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, creds.instagramUserId));
         await saveMessagesToDb(apiMessages, conversationId);
         console.log(`[InboxActions] Background sync complete for ${conversationId}`);
       } catch (err) {
@@ -159,7 +177,13 @@ export async function sendNewMessage(
   text: string
 ): Promise<void> {
   try {
-    await sendMessage(recipientId, text);
+    const creds = await getOwnerCredentials();
+    if (!creds?.instagramUserId) {
+      throw new Error('No active Instagram connection found');
+    }
+
+    const accessToken = decryptData(creds.accessToken);
+    await sendMessage(creds.pageId, recipientId, text, accessToken, creds.graphVersion);
     console.log('[InboxActions] Message sent via API');
 
     // Pre-warm: fetch fresh messages from API and save to DB
@@ -168,10 +192,18 @@ export async function sendNewMessage(
     // Executed in background (Fire & Forget) to avoid blocking the UI spinner.
     (async () => {
       try {
+        // Re-fetch credentials to ensure we have the latest token/config
+        // (Though in this specific scope we could reuse 'creds' from above if we passed it down,
+        //  fetching again is safer for the detached promise context)
+        const warmCreds = await getOwnerCredentials();
+        if (!warmCreds?.instagramUserId) return;
+
+        const warmAccessToken = decryptData(warmCreds.accessToken);
         const conversationId = await resolveConversationId(recipientId);
+        
         if (conversationId) {
-          const freshRawMessages = await fetchMessages(conversationId);
-          const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg));
+          const freshRawMessages = await fetchMessages(conversationId, warmAccessToken, warmCreds.graphVersion);
+          const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, warmCreds.instagramUserId));
           await saveMessagesToDb(messages, conversationId);
           console.log('[InboxActions] Pre-warmed MongoDB message cache after send');
         }

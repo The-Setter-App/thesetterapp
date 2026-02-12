@@ -9,6 +9,8 @@ import {
 } from '@/lib/inboxRepository';
 import { fetchConversations } from '@/lib/graphApi';
 import { mapConversationToUser, getRelativeTime } from '@/lib/mappers';
+import { getUserByInstagramId } from '@/lib/userRepository';
+import { decryptData } from '@/lib/crypto';
 import type { SSEEvent, SSEAttachment, Message } from '@/types/inbox';
 
 /**
@@ -18,7 +20,6 @@ import type { SSEEvent, SSEAttachment, Message } from '@/types/inbox';
 
 const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'your_verify_token_here';
 const APP_SECRET = process.env.FB_APP_SECRET || '';
-const FB_USER_ID = process.env.FB_USER_ID || '';
 
 /**
  * GET handler - Webhook verification
@@ -123,10 +124,11 @@ function verifySignature(payload: string, signature: string | null): boolean {
  */
 async function resolveConversationId(
   senderId: string,
-  recipientId: string
+  recipientId: string,
+  instagramUserId: string
 ): Promise<string | undefined> {
   try {
-    const participantId = senderId === FB_USER_ID ? recipientId : senderId;
+    const participantId = senderId === instagramUserId ? recipientId : senderId;
     return await findConversationIdByParticipant(participantId);
   } catch {
     return undefined;
@@ -145,6 +147,27 @@ async function resolveConversationId(
 async function handleMessagingEvent(event: Record<string, unknown>) {
   const sender = event.sender as { id: string };
   const recipient = event.recipient as { id: string };
+  
+  // Determine which ID belongs to our user (the business account)
+  // In a webhook event, one ID is the sender and one is the recipient.
+  // We need to check which one matches a connected Instagram account in our DB.
+  
+  // First, check if the recipient is our user (Incoming message)
+  let user = await getUserByInstagramId(recipient.id);
+  let instagramUserId = recipient.id;
+
+  // If not, check if the sender is our user (Outgoing message / Echo)
+  if (!user) {
+    user = await getUserByInstagramId(sender.id);
+    instagramUserId = sender.id;
+  }
+
+  if (!user || !user.instagramConfig) {
+    console.warn(`[Webhook] No user found for participant IDs: ${sender.id}, ${recipient.id}. Ignoring.`);
+    return;
+  }
+
+  const creds = user.instagramConfig;
   const senderId = sender.id;
   const recipientId = recipient.id;
   const timestamp = event.timestamp as number;
@@ -152,22 +175,23 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
   console.log(`[Webhook] Message event from ${senderId} to ${recipientId}`);
 
   // Derive fromMe: the sender is our page/IG user
-  const fromMe = senderId === FB_USER_ID;
+  const fromMe = senderId === instagramUserId;
 
   // Resolve the conversationId
-  let conversationId = await resolveConversationId(senderId, recipientId);
+  let conversationId = await resolveConversationId(senderId, recipientId, instagramUserId);
 
   // If conversation not found in DB, try to fetch fresh list from Graph API
   // This handles the case where a new lead messages while the app was offline
   if (!conversationId) {
     console.log('[Webhook] Conversation ID not found in DB. Fetching fresh list from Graph API...');
     try {
-      const rawConvs = await fetchConversations();
-      const users = rawConvs.data.map(c => mapConversationToUser(c));
+      const accessToken = decryptData(creds.accessToken);
+      const rawConvs = await fetchConversations(creds.pageId, accessToken, creds.graphVersion);
+      const users = rawConvs.data.map(c => mapConversationToUser(c, instagramUserId));
       await saveConversationsToDb(users);
       
       // Retry resolving after refresh
-      conversationId = await resolveConversationId(senderId, recipientId);
+      conversationId = await resolveConversationId(senderId, recipientId, instagramUserId);
       if (conversationId) {
         console.log(`[Webhook] Successfully resolved conversation ID ${conversationId} after refresh`);
       } else {

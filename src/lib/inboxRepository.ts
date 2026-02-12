@@ -16,7 +16,9 @@ export async function getConversationsFromDb(): Promise<User[]> {
     // Note: 'time' field is "HH:MM AM/PM", which doesn't sort chronologically across days.
     // For now, we return as is. The UI might handle sorting or we rely on insertion order if we don't update often.
     // A better approach would be to store a raw timestamp in User.
-    return db.collection<User>(CONVERSATIONS_COLLECTION).find({}).toArray();
+    const docs = await db.collection<User>(CONVERSATIONS_COLLECTION).find({}).toArray();
+    // Sanitize _id for Client Components
+    return docs.map(({ _id, ...rest }: any) => rest as User);
   } catch (error) {
     console.error('[InboxRepo] Error fetching conversations:', error);
     return [];
@@ -81,7 +83,13 @@ export async function saveConversationsToDb(conversations: User[]): Promise<void
 export async function findConversationByRecipientId(recipientId: string): Promise<User | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
-  return db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ recipientId });
+  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ recipientId });
+
+  if (!user) return null;
+
+  // Sanitize _id
+  const { _id, ...rest } = user as any;
+  return rest as User;
 }
 
 /**
@@ -100,10 +108,13 @@ export async function getMessagesFromDb(conversationId: string): Promise<Message
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     // Filter by conversationId and sort by timestamp (oldest first for chat history)
-    return db.collection<Message>(MESSAGES_COLLECTION)
+    const docs = await db.collection<Message>(MESSAGES_COLLECTION)
       .find({ conversationId } as any) 
       .sort({ timestamp: 1 })
       .toArray();
+
+    // Sanitize _id for Client Components
+    return docs.map(({ _id, ...rest }: any) => rest as Message);
   } catch (error) {
     console.error(`[InboxRepo] Error fetching messages for ${conversationId}:`, error);
     return [];
