@@ -105,8 +105,19 @@ export async function updateInstagramConfig(email: string, config: InstagramConf
   );
 }
 
+export async function getUserCredentials(email: string): Promise<InstagramConfig | null> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  const user = await db.collection<User>(USERS_COLLECTION).findOne({ 
+    email,
+    'instagramConfig.isConnected': true 
+  });
+  if (!user || !user.instagramConfig) return null;
+  return user.instagramConfig;
+}
+
 export async function getOwnerCredentials(): Promise<InstagramConfig | null> {
-  // @deprecated - Use specific user lookup methods instead
+  // @deprecated - Use getUserCredentials(email) instead
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   const user = await db.collection<User>(USERS_COLLECTION).findOne({ 

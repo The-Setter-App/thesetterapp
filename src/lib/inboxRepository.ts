@@ -6,17 +6,14 @@ const CONVERSATIONS_COLLECTION = 'conversations';
 const MESSAGES_COLLECTION = 'messages';
 
 /**
- * Get all conversations from MongoDB
+ * Get all conversations from MongoDB for a specific owner
  */
-export async function getConversationsFromDb(): Promise<User[]> {
+export async function getConversationsFromDb(ownerEmail: string): Promise<User[]> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
-    // Sort by most recent time (approximation using time string, ideally use timestamp)
-    // Note: 'time' field is "HH:MM AM/PM", which doesn't sort chronologically across days.
-    // For now, we return as is. The UI might handle sorting or we rely on insertion order if we don't update often.
-    // A better approach would be to store a raw timestamp in User.
-    const docs = await db.collection<User>(CONVERSATIONS_COLLECTION).find({}).toArray();
+    // Filter by ownerEmail
+    const docs = await db.collection<User>(CONVERSATIONS_COLLECTION).find({ ownerEmail } as any).toArray();
     // Sanitize _id for Client Components
     return docs.map(({ _id, ...rest }: any) => rest as User);
   } catch (error) {
@@ -28,7 +25,7 @@ export async function getConversationsFromDb(): Promise<User[]> {
 /**
  * Save or update a single conversation in MongoDB
  */
-export async function saveConversationToDb(conversation: User): Promise<void> {
+export async function saveConversationToDb(conversation: User, ownerEmail: string): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   
@@ -36,9 +33,9 @@ export async function saveConversationToDb(conversation: User): Promise<void> {
   const { unread, ...conversationWithoutUnread } = conversation;
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversation.id },
+    { id: conversation.id, ownerEmail },
     { 
-      $set: conversationWithoutUnread,
+      $set: { ...conversationWithoutUnread, ownerEmail },
       $setOnInsert: { unread: 0 }
     },
     { upsert: true }
@@ -48,7 +45,7 @@ export async function saveConversationToDb(conversation: User): Promise<void> {
 /**
  * Bulk save conversations to MongoDB
  */
-export async function saveConversationsToDb(conversations: User[]): Promise<void> {
+export async function saveConversationsToDb(conversations: User[], ownerEmail: string): Promise<void> {
   if (conversations.length === 0) return;
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -57,15 +54,15 @@ export async function saveConversationsToDb(conversations: User[]): Promise<void
     // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
     const { unread, ...convWithoutUnread } = conv;
     // Preserve custom status if already set in DB
-    const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conv.id });
+    const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conv.id, ownerEmail });
     if (existing && existing.status) {
       convWithoutUnread.status = existing.status;
     }
     return {
       updateOne: {
-        filter: { id: conv.id },
+        filter: { id: conv.id, ownerEmail },
         update: {
-          $set: convWithoutUnread,
+          $set: { ...convWithoutUnread, ownerEmail },
           $setOnInsert: { unread: 0 }
         },
         upsert: true
@@ -80,10 +77,10 @@ export async function saveConversationsToDb(conversations: User[]): Promise<void
  * Find a conversation by the other participant's user ID (recipientId).
  * Returns the full User object, or null if not found.
  */
-export async function findConversationByRecipientId(recipientId: string): Promise<User | null> {
+export async function findConversationByRecipientId(recipientId: string, ownerEmail: string): Promise<User | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
-  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ recipientId });
+  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ recipientId, ownerEmail });
 
   if (!user) return null;
 
@@ -95,21 +92,21 @@ export async function findConversationByRecipientId(recipientId: string): Promis
 /**
  * Find a conversation ID by the other participant's ID
  */
-export async function findConversationIdByParticipant(participantId: string): Promise<string | undefined> {
-  const conv = await findConversationByRecipientId(participantId);
+export async function findConversationIdByParticipant(participantId: string, ownerEmail: string): Promise<string | undefined> {
+  const conv = await findConversationByRecipientId(participantId, ownerEmail);
   return conv?.id;
 }
 
 /**
  * Get messages for a conversation from MongoDB
  */
-export async function getMessagesFromDb(conversationId: string): Promise<Message[]> {
+export async function getMessagesFromDb(conversationId: string, ownerEmail: string): Promise<Message[]> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
-    // Filter by conversationId and sort by timestamp (oldest first for chat history)
+    // Filter by conversationId AND ownerEmail for isolation
     const docs = await db.collection<Message>(MESSAGES_COLLECTION)
-      .find({ conversationId } as any) 
+      .find({ conversationId, ownerEmail } as any) 
       .sort({ timestamp: 1 })
       .toArray();
 
@@ -124,12 +121,12 @@ export async function getMessagesFromDb(conversationId: string): Promise<Message
 /**
  * Save a single message to MongoDB
  */
-export async function saveMessageToDb(message: Message, conversationId: string): Promise<void> {
+export async function saveMessageToDb(message: Message, conversationId: string, ownerEmail: string): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await db.collection(MESSAGES_COLLECTION).updateOne(
-    { id: message.id },
-    { $set: { ...message, conversationId } },
+    { id: message.id, ownerEmail },
+    { $set: { ...message, conversationId, ownerEmail } },
     { upsert: true }
   );
 }
@@ -137,15 +134,15 @@ export async function saveMessageToDb(message: Message, conversationId: string):
 /**
  * Bulk save messages to MongoDB
  */
-export async function saveMessagesToDb(messages: Message[], conversationId: string): Promise<void> {
+export async function saveMessagesToDb(messages: Message[], conversationId: string, ownerEmail: string): Promise<void> {
   if (messages.length === 0) return;
   const client = await clientPromise;
   const db = client.db(DB_NAME);
 
   const operations = messages.map(msg => ({
     updateOne: {
-      filter: { id: msg.id },
-      update: { $set: { ...msg, conversationId } },
+      filter: { id: msg.id, ownerEmail },
+      update: { $set: { ...msg, conversationId, ownerEmail } },
       upsert: true
     }
   }));
@@ -158,6 +155,7 @@ export async function saveMessagesToDb(messages: Message[], conversationId: stri
  */
 export async function updateConversationMetadata(
   conversationId: string,
+  ownerEmail: string,
   lastMessage: string,
   time: string,
   incrementUnread: boolean
@@ -177,7 +175,7 @@ export async function updateConversationMetadata(
   }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId },
+    { id: conversationId, ownerEmail },
     update
   );
 }
@@ -187,13 +185,14 @@ export async function updateConversationMetadata(
  */
 export async function updateUserStatus(
   recipientId: string,
+  ownerEmail: string,
   newStatus: string
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { recipientId },
+    { recipientId, ownerEmail },
     { $set: { status: newStatus } }
   );
 }

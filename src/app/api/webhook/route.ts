@@ -125,11 +125,12 @@ function verifySignature(payload: string, signature: string | null): boolean {
 async function resolveConversationId(
   senderId: string,
   recipientId: string,
-  instagramUserId: string
+  instagramUserId: string,
+  ownerEmail: string
 ): Promise<string | undefined> {
   try {
     const participantId = senderId === instagramUserId ? recipientId : senderId;
-    return await findConversationIdByParticipant(participantId);
+    return await findConversationIdByParticipant(participantId, ownerEmail);
   } catch {
     return undefined;
   }
@@ -168,17 +169,18 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
   }
 
   const creds = user.instagramConfig;
+  const ownerEmail = user.email; // Extracted email for isolation
   const senderId = sender.id;
   const recipientId = recipient.id;
   const timestamp = event.timestamp as number;
 
-  console.log(`[Webhook] Message event from ${senderId} to ${recipientId}`);
+  console.log(`[Webhook] Message event from ${senderId} to ${recipientId} (Owner: ${ownerEmail})`);
 
   // Derive fromMe: the sender is our page/IG user
   const fromMe = senderId === instagramUserId;
 
   // Resolve the conversationId
-  let conversationId = await resolveConversationId(senderId, recipientId, instagramUserId);
+  let conversationId = await resolveConversationId(senderId, recipientId, instagramUserId, ownerEmail);
 
   // If conversation not found in DB, try to fetch fresh list from Graph API
   // This handles the case where a new lead messages while the app was offline
@@ -188,10 +190,10 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       const accessToken = decryptData(creds.accessToken);
       const rawConvs = await fetchConversations(creds.pageId, accessToken, creds.graphVersion);
       const users = rawConvs.data.map(c => mapConversationToUser(c, instagramUserId));
-      await saveConversationsToDb(users);
+      await saveConversationsToDb(users, ownerEmail);
       
       // Retry resolving after refresh
-      conversationId = await resolveConversationId(senderId, recipientId, instagramUserId);
+      conversationId = await resolveConversationId(senderId, recipientId, instagramUserId, ownerEmail);
       if (conversationId) {
         console.log(`[Webhook] Successfully resolved conversation ID ${conversationId} after refresh`);
       } else {
@@ -250,7 +252,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
         attachmentUrl,
       };
       
-      await saveMessageToDb(newMessage, conversationId);
+      await saveMessageToDb(newMessage, conversationId, ownerEmail);
       console.log(`[Webhook] Persisted message ${messageId} to MongoDB`);
 
       // Update Conversation Metadata (Last Message, Time, Unread)
@@ -272,6 +274,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
         await updateConversationMetadata(
           conversationId,
+          ownerEmail,
           previewText,
           timeStr,
           incrementUnread

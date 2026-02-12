@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { clearCache } from "@/lib/clientCache";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -54,6 +55,12 @@ export default function LoginPage() {
       }
 
       // Successful login
+      try {
+        await clearCache();
+      } catch (e) {
+        console.error("Failed to clear cache on login:", e);
+      }
+      
       router.push('/dashboard');
       router.refresh(); // Refresh to update server components with new session
     } catch (err: any) {
