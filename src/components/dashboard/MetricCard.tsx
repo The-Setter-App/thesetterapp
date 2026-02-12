@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '@/components/ui/Card';
 
 interface MetricCardProps {
@@ -17,6 +16,7 @@ export default function MetricCard({ label, value, subValue, icon }: MetricCardP
           {icon}
         </div>
       </div>
+      
       {/* Content */}
       <div className="mt-4 z-10">
         <h3 className="text-3xl font-bold text-gray-900 tracking-tight">{value}</h3>
