@@ -91,7 +91,7 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
             } ${msg.type === 'audio' ? 'flex items-center min-w-[240px] px-4 py-3' : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-4 py-3'}`}
           >
             {msg.type === 'text' && (
-              <span>{msg.text}</span>
+              <div className="whitespace-pre-wrap break-words">{msg.text}</div>
             )}
             
             {msg.type === 'image' && msg.attachmentUrl && (
