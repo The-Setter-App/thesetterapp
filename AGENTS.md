@@ -116,4 +116,5 @@
 EXAMPLE:
 url_link | https://api.example.com; -> this is wrong
 url_link; -> this is right
+middleware.ts is replaced by proxy.ts in NextJS 16+
 </nextjs>

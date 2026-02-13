@@ -122,9 +122,16 @@ export interface SSESeenData {
   timestamp: number;
 }
 
+/** Payload for messages_synced SSE events. */
+export interface SSESyncedData {
+  conversationId: string;
+  recipientId: string;
+}
+
 /** Union of all SSE events the server can emit. */
 export type SSEEvent =
   | { type: 'connected'; timestamp: string }
   | { type: 'new_message'; timestamp: string; data: SSEMessageData }
   | { type: 'message_echo'; timestamp: string; data: SSEMessageData }
-  | { type: 'message_seen'; timestamp: string; data: SSESeenData };
+  | { type: 'message_seen'; timestamp: string; data: SSESeenData }
+  | { type: 'messages_synced'; timestamp: string; data: SSESyncedData };

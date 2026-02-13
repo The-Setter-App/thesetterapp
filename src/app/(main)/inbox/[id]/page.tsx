@@ -25,6 +25,28 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Store the raw File for sending later
+    setAttachmentFile(file);
+    // Create a local object URL for the preview (no server upload needed)
+    setAttachmentPreview(URL.createObjectURL(file));
+
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const clearAttachment = () => {
+    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
+    setAttachmentFile(null);
+    setAttachmentPreview('');
+  };
 
   // Fix B: Fetch-generation counter prevents stale loadMessages responses
   // from overwriting messages that arrived via SSE while the fetch was in-flight.
@@ -169,9 +191,19 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               // Remove from FIFO queue
               queue.splice(queueIdx, 1);
 
-              const updated = prev.map((msg) =>
-                msg.id === matchedTempId ? newMessage : msg
-              );
+              const updated = prev.map((msg) => {
+                if (msg.id !== matchedTempId) return msg;
+
+                // Merge: use real ID/timestamp from echo, but preserve
+                // optimistic type & attachmentUrl if the echo lacks them
+                // (Graph API may not have processed the attachment yet).
+                const mergedMessage: Message = {
+                  ...newMessage,
+                  type: newMessage.type !== 'text' ? newMessage.type : msg.type,
+                  attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
+                };
+                return mergedMessage;
+              });
               setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
               return updated;
             }
@@ -183,28 +215,71 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               return updated;
         });
       }
+
+      // Handle messages_synced: re-fetch from DB to get real Instagram CDN URLs
+      if (message.type === 'messages_synced') {
+        const syncedRecipientId = message.data?.recipientId;
+        // Only refresh if this sync is for the conversation we're currently viewing
+        if (syncedRecipientId === selectedUserId) {
+          console.log('[ChatPage] messages_synced received, refreshing from DB');
+          getConversationMessages(selectedUserId).then((freshMessages) => {
+            if (freshMessages && freshMessages.length > 0) {
+              setChatHistory(freshMessages);
+              setCachedMessages(selectedUserId, freshMessages).catch(e => 
+                console.error('Cache update failed:', e)
+              );
+            }
+          }).catch(err => console.error('[ChatPage] Failed to refresh after sync:', err));
+        }
+      }
     },
   });
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !user?.recipientId) return;
+    const hasText = messageInput.trim().length > 0;
+    const hasAttachment = !!attachmentFile;
+    if ((!hasText && !hasAttachment) || !user?.recipientId) return;
 
     const messageText = messageInput.trim();
-    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Optimistic UI Update: Add message immediately
-    const optimisticMessage: Message = {
-      id: tempId,
-      fromMe: true,
-      type: 'text',
-      text: messageText,
-      timestamp: new Date().toISOString(),
-    };
+    const currentFile = attachmentFile;
+    const currentPreview = attachmentPreview;
+    const now = new Date().toISOString();
+    const tempIds: string[] = [];
 
-    setChatHistory((prev) => [...prev, optimisticMessage]);
-    // Fix E: Push temp ID to FIFO queue so the echo handler can match it
-    pendingTempIdsRef.current.push(tempId);
+    // Build separate optimistic messages for image and text
+    const optimisticMessages: Message[] = [];
+
+    if (hasAttachment) {
+      const imageTempId = `temp_${Date.now()}_img_${Math.random().toString(36).substr(2, 9)}`;
+      tempIds.push(imageTempId);
+      optimisticMessages.push({
+        id: imageTempId,
+        fromMe: true,
+        type: 'image',
+        text: '',
+        timestamp: now,
+        attachmentUrl: currentPreview || undefined,
+      });
+    }
+
+    if (hasText) {
+      const textTempId = `temp_${Date.now()}_txt_${Math.random().toString(36).substr(2, 9)}`;
+      tempIds.push(textTempId);
+      optimisticMessages.push({
+        id: textTempId,
+        fromMe: true,
+        type: 'text',
+        text: messageText,
+        timestamp: now,
+      });
+    }
+
+    setChatHistory((prev) => [...prev, ...optimisticMessages]);
+    // Push all temp IDs to the FIFO queue so echo handler can match them
+    pendingTempIdsRef.current.push(...tempIds);
     setMessageInput('');
+    setAttachmentFile(null);
+    setAttachmentPreview('');
 
     // Optimistically update conversation metadata in MongoDB
     // so the sidebar preview stays in sync even after page reload
@@ -212,30 +287,53 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       hour: '2-digit',
       minute: '2-digit',
     });
-    updateConversationPreview(selectedUserId, messageText, previewTime, false).catch(
+
+    const previewText = messageText || (hasAttachment ? '📷 Image' : 'Message');
+
+    updateConversationPreview(selectedUserId, previewText, previewTime, false).catch(
       (err) => console.error('[ChatPage] Failed to update conversation preview:', err)
     );
 
     try {
       setSendingMessage(true);
-      
-      // Send message to API (this will trigger webhook echo)
-      await sendNewMessage(
-        user.recipientId,
-        messageText
-      );
-      
-      // Note: We don't update chat history here because:
-      // 1. Optimistic message is already shown
-      // 2. Webhook will send the real message with actual ID
-      // 3. Deduplication will replace temp message with real one
+
+      if (currentFile) {
+        // Send attachment via API route (binary upload to Graph API)
+        const formData = new FormData();
+        formData.append('file', currentFile);
+        formData.append('recipientId', user.recipientId);
+        formData.append('type', 'image');
+
+        const res = await fetch('/api/send-attachment', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Failed to send attachment');
+        }
+
+        // Send text as a separate message if provided alongside image
+        if (messageText) {
+          await sendNewMessage(user.recipientId, messageText);
+        }
+      } else {
+        // Text-only message
+        await sendNewMessage(user.recipientId, messageText);
+      }
       
     } catch (err) {
       console.error('Error sending message:', err);
       
-      // Remove optimistic message on error
-      setChatHistory((prev) => prev.filter(msg => msg.id !== tempId));
+      // Remove all optimistic messages on error
+      const tempIdSet = new Set(tempIds);
+      setChatHistory((prev) => prev.filter(msg => !tempIdSet.has(msg.id)));
       setMessageInput(messageText); // Restore input
+      if (currentFile && currentPreview) {
+        setAttachmentFile(currentFile);
+        setAttachmentPreview(currentPreview);
+      }
       alert('Failed to send message');
     } finally {
       setSendingMessage(false);
@@ -288,20 +386,40 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         </div>
 
         {/* Message Input */}
-        <div className="p-4 bg-white mx-8 mb-4 flex-shrink-0">
+        <div className="p-4 bg-white mx-8 mb-4 flex-shrink-0 relative">
+          {attachmentPreview && (
+             <div className="absolute bottom-full left-0 mb-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+               <div className="relative group">
+                 <img src={attachmentPreview} alt="Attachment" className="h-32 w-auto rounded-md object-contain border border-gray-100 bg-gray-50" />
+                 <button 
+                   onClick={clearAttachment}
+                   className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+                 >
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                 </button>
+               </div>
+             </div>
+          )}
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleFileSelect}
+          />
+
           <div className="relative flex items-center border border-gray-200 rounded-lg px-2 shadow-sm">
             <div className="flex space-x-2 mr-2 text-gray-300">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-1 rounded-full transition-colors ${attachmentFile ? 'text-[#8771FF] bg-[#8771FF]/10' : 'hover:text-gray-500'}`}
+                title="Attach Image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
             </div>
             <textarea
               className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none resize-none min-h-[44px] max-h-[120px] py-3"

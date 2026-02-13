@@ -187,7 +187,7 @@ export async function getConversationMessages(recipientId: string): Promise<Mess
         }
 
         const accessToken = decryptData(creds.accessToken);
-        const rawMessages = await fetchMessages(conversationId, accessToken, creds.graphVersion);
+        const rawMessages = await fetchMessages(conversationId, accessToken, 50, creds.graphVersion);
         const apiMessages = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, creds.instagramUserId));
         await saveMessagesToDb(apiMessages, conversationId, ownerEmail);
         console.log(`[InboxActions] Background sync complete for ${conversationId}`);
@@ -234,53 +234,88 @@ export async function sendNewMessage(
     }
 
     const accessToken = decryptData(creds.accessToken);
+
     await sendMessage(creds.pageId, recipientId, text, accessToken, creds.graphVersion);
     console.log('[InboxActions] Message sent via API');
 
     // Pre-warm: fetch fresh messages from API and save to DB
-    (async () => {
-      try {
-        const warmCreds = await getUserCredentials(ownerEmail);
-        if (!warmCreds?.instagramUserId) return;
-
-        const warmAccessToken = decryptData(warmCreds.accessToken);
-        const conversationId = await resolveConversationId(recipientId, ownerEmail);
-        
-        if (conversationId) {
-          const freshRawMessages = await fetchMessages(conversationId, warmAccessToken, warmCreds.graphVersion);
-          const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, warmCreds.instagramUserId));
-          await saveMessagesToDb(messages, conversationId, ownerEmail);
-          console.log('[InboxActions] Pre-warmed MongoDB message cache after send');
-
-          // Emit SSE event for real-time multi-device sync
-          // Graph API usually returns newest messages first. We look for our sent message.
-          const latestMessage = messages.find(m => m.fromMe && m.text === text) || messages[0];
-          
-          if (latestMessage) {
-            sseEmitter.emit('message', {
-              type: 'message_echo',
-              timestamp: new Date().toISOString(),
-              data: {
-                senderId: warmCreds.instagramUserId,
-                recipientId: recipientId,
-                messageId: latestMessage.id,
-                text: latestMessage.text,
-                attachments: [],
-                timestamp: latestMessage.timestamp ? new Date(latestMessage.timestamp).getTime() : Date.now(),
-                conversationId: conversationId,
-                fromMe: true,
-              },
-            });
-            console.log('[InboxActions] Emitted SSE sync event for sent message');
-          }
-        }
-      } catch (prewarmError) {
-        console.warn('[InboxActions] Pre-warm failed (non-critical):', prewarmError);
-      }
-    })();
+    syncLatestMessages(recipientId).catch(err => 
+      console.warn('[InboxActions] Background sync failed:', err)
+    );
   } catch (error) {
     console.error('[InboxActions] Error sending message:', error);
     throw error;
+  }
+}
+
+/**
+ * Sync only the latest messages for a conversation and emit SSE updates.
+ * Used after sending a message (text or attachment) to get the real message ID and URL.
+ */
+export async function syncLatestMessages(recipientId: string): Promise<void> {
+  try {
+    const ownerEmail = await getOwnerEmail();
+    const creds = await getUserCredentials(ownerEmail);
+    if (!creds?.instagramUserId) return;
+
+    const accessToken = decryptData(creds.accessToken);
+    const conversationId = await resolveConversationId(recipientId, ownerEmail);
+    
+    if (conversationId) {
+      // Wait a moment for Graph API to propagate the new message/attachment
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Optimization: Fetch only latest 5 messages since we likely have the rest
+      const freshRawMessages = await fetchMessages(conversationId, accessToken, 5, creds.graphVersion);
+      const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, creds.instagramUserId));
+      await saveMessagesToDb(messages, conversationId, ownerEmail);
+      console.log('[InboxActions] Synced latest messages after send');
+
+      // Emit SSE event for real-time multi-device sync
+      const latestMessage = messages[0];
+      
+      // Only emit echo if the latest message is actually from us.
+      // If API is lagging and returns the other user's message, we shouldn't confirm our send yet.
+      if (latestMessage && latestMessage.fromMe) {
+        // Reconstruct attachments for SSE so frontend can replace the optimistic blob URL
+        const attachments = [];
+        if (latestMessage.type === 'image' && latestMessage.attachmentUrl) {
+          attachments.push({ image_data: { url: latestMessage.attachmentUrl } });
+        } else if (latestMessage.type === 'video' && latestMessage.attachmentUrl) {
+          attachments.push({ video_data: { url: latestMessage.attachmentUrl } });
+        }
+
+        sseEmitter.emit('message', {
+          type: 'message_echo',
+          timestamp: new Date().toISOString(),
+          data: {
+            senderId: creds.instagramUserId,
+            recipientId: recipientId,
+            messageId: latestMessage.id,
+            text: latestMessage.text,
+            attachments: attachments,
+            timestamp: latestMessage.timestamp ? new Date(latestMessage.timestamp).getTime() : Date.now(),
+            conversationId: conversationId,
+            fromMe: latestMessage.fromMe,
+          },
+        });
+        console.log('[InboxActions] Emitted SSE sync event for latest message');
+      }
+
+      // Always emit messages_synced so the frontend can re-fetch from DB
+      // to pick up real Instagram CDN URLs for attachments
+      sseEmitter.emit('message', {
+        type: 'messages_synced',
+        timestamp: new Date().toISOString(),
+        data: {
+          conversationId: conversationId,
+          recipientId: recipientId,
+        },
+      });
+      console.log('[InboxActions] Emitted messages_synced event');
+    }
+  } catch (error) {
+    console.error('[InboxActions] Error syncing latest messages:', error);
   }
 }
 

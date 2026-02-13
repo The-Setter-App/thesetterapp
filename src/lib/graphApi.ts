@@ -64,6 +64,7 @@ export async function fetchConversations(
 export async function fetchMessages(
   conversationId: string,
   accessToken: string,
+  limit: number = 25,
   graphVersion: string = DEFAULT_GRAPH_VERSION
 ): Promise<RawGraphMessage[]> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
@@ -71,6 +72,7 @@ export async function fetchMessages(
   const url = new URL(`${baseUrl}/${conversationId}`);
   url.searchParams.append('fields', 'messages{id,created_time,from,to,message,sticker,attachments{id,image_data,mime_type,name,size,video_data,file_url}}');
   url.searchParams.append('platform', 'instagram');
+  url.searchParams.append('limit', limit.toString());
   url.searchParams.append('access_token', accessToken);
 
   try {
@@ -135,6 +137,59 @@ export async function sendMessage(
     console.log(`[GraphAPI] Message sent successfully:`, result);
   } catch (error) {
     console.error('[GraphAPI] Error sending message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send an attachment message by uploading the file binary directly to the Graph API.
+ * Uses multipart/form-data with the `filedata` field so no external file hosting is needed.
+ * Facebook will host the file and generate its own CDN URL.
+ */
+export async function sendAttachmentMessage(
+  pageId: string,
+  recipientId: string,
+  file: File,
+  attachmentType: 'image' | 'audio' | 'video' | 'file',
+  accessToken: string,
+  graphVersion: string = DEFAULT_GRAPH_VERSION
+): Promise<void> {
+  const baseUrl = `https://graph.facebook.com/${graphVersion}`;
+
+  const url = new URL(`${baseUrl}/${pageId}/messages`);
+  url.searchParams.append('platform', 'instagram');
+  url.searchParams.append('access_token', accessToken);
+
+  const recipient = JSON.stringify({ id: recipientId });
+  const message = JSON.stringify({
+    attachment: {
+      type: attachmentType,
+      payload: {
+        is_reusable: true,
+      },
+    },
+  });
+
+  const formData = new FormData();
+  formData.append('recipient', recipient);
+  formData.append('message', message);
+  formData.append('filedata', file, file.name);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData: GraphApiError = await response.json();
+      throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
+    }
+
+    const result = await response.json();
+    console.log(`[GraphAPI] Attachment sent successfully:`, result);
+  } catch (error) {
+    console.error('[GraphAPI] Error sending attachment:', error);
     throw error;
   }
 }
