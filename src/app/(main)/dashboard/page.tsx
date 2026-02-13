@@ -61,6 +61,66 @@ export default function Dashboard() {
   const bookedCount = initialLeadsData.filter(l => l.status === 'Booked').length;
   // Number of closed leads (status 'Won')
   const closedCount = initialLeadsData.filter(l => l.status === 'Won').length;
+
+  // --- Metric Card Calculations ---
+  // Total revenue: sum of all leads with a cash value (strip $ and commas)
+  const totalRevenue = initialLeadsData.reduce((sum, l) => {
+    if (l.cash && l.cash.startsWith('$')) {
+      const num = Number(l.cash.replace(/[^\d.]/g, ''));
+      return sum + (isNaN(num) ? 0 : num);
+    }
+    return sum;
+  }, 0);
+
+  // Revenue per call: average of all leads with a cash value
+  const revenueLeads = initialLeadsData.filter(l => l.cash && l.cash.startsWith('$'));
+  const revenuePerCall = revenueLeads.length > 0 ? totalRevenue / revenueLeads.length : 0;
+
+
+
+  // --- Average Reply Time Calculation (Formula-based) ---
+  let totalReplyGap = 0;
+  let totalReplies = 0;
+  initialLeadsData.forEach(l => {
+    if (typeof l.messageCount === 'number' && l.messageCount > 0 && l.interacted) {
+      // Parse interacted to minutes (as last gap)
+      const interacted = l.interacted.toLowerCase();
+      let gap = 0;
+      if (interacted.includes('second')) {
+        const n = parseFloat(interacted);
+        gap = isNaN(n) ? 0 : n / 60;
+      } else if (interacted.includes('min')) {
+        const n = parseFloat(interacted);
+        gap = isNaN(n) ? 0 : n;
+      } else if (interacted.includes('hour')) {
+        const n = parseFloat(interacted);
+        gap = isNaN(n) ? 0 : n * 60;
+      } else if (interacted.includes('day')) {
+        const n = parseFloat(interacted);
+        gap = isNaN(n) ? 0 : n * 60 * 24;
+      } else if (interacted.includes('month')) {
+        const n = parseFloat(interacted);
+        gap = isNaN(n) ? 0 : n * 60 * 24 * 30;
+      }
+      // Assume each reply has similar gap (mock)
+      totalReplyGap += gap * l.messageCount;
+      totalReplies += l.messageCount;
+    }
+  });
+  const avgReplyTimeNum = totalReplies > 0 ? totalReplyGap / totalReplies : null;
+  const avgReplyTime = avgReplyTimeNum !== null ? `${avgReplyTimeNum < 1 ? Math.round(avgReplyTimeNum * 60) + ' sec' : avgReplyTimeNum.toFixed(1) + ' min'}` : 'N/A';
+
+  // --- Average Reply Rate Calculation (Formula-based) ---
+  // Conversations with a Setter reply = leads with messageCount >= 1
+  // Total incoming conversations = all leads
+  const conversationsWithSetterReply = initialLeadsData.filter(l => typeof l.messageCount === 'number' && l.messageCount > 0).length;
+  const totalIncomingConversations = initialLeadsData.length;
+  const avgReplyRate = totalIncomingConversations > 0 ? `${Math.round((conversationsWithSetterReply / totalIncomingConversations) * 100)}%` : 'N/A';
+
+  // Conversation rate: percent of leads that are qualified/booked/won out of all leads
+  const conversionCount = initialLeadsData.filter(l => ['Qualified', 'Booked', 'Won'].includes(l.status)).length;
+  const conversationRate = initialLeadsData.length > 0 ? Math.round((conversionCount / initialLeadsData.length) * 100) : 0;
+
   // SVG icon components
   const DollarIcon = (
     <img src="/dashboardIcons/dollar.svg" alt="Dollar" width={30} height={30} />
@@ -171,11 +231,11 @@ export default function Dashboard() {
 
           {/* Metrics Grid */}
           <div className="flex flex-wrap gap-4">
-            <MetricCard value="$106,673" label="Total revenue" icon={DollarIcon} />
-            <MetricCard value="2.3 min" label="Avg reply time" icon={HourglassIcon} />
-            <MetricCard value="$978.09" label="Revenue per call" icon={DollarIcon} />
-            <MetricCard value="82%" label="Conversation rate" icon={ConversionRateIcon} />
-            <MetricCard value="97%" label="Avg reply rate" icon={ReplyIcon} />
+            <MetricCard value={`$${totalRevenue.toLocaleString()}`} label="Total revenue" icon={DollarIcon} />
+            <MetricCard value={avgReplyTime} label="Avg reply time" icon={HourglassIcon} />
+            <MetricCard value={`$${revenuePerCall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} label="Revenue per call" icon={DollarIcon} />
+            <MetricCard value={`${conversationRate}%`} label="Conversation rate" icon={ConversionRateIcon} />
+            <MetricCard value={avgReplyRate} label="Avg reply rate" icon={ReplyIcon} />
           </div>
 
           {/* Funnel Visualizer */}
