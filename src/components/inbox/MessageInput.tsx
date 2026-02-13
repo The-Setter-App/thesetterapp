@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { User } from '@/types/inbox';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 
 interface MessageInputProps {
   messageInput: string;
@@ -13,6 +14,7 @@ interface MessageInputProps {
   attachmentPreview: string;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   clearAttachment: () => void;
+  handleSendAudio?: (blob: Blob, duration: number) => void;
 }
 
 export default function MessageInput({
@@ -24,10 +26,12 @@ export default function MessageInput({
   attachmentFile,
   attachmentPreview,
   handleFileSelect,
-  clearAttachment
+  clearAttachment,
+  handleSendAudio
 }: MessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { isRecording, recordingTime, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
 
   // Auto-resize logic
   useEffect(() => {
@@ -36,6 +40,19 @@ export default function MessageInput({
         textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
     }
   }, [messageInput]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const handleStopAndSend = async () => {
+    const result = await stopRecording();
+    if (result && handleSendAudio) {
+      handleSendAudio(result.audioBlob, result.duration);
+    }
+  };
 
   return (
     <div className="p-4 bg-white mx-8 mb-4 flex-shrink-0 relative">
@@ -61,35 +78,79 @@ export default function MessageInput({
         onChange={handleFileSelect}
       />
 
-      <div className="relative flex items-center border border-gray-200 rounded-lg px-2 shadow-sm">
-        <div className="flex space-x-2 mr-2 text-gray-300">
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className={`p-1 rounded-full transition-colors ${attachmentFile ? 'text-[#8771FF] bg-[#8771FF]/10' : 'hover:text-gray-500'}`}
-            title="Attach Image"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </button>
-        </div>
-        <textarea
-          ref={textareaRef}
-          className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none resize-none min-h-[44px] max-h-[120px] py-3"
-          placeholder="Write a message..."
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          disabled={sendingMessage || !user}
-          rows={1}
-        />
-        {sendingMessage && (
-          <div className="ml-2 h-4 w-4 border-2 border-[#8771FF] border-t-transparent rounded-full animate-spin"></div>
+      <div className="relative flex items-center border border-gray-200 rounded-lg px-2 shadow-sm min-h-[50px]">
+        {isRecording ? (
+          <div className="flex-1 flex items-center justify-between py-2 px-2">
+            <div className="flex items-center space-x-3 text-red-500 animate-pulse">
+              <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+              <span className="font-mono font-medium text-sm">{formatTime(recordingTime)}</span>
+              <span className="text-xs text-gray-400 font-normal">Recording...</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={cancelRecording} 
+                className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-50 transition-colors"
+                title="Cancel"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+              <button 
+                onClick={handleStopAndSend} 
+                className="p-2 text-white bg-[#8771FF] rounded-full hover:bg-[#7660EE] transition-all shadow-sm hover:shadow-md hover:scale-105"
+                title="Send"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex space-x-1 mr-2 text-gray-300">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-2 rounded-full transition-colors ${attachmentFile ? 'text-[#8771FF] bg-[#8771FF]/10' : 'hover:text-gray-500 hover:bg-gray-50'}`}
+                title="Attach Image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+              
+              <button 
+                onClick={startRecording}
+                className="p-2 rounded-full hover:text-gray-500 hover:bg-gray-50 transition-colors"
+                title="Record Voice Note"
+                disabled={sendingMessage || !user}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+            </div>
+            
+            <textarea
+              ref={textareaRef}
+              className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none resize-none min-h-[44px] max-h-[120px] py-3"
+              placeholder="Write a message..."
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              disabled={sendingMessage || !user}
+              rows={1}
+            />
+            {sendingMessage && (
+              <div className="ml-2 h-4 w-4 border-2 border-[#8771FF] border-t-transparent rounded-full animate-spin"></div>
+            )}
+          </>
         )}
       </div>
     </div>

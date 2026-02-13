@@ -239,6 +239,55 @@ export function useChat(selectedUserId: string) {
     }
   };
 
+  const handleSendAudio = async (blob: Blob, duration: number) => {
+    if (!user?.recipientId) return;
+
+    const formatDuration = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const now = new Date().toISOString();
+    const tempId = `temp_${Date.now()}_audio_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: tempId,
+      fromMe: true,
+      type: 'audio',
+      timestamp: now,
+      attachmentUrl: URL.createObjectURL(blob),
+      duration: formatDuration(duration),
+    };
+
+    setChatHistory((prev) => [...prev, optimisticMessage]);
+    pendingTempIdsRef.current.push(tempId);
+
+    // Update preview
+    updateConversationPreview(selectedUserId, '🎤 Voice Message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false)
+      .catch(err => console.error('Failed to update preview:', err));
+
+    try {
+      const formData = new FormData();
+      // Ensure we have a valid extension based on type, default to .mp4 or .webm
+      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'; 
+      const file = new File([blob], `voice_note.${ext}`, { type: blob.type });
+      
+      formData.append('file', file);
+      formData.append('recipientId', user.recipientId);
+      formData.append('type', 'audio');
+
+      const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to send audio');
+      
+    } catch (err) {
+      console.error('Error sending audio:', err);
+      setChatHistory((prev) => prev.filter(msg => msg.id !== tempId));
+      alert('Failed to send voice note');
+    }
+  };
+
   // Listen for local status updates
   useEffect(() => {
     const handler = (e: Event) => {
@@ -266,6 +315,7 @@ export function useChat(selectedUserId: string) {
     handleFileSelect,
     clearAttachment,
     handleSendMessage,
+    handleSendAudio,
     statusUpdate
   };
 }

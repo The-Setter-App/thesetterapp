@@ -23,6 +23,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     handleFileSelect,
     clearAttachment,
     handleSendMessage,
+    handleSendAudio,
     statusUpdate
   } = useChat(id);
 
@@ -57,6 +58,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           attachmentPreview={attachmentPreview}
           handleFileSelect={handleFileSelect}
           clearAttachment={clearAttachment}
+          handleSendAudio={handleSendAudio}
         />
       </main>
 

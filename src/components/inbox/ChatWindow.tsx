@@ -2,6 +2,7 @@
 
 import { Message } from '@/types/inbox';
 import { useMemo } from 'react';
+import AudioMessage from './AudioMessage';
 
 interface ChatWindowProps {
   messages: Message[];
@@ -86,9 +87,15 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
       {messages.map((msg) => (
         <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
           <div
-            className={`max-w-[80%] rounded-2xl text-sm ${
-              msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'
-            } ${msg.type === 'audio' ? 'flex items-center min-w-[240px] px-4 py-3' : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-4 py-3'}`}
+            className={`text-sm ${
+              msg.type === 'audio' 
+                ? 'bg-transparent p-0' 
+                : `max-w-[80%] rounded-2xl ${msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'}`
+            } ${
+              msg.type === 'audio' 
+                ? '' 
+                : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-4 py-3'
+            }`}
           >
             {msg.type === 'text' && (
               <div className="whitespace-pre-wrap break-words">{msg.text}</div>
@@ -117,20 +124,11 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
             )}
             
             {msg.type === 'audio' && (
-              <>
-                {/* Play Button */}
-                <button className={`p-2 rounded-full flex-shrink-0 flex items-center justify-center ${msg.fromMe ? 'bg-white text-[#8771FF]' : 'bg-gray-500 text-white'}`}>
-                  <PlayIcon className="w-3.5 h-3.5 fill-current" />
-                </button>
-
-                {/* Audio Wave */}
-                <AudioWave color={msg.fromMe ? 'bg-white' : 'bg-gray-400'} />
-
-                <span className={`text-xs font-mono ml-auto mr-3 ${msg.fromMe ? 'text-white/80' : 'text-gray-500'}`}>{msg.duration}</span>
-
-                {/* Volume Icon */}
-                <VolumeIcon className={`w-5 h-5 ${msg.fromMe ? 'text-white' : 'text-gray-400'}`} />
-              </>
+              <AudioMessage 
+                src={msg.attachmentUrl || ''} 
+                duration={msg.duration} 
+                isOwn={msg.fromMe} 
+              />
             )}
             
             {msg.type === 'file' && (
