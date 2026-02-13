@@ -239,7 +239,8 @@ export async function sendNewMessage(
     console.log('[InboxActions] Message sent via API');
 
     // Pre-warm: fetch fresh messages from API and save to DB
-    syncLatestMessages(recipientId).catch(err => 
+    // Pass matchCriteria to ensure we confirm the specific text message we just sent
+    syncLatestMessages(recipientId, { text }).catch(err => 
       console.warn('[InboxActions] Background sync failed:', err)
     );
   } catch (error) {
@@ -251,8 +252,14 @@ export async function sendNewMessage(
 /**
  * Sync only the latest messages for a conversation and emit SSE updates.
  * Used after sending a message (text or attachment) to get the real message ID and URL.
+ * 
+ * @param recipientId - The participant's Instagram user ID
+ * @param matchCriteria - Optional criteria to find the specific message we just sent (e.g. { type: 'image' })
  */
-export async function syncLatestMessages(recipientId: string): Promise<void> {
+export async function syncLatestMessages(
+  recipientId: string, 
+  matchCriteria?: { text?: string; type?: string }
+): Promise<void> {
   try {
     const ownerEmail = await getOwnerEmail();
     const creds = await getUserCredentials(ownerEmail);
@@ -272,9 +279,19 @@ export async function syncLatestMessages(recipientId: string): Promise<void> {
       console.log('[InboxActions] Synced latest messages after send');
 
       // Emit SSE event for real-time multi-device sync
-      const latestMessage = messages[0];
+      // If criteria provided, find the specific message. Otherwise default to the very latest.
+      // This handles cases where we send Image + Text quickly; the Image might be the 2nd latest message.
+      let latestMessage = messages[0];
       
-      // Only emit echo if the latest message is actually from us.
+      if (matchCriteria) {
+        latestMessage = messages.find(m => 
+          m.fromMe && 
+          (matchCriteria.type ? m.type === matchCriteria.type : true) &&
+          (matchCriteria.text !== undefined ? m.text === matchCriteria.text : true)
+        ) || messages[0];
+      }
+      
+      // Only emit echo if the message is actually from us.
       // If API is lagging and returns the other user's message, we shouldn't confirm our send yet.
       if (latestMessage && latestMessage.fromMe) {
         // Reconstruct attachments for SSE so frontend can replace the optimistic blob URL

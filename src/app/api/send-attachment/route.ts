@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
 
     // Sync latest messages to get the real ID and URL, and emit SSE to frontend
     // This allows the frontend to replace the optimistic blob URL with the real one
-    syncLatestMessages(recipientId).catch(err => 
+    // Pass matchCriteria to ensure we find the image message even if a text message was sent immediately after
+    syncLatestMessages(recipientId, { type: attachmentType }).catch(err => 
       console.warn('[SendAttachment] Background sync failed:', err)
     );
 
