@@ -50,61 +50,72 @@ interface DetailsPanelHeaderProps {
   user: User;
 }
 
+function isStatusType(value: unknown): value is StatusType {
+  return typeof value === 'string' && STATUS_OPTIONS.includes(value as StatusType);
+}
+
 export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
 
-  // Always fetch latest user from DB on mount and when status changes
-  async function fetchUserStatus() {
-    try {
-      const res = await fetch(`/api/user-status?recipientId=${user.recipientId || user.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status) setCurrentStatus(data.status);
-      }
-    } catch (err) {
-      // fallback: do nothing
-    }
-  }
+  const userId = user.recipientId || user.id;
+
+  // Keep local status in sync when switching conversations.
+  useEffect(() => {
+    setCurrentStatus(user.status);
+  }, [user.status, userId]);
 
   useEffect(() => {
-    fetchUserStatus();
-    // Listen for custom event (for local tab updates)
-    const handler = (e: any) => {
-      if (e.detail?.userId === (user.recipientId || user.id)) {
-        fetchUserStatus();
+    // Listen for local optimistic updates.
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId?: string; status?: StatusType }>;
+      if (customEvent.detail?.userId === userId && isStatusType(customEvent.detail?.status)) {
+        setCurrentStatus(customEvent.detail.status);
       }
     };
     window.addEventListener('userStatusUpdated', handler);
     return () => window.removeEventListener('userStatusUpdated', handler);
-    // eslint-disable-next-line
-  }, [user.recipientId, user.id]);
+  }, [userId]);
 
-  // Listen for SSE status updates (for cross-tab and real-time updates)
+  // Listen for SSE status updates (cross-tab / external updates)
   useSSE('/api/sse', {
     onMessage: (msg) => {
-      if (msg.type === 'new_message' && msg.data && 'userId' in msg.data && msg.data.userId === (user.recipientId || user.id)) {
-        fetchUserStatus();
+      if (msg.type === 'user_status_updated' && msg.data.userId === userId && isStatusType(msg.data.status)) {
+        setCurrentStatus(msg.data.status);
       }
     }
   });
   const displayName = user.name.replace("@", "");
 
   const handleStatusSelect = async (newStatus: StatusType) => {
+    if (newStatus === currentStatus) {
+      setShowStatusDropdown(false);
+      return;
+    }
+
+    const previousStatus = currentStatus;
+    setCurrentStatus(newStatus);
     setIsUpdating(true);
     setShowStatusDropdown(false);
+
+    // Optimistic local update so both sidebars reflect immediately.
+    window.dispatchEvent(
+      new CustomEvent('userStatusUpdated', {
+        detail: { userId, status: newStatus },
+      })
+    );
+
     try {
-      await updateUserStatusAction(user.recipientId || user.id, newStatus);
-      // Emit custom event for local tab
-      window.dispatchEvent(
-        new CustomEvent('userStatusUpdated', {
-          detail: { userId: user.recipientId || user.id, status: newStatus },
-        })
-      );
-      // Optionally: send SSE event from backend for cross-tab
+      await updateUserStatusAction(userId, newStatus);
     } catch (error) {
       console.error("Failed to update status:", error);
+      setCurrentStatus(previousStatus);
+      window.dispatchEvent(
+        new CustomEvent('userStatusUpdated', {
+          detail: { userId, status: previousStatus },
+        })
+      );
     } finally {
       setIsUpdating(false);
     }

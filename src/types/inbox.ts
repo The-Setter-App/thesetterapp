@@ -128,10 +128,17 @@ export interface SSESyncedData {
   recipientId: string;
 }
 
+/** Payload for user_status_updated SSE events. */
+export interface SSEUserStatusData {
+  userId: string;
+  status: StatusType;
+}
+
 /** Union of all SSE events the server can emit. */
 export type SSEEvent =
   | { type: 'connected'; timestamp: string }
   | { type: 'new_message'; timestamp: string; data: SSEMessageData }
   | { type: 'message_echo'; timestamp: string; data: SSEMessageData }
   | { type: 'message_seen'; timestamp: string; data: SSESeenData }
-  | { type: 'messages_synced'; timestamp: string; data: SSESyncedData };
+  | { type: 'messages_synced'; timestamp: string; data: SSESyncedData }
+  | { type: 'user_status_updated'; timestamp?: string; data: SSEUserStatusData };

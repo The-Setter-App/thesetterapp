@@ -40,6 +40,21 @@ const CheckIcon = ({ className }: { className?: string }) => (
 
 const statusOptions: StatusType[] = ['New Lead', 'In-Contact', 'Qualified', 'Unqualified', 'Retarget', 'Won', 'No-Show', 'Booked'];
 
+const statusColorMap: Record<StatusType, string> = {
+  'Won': 'text-green-600 border-green-200 bg-white',
+  'Unqualified': 'text-red-500 border-red-200 bg-white',
+  'Booked': 'text-purple-600 border-purple-200 bg-white',
+  'New Lead': 'text-pink-500 border-pink-200 bg-white',
+  'Qualified': 'text-yellow-500 border-yellow-200 bg-white',
+  'No-Show': 'text-orange-500 border-orange-200 bg-white',
+  'In-Contact': 'text-green-500 border-green-200 bg-white',
+  'Retarget': 'text-blue-500 border-blue-200 bg-white',
+};
+
+function isStatusType(value: unknown): value is StatusType {
+  return typeof value === 'string' && statusOptions.includes(value as StatusType);
+}
+
 
 export default function InboxSidebar() {
   const router = useRouter();
@@ -76,6 +91,21 @@ export default function InboxSidebar() {
     } finally { refetchInFlightRef.current = false; }
   }, []);
 
+  const applyUserStatusUpdate = useCallback((userId: string, status: StatusType) => {
+    setUsers((prev) => {
+      const idx = prev.findIndex((u) => u.recipientId === userId || u.id === userId);
+      if (idx === -1) return prev;
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        status,
+        statusColor: statusColorMap[status],
+      };
+      setCachedUsers(updated).catch(e => console.error(e));
+      return updated;
+    });
+  }, []);
+
   const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean) => {
     const { text, timestamp } = data;
     setUsers((prev) => {
@@ -98,18 +128,23 @@ export default function InboxSidebar() {
       if (message.type === 'new_message') handleSidebarMessageEvent(message.data, false);
       else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true);
       else if (message.type === 'user_status_updated') {
-        // Real-time update of user status in sidebar
-        setUsers((prev) => {
-          const idx = prev.findIndex((u) => u.recipientId === message.data.userId);
-          if (idx === -1) return prev;
-          const updated = [...prev];
-          updated[idx] = { ...updated[idx], status: message.data.status };
-          setCachedUsers(updated).catch(e => console.error(e));
-          return updated;
-        });
+        if (isStatusType(message.data.status)) {
+          applyUserStatusUpdate(message.data.userId, message.data.status);
+        }
       }
     }
   });
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId?: string; status?: StatusType }>;
+      if (!customEvent.detail?.userId || !isStatusType(customEvent.detail?.status)) return;
+      applyUserStatusUpdate(customEvent.detail.userId, customEvent.detail.status);
+    };
+
+    window.addEventListener('userStatusUpdated', handler);
+    return () => window.removeEventListener('userStatusUpdated', handler);
+  }, [applyUserStatusUpdate]);
 
   useEffect(() => {
     async function loadUsers() {
