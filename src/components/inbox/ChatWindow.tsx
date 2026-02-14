@@ -1,7 +1,7 @@
 "use client";
 
 import { Message } from '@/types/inbox';
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import AudioMessage from './AudioMessage';
 
 interface ChatWindowProps {
@@ -49,6 +49,7 @@ const AudioWave = ({ color }: { color: string }) => {
 export default function ChatWindow({ messages, loading, statusUpdate }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Scroll to bottom when messages change (new message or conversation opened)
   useEffect(() => {
@@ -57,6 +58,24 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
       bottomRef.current?.scrollIntoView({ behavior: 'auto' });
     });
   }, [messages]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedImage(null);
+      }
+    };
+
+    if (selectedImage) {
+      window.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [selectedImage]);
 
   if (loading && messages.length === 0) {
     return (
@@ -117,7 +136,8 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
                 <img 
                   src={msg.attachmentUrl} 
                   alt="Attachment" 
-                  className="rounded-xl max-w-full max-h-96 object-cover"
+                  className="rounded-xl max-w-full max-h-96 object-cover cursor-pointer"
+                  onClick={() => setSelectedImage(msg.attachmentUrl || null)}
                 />
                 {msg.text && <p className="px-3 py-2">{msg.text}</p>}
               </div>
@@ -166,6 +186,31 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
       
       {/* Scroll anchor */}
       <div ref={bottomRef} />
+
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/75 px-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button
+            type="button"
+            aria-label="Close image preview"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-stone-900 transition-colors hover:bg-white"
+            onClick={() => setSelectedImage(null)}
+          >
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+
+          <img
+            src={selectedImage}
+            alt="Expanded attachment"
+            className="max-h-[85vh] w-full max-w-5xl rounded-2xl object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
