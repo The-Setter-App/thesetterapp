@@ -1,7 +1,7 @@
 "use client";
 
 import { Message } from '@/types/inbox';
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import AudioMessage from './AudioMessage';
 
 interface ChatWindowProps {
@@ -47,6 +47,17 @@ const AudioWave = ({ color }: { color: string }) => {
 };
 
 export default function ChatWindow({ messages, loading, statusUpdate }: ChatWindowProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when messages change (new message or conversation opened)
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    });
+  }, [messages]);
+
   if (loading && messages.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
@@ -83,7 +94,7 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+    <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       {messages.map((msg) => (
         <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
           <div
@@ -152,6 +163,9 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
           <div className="text-[10px] text-gray-400">{formatStatusTimestamp(statusUpdate.timestamp)}</div>
         </div>
       )}
+      
+      {/* Scroll anchor */}
+      <div ref={bottomRef} />
     </div>
   );
 }

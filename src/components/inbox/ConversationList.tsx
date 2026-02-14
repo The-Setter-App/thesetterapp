@@ -71,7 +71,7 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
 
           <div className="flex-1 min-w-0 ml-3 mr-2">
             <div className="flex items-center mb-0.5">
-              <span className="font-bold text-sm text-gray-900 truncate">{u.name}</span>
+              <span className="font-bold text-sm text-gray-900 truncate">{u.name?.replace('@', '')}</span>
               {u.verified && (
                 <span className="ml-1">
                   <VerifiedIcon />

@@ -44,9 +44,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           onToggleVisible={() => setShowVisible(!showVisible)} 
         />
 
-        <div className="flex-1 overflow-y-auto">
-             <ChatWindow messages={chatHistory} loading={loading} statusUpdate={statusUpdate} />
-        </div>
+        <ChatWindow messages={chatHistory} loading={loading} statusUpdate={statusUpdate} />
 
         <MessageInput 
           messageInput={messageInput}
