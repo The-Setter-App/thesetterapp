@@ -90,11 +90,11 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
             className={`text-sm ${
               msg.type === 'audio' 
                 ? 'bg-transparent p-0' 
-                : `max-w-[80%] rounded-2xl ${msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'}`
+                : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
             } ${
               msg.type === 'audio' 
                 ? '' 
-                : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-4 py-3'
+                : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-3 py-2'
             }`}
           >
             {msg.type === 'text' && (
