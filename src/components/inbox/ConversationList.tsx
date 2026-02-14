@@ -51,7 +51,7 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
       {users.map((u) => (
         <div
           key={u.recipientId || u.id}
-          className={`group flex items-center px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
+          className={`group flex items-center px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
             selectedUserId === u.recipientId ? 'bg-blue-50/50' : ''
           }`}
           onClick={() => onSelectUser(u.recipientId || u.id)}

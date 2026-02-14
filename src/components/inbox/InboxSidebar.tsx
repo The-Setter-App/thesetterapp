@@ -133,11 +133,14 @@ export default function InboxSidebar() {
   return (
     <aside className={`${inter.className} w-[380px] border-r border-gray-200 bg-white flex flex-col flex-shrink-0 h-full antialiased`}>
       {/* Sidebar Header */}
-      <div className="p-4 pb-2">
+      <div className="p-4 pb-3 border-b border-gray-200">
         <h2 className="text-xl font-bold tracking-tight mb-1 text-gray-800">Inbox</h2>
-        <p className="text-xs font-medium text-gray-400 mb-4">Your unified chat workspace.</p>
+        <p className="text-xs font-medium text-gray-400">Your unified chat workspace.</p>
+      </div>
 
-        <div className="flex gap-2 mb-4">
+      {/* Search & Filter */}
+      <div className="p-4 pb-3">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <SearchIcon className="h-4 w-4 text-gray-400" />
@@ -163,12 +166,15 @@ export default function InboxSidebar() {
             )}
           </button>
         </div>
+      </div>
 
-        <div className="flex space-x-2 text-xs font-bold pb-2">
+      {/* Tabs */}
+      <div className="border-t border-b border-gray-200 px-4 py-3">
+        <div className="flex gap-2 text-xs font-bold">
           {['all', 'priority', 'unread'].map((tab) => (
             <button
               key={tab}
-              className={`px-3 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? 'bg-[#8771FF] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+              className={`flex-1 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? 'bg-[#8771FF] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
               onClick={() => setActiveTab(tab as any)}
             >
               {tab} [{tab === 'all' ? users.length : tab === 'priority' ? users.filter(u => u.status === 'Qualified').length : users.filter(u => (u.unread ?? 0) > 0).length}]
