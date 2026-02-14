@@ -56,7 +56,8 @@ export async function updateConversationPreview(
   recipientId: string,
   lastMessage: string,
   time: string,
-  incrementUnread: boolean
+  incrementUnread: boolean,
+  clearUnreadOnReply = false
 ): Promise<void> {
   try {
     const ownerEmail = await getOwnerEmail();
@@ -65,7 +66,14 @@ export async function updateConversationPreview(
       console.warn(`[InboxActions] Cannot update preview: no conversation found for recipientId ${recipientId}`);
       return;
     }
-    await updateConversationMetadata(conversationId, ownerEmail, lastMessage, time, incrementUnread);
+    await updateConversationMetadata(
+      conversationId,
+      ownerEmail,
+      lastMessage,
+      time,
+      incrementUnread,
+      clearUnreadOnReply
+    );
   } catch (error) {
     // Suppress error if it's just auth (user might be logging out)
     if ((error as Error).message.includes('Unauthorized')) return;

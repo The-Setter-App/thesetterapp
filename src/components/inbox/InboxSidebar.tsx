@@ -106,7 +106,7 @@ export default function InboxSidebar() {
     });
   }, []);
 
-  const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean) => {
+  const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean, fromMe = false) => {
     const { text, timestamp } = data;
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.recipientId === data.senderId || u.recipientId === data.recipientId);
@@ -115,18 +115,20 @@ export default function InboxSidebar() {
       const conv = { ...updated[idx] };
       conv.lastMessage = text || '[attachment]';
       conv.time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (!isEcho && conv.recipientId !== selectedUserId) conv.unread = (conv.unread ?? 0) + 1;
+      const outgoing = isEcho || fromMe;
+      if (outgoing) conv.unread = 0;
+      else conv.unread = (conv.unread ?? 0) + 1;
       updated.splice(idx, 1);
       updated.unshift(conv);
       setCachedUsers(updated).catch(e => console.error(e));
       return updated;
     });
-  }, [selectedUserId, refetchConversations]);
+  }, [refetchConversations]);
 
   useSSE('/api/sse', {
     onMessage: (message: any) => {
-      if (message.type === 'new_message') handleSidebarMessageEvent(message.data, false);
-      else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true);
+      if (message.type === 'new_message') handleSidebarMessageEvent(message.data, false, Boolean(message.data?.fromMe));
+      else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true, true);
       else if (message.type === 'user_status_updated') {
         if (isStatusType(message.data.status)) {
           applyUserStatusUpdate(message.data.userId, message.data.status);

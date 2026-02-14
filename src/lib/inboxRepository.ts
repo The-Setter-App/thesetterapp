@@ -173,7 +173,8 @@ export async function updateConversationMetadata(
   ownerEmail: string,
   lastMessage: string,
   time: string,
-  incrementUnread: boolean
+  incrementUnread: boolean,
+  clearUnread = false
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -187,6 +188,10 @@ export async function updateConversationMetadata(
 
   if (incrementUnread) {
     update.$inc = { unread: 1 };
+  }
+
+  if (clearUnread) {
+    update.$set.unread = 0;
   }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(

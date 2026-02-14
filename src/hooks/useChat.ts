@@ -207,7 +207,7 @@ export function useChat(selectedUserId: string) {
 
     const previewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const previewText = messageText || (hasAttachment ? '📷 Image' : 'Message');
-    updateConversationPreview(selectedUserId, previewText, previewTime, false).catch(err => console.error('Failed to update preview:', err));
+    updateConversationPreview(selectedUserId, previewText, previewTime, false, true).catch(err => console.error('Failed to update preview:', err));
 
     try {
       setSendingMessage(true);
@@ -265,7 +265,7 @@ export function useChat(selectedUserId: string) {
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
-    updateConversationPreview(selectedUserId, '🎤 Voice Message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false)
+    updateConversationPreview(selectedUserId, '🎤 Voice Message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
       .catch(err => console.error('Failed to update preview:', err));
 
     try {

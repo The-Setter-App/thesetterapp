@@ -272,13 +272,16 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
         // Only increment unread count for incoming messages (not from me, not echos)
         const incrementUnread = !fromMe && !isEcho;
+        // For outgoing messages, clear "waiting for reply" count for this conversation.
+        const clearUnread = fromMe || isEcho;
 
         await updateConversationMetadata(
           conversationId,
           ownerEmail,
           previewText,
           timeStr,
-          incrementUnread
+          incrementUnread,
+          clearUnread
         );
         console.log(`[Webhook] Updated metadata for conversation ${conversationId}`);
 
