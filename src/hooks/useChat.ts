@@ -393,7 +393,7 @@ export function useChat(selectedUserId: string) {
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
-    updateConversationPreview(selectedUserId, 'Voice message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
+    updateConversationPreview(selectedUserId, 'You sent a voice message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
       .catch(err => console.error('Failed to update preview:', err));
 
     try {

@@ -111,15 +111,33 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, []);
 
   const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean, fromMe = false) => {
-    const { text, timestamp } = data;
+    const { text, timestamp, attachments } = data;
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.recipientId === data.senderId || u.recipientId === data.recipientId);
       if (idx === -1) { refetchConversations(); return prev; }
       const updated = [...prev];
       const conv = { ...updated[idx] };
-      conv.lastMessage = text || '[attachment]';
-      conv.time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const firstAttachment = attachments?.[0];
+      const isAudioAttachment =
+        firstAttachment?.type === 'audio' ||
+        Boolean(firstAttachment?.file_url && (
+          firstAttachment.file_url.includes('audio') ||
+          firstAttachment.file_url.endsWith('.mp3') ||
+          firstAttachment.file_url.endsWith('.m4a') ||
+          firstAttachment.file_url.endsWith('.ogg') ||
+          firstAttachment.file_url.endsWith('.webm') ||
+          firstAttachment.file_url.endsWith('.mp4')
+        ));
+
       const outgoing = isEcho || fromMe;
+      if (text && text.trim().length > 0) {
+        conv.lastMessage = text;
+      } else if (isAudioAttachment) {
+        conv.lastMessage = outgoing ? 'You sent a voice message' : 'Sent a voice message';
+      } else {
+        conv.lastMessage = '[attachment]';
+      }
+      conv.time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       if (outgoing) conv.unread = 0;
       else conv.unread = (conv.unread ?? 0) + 1;
       updated.splice(idx, 1);

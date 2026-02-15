@@ -31,6 +31,38 @@ export default function ChatWindow({
   const previousScrollHeightRef = useRef(0);
   const prependingRef = useRef(false);
   const loadingOlderRef = useRef(Boolean(loadingOlder));
+  const TIME_SEPARATOR_GAP_MS = 30 * 60 * 1000;
+
+  const parseMessageTime = (message: Message): number | null => {
+    if (!message.timestamp) return null;
+    const ms = new Date(message.timestamp).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  };
+
+  const shouldShowTimeSeparator = (current: Message, previous?: Message): boolean => {
+    if (!previous) return false;
+    const currentMs = parseMessageTime(current);
+    const prevMs = parseMessageTime(previous);
+    if (currentMs === null || prevMs === null) return false;
+    return currentMs - prevMs >= TIME_SEPARATOR_GAP_MS;
+  };
+
+  const formatSeparatorTime = (message: Message): string => {
+    const ms = parseMessageTime(message);
+    if (ms === null) return '';
+    const date = new Date(ms);
+    const now = new Date();
+    const isSameDay = date.toDateString() === now.toDateString();
+    if (isSameDay) {
+      return `Today ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    }
+    return date.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   useEffect(() => {
     if (!loadingOlderRef.current && loadingOlder) {
@@ -128,72 +160,87 @@ export default function ChatWindow({
         </div>
       )}
 
-      {messages.map((msg) => (
-        <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
-          <div
-            className={`text-sm ${
-              msg.type === 'audio' 
-                ? 'bg-transparent p-0' 
-                : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
-            } ${
-              msg.type === 'audio' 
-                ? '' 
-                : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-3 py-2'
-            }`}
-          >
-            {msg.type === 'text' && (
-              <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-            )}
-            
-            {msg.type === 'image' && msg.attachmentUrl && (
-              <div>
-                <img 
-                  src={msg.attachmentUrl} 
-                  alt="Attachment" 
-                  className="rounded-xl max-w-full max-h-96 object-cover cursor-pointer"
-                  onClick={() => setSelectedImage(msg.attachmentUrl || null)}
-                />
-                {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+      {messages.map((msg, index) => {
+        const previous = index > 0 ? messages[index - 1] : undefined;
+        const showSeparator = shouldShowTimeSeparator(msg, previous);
+        const separatorLabel = showSeparator ? formatSeparatorTime(msg) : '';
+
+        return (
+          <div key={msg.id}>
+            {showSeparator && separatorLabel && (
+              <div className="my-3 flex justify-center">
+                <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-medium text-stone-600">
+                  {separatorLabel}
+                </span>
               </div>
             )}
-            {msg.type === 'image' && !msg.attachmentUrl && (
-              <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
-            )}
-            
-            {msg.type === 'video' && msg.attachmentUrl && (
-              <div>
-                <video 
-                  src={msg.attachmentUrl} 
-                  controls 
-                  className="rounded-xl max-w-full max-h-96"
-                />
-                {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+            <div className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
+              <div
+                className={`text-sm ${
+                  msg.type === 'audio' 
+                    ? 'bg-transparent p-0' 
+                    : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
+                } ${
+                  msg.type === 'audio' 
+                    ? '' 
+                    : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-3 py-2'
+                }`}
+              >
+                {msg.type === 'text' && (
+                  <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                )}
+                
+                {msg.type === 'image' && msg.attachmentUrl && (
+                  <div>
+                    <img 
+                      src={msg.attachmentUrl} 
+                      alt="Attachment" 
+                      className="rounded-xl max-w-full max-h-96 object-cover cursor-pointer"
+                      onClick={() => setSelectedImage(msg.attachmentUrl || null)}
+                    />
+                    {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+                  </div>
+                )}
+                {msg.type === 'image' && !msg.attachmentUrl && (
+                  <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
+                )}
+                
+                {msg.type === 'video' && msg.attachmentUrl && (
+                  <div>
+                    <video 
+                      src={msg.attachmentUrl} 
+                      controls 
+                      className="rounded-xl max-w-full max-h-96"
+                    />
+                    {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+                  </div>
+                )}
+                
+                {msg.type === 'audio' && (
+                  <AudioMessage 
+                    src={msg.attachmentUrl || ''} 
+                    duration={msg.duration} 
+                    isOwn={msg.fromMe} 
+                  />
+                )}
+                
+                {msg.type === 'file' && (
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <span>{msg.text || 'File attachment'}</span>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {msg.type === 'audio' && (
-              <AudioMessage 
-                src={msg.attachmentUrl || ''} 
-                duration={msg.duration} 
-                isOwn={msg.fromMe} 
-              />
-            )}
-            
-            {msg.type === 'file' && (
-              <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                <span>{msg.text || 'File attachment'}</span>
-              </div>
-            )}
+              {msg.pending && msg.fromMe && (
+                <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
+              )}
+              {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
+            </div>
           </div>
-          {msg.pending && msg.fromMe && (
-            <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
-          )}
-          {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
-        </div>
-      ))}
+        );
+      })}
 
       {/* Scroll anchor */}
       <div ref={bottomRef} />

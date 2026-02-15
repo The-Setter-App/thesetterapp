@@ -22,6 +22,7 @@ const DEFAULT_CONTACT_DETAILS: ConversationContactDetails = {
   phoneNumber: '',
   email: '',
 };
+const EMPTY_PREVIEW = 'No messages yet';
 
 let indexesReady = false;
 
@@ -76,6 +77,7 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
+  const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conversation.id, ownerEmail });
   
   // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
   // Also exclude avatar if it is null to prevent overwriting existing avatars with null
@@ -84,6 +86,17 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   const setPayload: any = { ...rest, ownerEmail };
   if (avatar) {
     setPayload.avatar = avatar;
+  }
+  const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
+  const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
+  if ((incomingPreview === '' || incomingPreview === EMPTY_PREVIEW) && existingPreview && existingPreview !== EMPTY_PREVIEW) {
+    setPayload.lastMessage = existingPreview;
+    if (typeof existing?.time === 'string' && existing.time.trim()) {
+      setPayload.time = existing.time;
+    }
+  }
+  if (existing && typeof existing.status === 'string') {
+    setPayload.status = existing.status;
   }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
@@ -120,6 +133,14 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
 
     if (existing && existing.status) {
       setPayload.status = existing.status;
+    }
+    const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
+    const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
+    if ((incomingPreview === '' || incomingPreview === EMPTY_PREVIEW) && existingPreview && existingPreview !== EMPTY_PREVIEW) {
+      setPayload.lastMessage = existingPreview;
+      if (typeof existing?.time === 'string' && existing.time.trim()) {
+        setPayload.time = existing.time;
+      }
     }
     
     return {

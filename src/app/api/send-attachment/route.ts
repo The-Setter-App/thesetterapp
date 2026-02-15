@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       await updateConversationMetadata(
         conversation.id,
         session.email,
-        'Voice message',
+        'You sent a voice message',
         getRelativeTime(savedMessage.timestamp || timestampIso),
         false,
         true
