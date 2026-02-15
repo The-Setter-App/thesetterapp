@@ -1,10 +1,12 @@
 import clientPromise from '@/lib/mongodb';
-import { User, Message, ConversationDetails, PaymentDetails } from '@/types/inbox';
+import { GridFSBucket, ObjectId } from 'mongodb';
+import { User, Message, ConversationDetails, PaymentDetails, ConversationTimelineEvent, StatusType, ConversationContactDetails } from '@/types/inbox';
 
 const DB_NAME = 'thesetterapp';
 const CONVERSATIONS_COLLECTION = 'conversations';
 const MESSAGES_COLLECTION = 'messages';
 const SYNC_COLLECTION = 'inbox_sync_jobs';
+const AUDIO_BUCKET = 'voice_notes';
 
 const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
   amount: '',
@@ -14,6 +16,11 @@ const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
   setterPaid: 'No',
   closerPaid: 'No',
   paymentNotes: '',
+};
+
+const DEFAULT_CONTACT_DETAILS: ConversationContactDetails = {
+  phoneNumber: '',
+  email: '',
 };
 
 let indexesReady = false;
@@ -211,6 +218,155 @@ export async function saveMessagesToDb(messages: Message[], conversationId: stri
   await db.collection(MESSAGES_COLLECTION).bulkWrite(operations);
 }
 
+function getAudioBucket(db: any): GridFSBucket {
+  return new GridFSBucket(db, { bucketName: AUDIO_BUCKET });
+}
+
+export async function saveVoiceNoteBlobToGridFs(params: {
+  ownerEmail: string;
+  conversationId: string;
+  recipientId: string;
+  messageId: string;
+  fileName: string;
+  mimeType: string;
+  bytes: Buffer;
+}): Promise<{ fileId: string; mimeType: string; size: number }> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+  const bucket = getAudioBucket(db);
+
+  const uploadStream = bucket.openUploadStream(params.fileName, {
+    metadata: {
+      ownerEmail: params.ownerEmail,
+      conversationId: params.conversationId,
+      recipientId: params.recipientId,
+      messageId: params.messageId,
+      mimeType: params.mimeType,
+    },
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    uploadStream.on('error', reject);
+    uploadStream.on('finish', () => resolve());
+    uploadStream.end(params.bytes);
+  });
+
+  return {
+    fileId: uploadStream.id.toString(),
+    mimeType: params.mimeType,
+    size: params.bytes.length,
+  };
+}
+
+export async function saveOrUpdateLocalAudioMessage(params: {
+  ownerEmail: string;
+  conversationId: string;
+  recipientId: string;
+  messageId: string;
+  clientTempId?: string;
+  timestamp: string;
+  duration?: string;
+  audioStorage: {
+    kind: 'gridfs';
+    fileId: string;
+    mimeType: string;
+    size: number;
+  };
+}): Promise<Message> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  const baseAttachmentUrl = `/api/inbox/messages/${encodeURIComponent(params.messageId)}/audio`;
+  const baseMessage: Message = {
+    id: params.messageId,
+    clientTempId: params.clientTempId,
+    fromMe: true,
+    type: 'audio',
+    text: '',
+    timestamp: params.timestamp,
+    duration: params.duration,
+    attachmentUrl: baseAttachmentUrl,
+    source: 'local_audio_fallback',
+    audioStorage: params.audioStorage,
+  };
+
+  let existing: Message | null = null;
+  if (params.clientTempId) {
+    existing = await db.collection<Message>(MESSAGES_COLLECTION).findOne({
+      ownerEmail: params.ownerEmail,
+      conversationId: params.conversationId,
+      clientTempId: params.clientTempId,
+    } as any);
+  }
+
+  if (!existing) {
+    const fiveMinutesAgoIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    existing = await db.collection<Message>(MESSAGES_COLLECTION).findOne({
+      ownerEmail: params.ownerEmail,
+      conversationId: params.conversationId,
+      fromMe: true,
+      type: 'audio',
+      source: { $ne: 'local_audio_fallback' },
+      timestamp: { $gte: fiveMinutesAgoIso },
+    } as any, { sort: { timestamp: -1 } });
+  }
+
+  if (existing?.id) {
+    const mergedAttachmentUrl = `/api/inbox/messages/${encodeURIComponent(existing.id)}/audio`;
+    const merged: Message = {
+      ...existing,
+      ...baseMessage,
+      id: existing.id,
+      timestamp: existing.timestamp || params.timestamp,
+      attachmentUrl: mergedAttachmentUrl,
+    };
+    await db.collection(MESSAGES_COLLECTION).updateOne(
+      { id: existing.id, ownerEmail: params.ownerEmail },
+      { $set: { ...merged, conversationId: params.conversationId, ownerEmail: params.ownerEmail } },
+      { upsert: true }
+    );
+    return merged;
+  }
+
+  await saveMessageToDb(baseMessage, params.conversationId, params.ownerEmail);
+  return baseMessage;
+}
+
+export async function getVoiceNoteStreamForMessage(
+  messageId: string,
+  ownerEmail: string
+): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; size: number } | null> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  const message = await db.collection<Message>(MESSAGES_COLLECTION).findOne({ id: messageId, ownerEmail } as any);
+  const fileId = message?.audioStorage?.fileId;
+  if (!fileId) return null;
+
+  let objectId: ObjectId;
+  try {
+    objectId = new ObjectId(fileId);
+  } catch {
+    return null;
+  }
+
+  const bucket = getAudioBucket(db);
+  const files = await bucket.find({ _id: objectId, 'metadata.ownerEmail': ownerEmail }).toArray();
+  const file = files[0];
+  if (!file) return null;
+
+  const fileMime = (file.metadata as { mimeType?: string } | undefined)?.mimeType;
+
+  return {
+    stream: bucket.openDownloadStream(objectId),
+    mimeType: fileMime || message.audioStorage?.mimeType || 'audio/webm',
+    size: typeof file.length === 'number' ? file.length : message.audioStorage?.size || 0,
+  };
+}
+
 type MessageCursor = {
   timestamp: string;
   id: string;
@@ -380,7 +536,7 @@ export async function getConversationDetails(
 
   const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
     { recipientId, ownerEmail },
-    { projection: { notes: 1, paymentDetails: 1 } }
+    { projection: { notes: 1, paymentDetails: 1, timelineEvents: 1, contactDetails: 1 } }
   );
 
   if (!doc) return null;
@@ -389,6 +545,26 @@ export async function getConversationDetails(
     ? (doc as { notes?: string }).notes || ''
     : '';
   const payment = (doc as { paymentDetails?: Partial<PaymentDetails> }).paymentDetails || {};
+  const rawTimeline = (doc as { timelineEvents?: unknown }).timelineEvents;
+  const contact = (doc as { contactDetails?: Partial<ConversationContactDetails> }).contactDetails || {};
+  const timelineEvents: ConversationTimelineEvent[] = Array.isArray(rawTimeline)
+    ? rawTimeline
+        .map((event) => {
+          const e = event as Partial<ConversationTimelineEvent>;
+          if (
+            typeof e.id !== 'string' ||
+            e.type !== 'status_update' ||
+            typeof e.status !== 'string' ||
+            typeof e.title !== 'string' ||
+            typeof e.sub !== 'string' ||
+            typeof e.timestamp !== 'string'
+          ) {
+            return null;
+          }
+          return e as ConversationTimelineEvent;
+        })
+        .filter((event): event is ConversationTimelineEvent => event !== null)
+    : [];
 
   return {
     notes,
@@ -400,6 +576,11 @@ export async function getConversationDetails(
       setterPaid: payment.setterPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.setterPaid,
       closerPaid: payment.closerPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.closerPaid,
       paymentNotes: typeof payment.paymentNotes === 'string' ? payment.paymentNotes : DEFAULT_PAYMENT_DETAILS.paymentNotes,
+    },
+    timelineEvents,
+    contactDetails: {
+      phoneNumber: typeof contact.phoneNumber === 'string' ? contact.phoneNumber : DEFAULT_CONTACT_DETAILS.phoneNumber,
+      email: typeof contact.email === 'string' ? contact.email : DEFAULT_CONTACT_DETAILS.email,
     },
   };
 }
@@ -430,11 +611,48 @@ export async function updateConversationDetails(
     if (typeof payment.paymentNotes === 'string') setPayload['paymentDetails.paymentNotes'] = payment.paymentNotes;
   }
 
+  if (Array.isArray(details.timelineEvents)) {
+    setPayload.timelineEvents = details.timelineEvents;
+  }
+
+  if (details.contactDetails) {
+    const contact = details.contactDetails;
+    if (typeof contact.phoneNumber === 'string') setPayload['contactDetails.phoneNumber'] = contact.phoneNumber;
+    if (typeof contact.email === 'string') setPayload['contactDetails.email'] = contact.email;
+  }
+
   if (Object.keys(setPayload).length === 0) return;
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { recipientId, ownerEmail },
     { $set: setPayload }
+  );
+}
+
+export async function addStatusTimelineEvent(
+  recipientId: string,
+  ownerEmail: string,
+  status: StatusType
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  const timestamp = new Date().toISOString();
+  const event: ConversationTimelineEvent = {
+    id: `status_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    type: 'status_update',
+    status,
+    title: status,
+    sub: `Status changed to ${status}`,
+    timestamp,
+  };
+
+  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
+    { recipientId, ownerEmail },
+    {
+      $push: { timelineEvents: event },
+    } as any
   );
 }
 

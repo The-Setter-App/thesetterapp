@@ -13,10 +13,24 @@ import {
   updateConversationMetadata,
   findConversationByRecipientId,
   updateUserStatus,
-  updateUserAvatar
+  updateUserAvatar,
+  addStatusTimelineEvent
 } from '@/lib/inboxRepository';
 import { sseEmitter } from '@/app/api/sse/route';
-import type { User, Message } from '@/types/inbox';
+import type { User, Message, StatusType } from '@/types/inbox';
+
+function isStatusType(value: string): value is StatusType {
+  return (
+    value === 'Won' ||
+    value === 'Unqualified' ||
+    value === 'Booked' ||
+    value === 'New Lead' ||
+    value === 'Qualified' ||
+    value === 'No-Show' ||
+    value === 'In-Contact' ||
+    value === 'Retarget'
+  );
+}
 
 /**
  * Helper to get current authenticated user's email
@@ -357,6 +371,9 @@ export async function updateUserStatusAction(
   try {
     const ownerEmail = await getOwnerEmail();
     await updateUserStatus(recipientId, ownerEmail, newStatus);
+    if (isStatusType(newStatus)) {
+      await addStatusTimelineEvent(recipientId, ownerEmail, newStatus);
+    }
     // Emit SSE event for real-time update
     sseEmitter.emit('message', {
       type: 'user_status_updated',

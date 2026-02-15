@@ -118,3 +118,7 @@ url_link | https://api.example.com; -> this is wrong
 url_link; -> this is right
 middleware.ts is replaced by proxy.ts in NextJS 16+
 </nextjs>
+
+<notes_about_project>
+Frontend is optimistic for good UX, but backend should be pessimistic for security and data integrity. Always validate and sanitize on the server, even if the frontend is doing its best to prevent bad input.
+</notes_about_project>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
 import { User, StatusType } from "@/types/inbox";
+import type { ConversationContactDetails } from "@/types/inbox";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 
 const STATUS_OPTIONS: StatusType[] = [
@@ -48,16 +49,19 @@ const StatusIcon = ({ status, className }: { status: StatusType; className?: str
 
 interface DetailsPanelHeaderProps {
   user: User;
+  contactDetails: ConversationContactDetails;
+  onChangeContactDetails: (next: ConversationContactDetails) => void;
 }
 
 function isStatusType(value: unknown): value is StatusType {
   return typeof value === 'string' && STATUS_OPTIONS.includes(value as StatusType);
 }
 
-export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
+export default function DetailsPanelHeader({ user, contactDetails, onChangeContactDetails }: DetailsPanelHeaderProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
+  const [copiedField, setCopiedField] = useState<"phone" | "email" | null>(null);
 
   const userId = user.recipientId || user.id;
 
@@ -87,6 +91,22 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
     }
   });
   const displayName = user.name.replace("@", "");
+  const emailValue = contactDetails.email.trim();
+  const phoneValue = contactDetails.phoneNumber.trim();
+  const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+  const phoneDigits = phoneValue.replace(/\D/g, "");
+  const phoneValid = !phoneValue || (/^[0-9+\-() ]+$/.test(phoneValue) && phoneDigits.length >= 7 && phoneDigits.length <= 16);
+
+  const handleCopy = async (value: string, field: "phone" | "email") => {
+    if (!value.trim()) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      window.setTimeout(() => setCopiedField((prev) => (prev === field ? null : prev)), 1200);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
 
   const handleStatusSelect = async (newStatus: StatusType) => {
     if (newStatus === currentStatus) {
@@ -188,13 +208,44 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
 
       {/* Contact Fields */}
       <div className="w-full space-y-0">
-        <div className="flex items-center justify-between p-3 bg-white rounded-t-xl border border-gray-200 border-b-0 group cursor-pointer shadow-sm">
-          <span className="text-sm text-gray-400 px-1">Phone Number</span>
-          <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+        <div className={`flex items-center justify-between p-3 bg-white rounded-t-xl border border-b-0 group shadow-sm ${phoneValid ? "border-gray-200" : "border-rose-300"}`}>
+          <input
+            type="text"
+            placeholder="Phone Number"
+            value={contactDetails.phoneNumber}
+            onChange={(e) =>
+              onChangeContactDetails({
+                ...contactDetails,
+                phoneNumber: e.target.value.replace(/[^0-9+\-() ]/g, ""),
+              })
+            }
+            className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handleCopy(contactDetails.phoneNumber, "phone")}
+            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+          >
+            <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+            <span className="ml-1">{copiedField === "phone" ? "Copied" : "Copy"}</span>
+          </button>
         </div>
-        <div className="flex items-center justify-between p-3 bg-white rounded-b-xl border border-gray-200 group cursor-pointer shadow-sm">
-          <span className="text-sm text-gray-400 px-1">Email</span>
-          <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+        <div className={`flex items-center justify-between p-3 bg-white rounded-b-xl border group shadow-sm ${emailValid ? "border-gray-200" : "border-rose-300"}`}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={contactDetails.email}
+            onChange={(e) => onChangeContactDetails({ ...contactDetails, email: e.target.value })}
+            className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handleCopy(contactDetails.email, "email")}
+            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+          >
+            <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+            <span className="ml-1">{copiedField === "email" ? "Copied" : "Copy"}</span>
+          </button>
         </div>
       </div>
 

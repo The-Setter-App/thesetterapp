@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
 import { getCachedUsers, getCachedMessages, setCachedMessages } from '@/lib/clientCache';
-import type { User, Message, MessagePageResponse } from '@/types/inbox';
+import type { User, Message, MessagePageResponse, ConversationDetails } from '@/types/inbox';
 import { useSSE } from '@/hooks/useSSE';
 
 export function useChat(selectedUserId: string) {
@@ -15,6 +15,8 @@ export function useChat(selectedUserId: string) {
   const [statusUpdate, setStatusUpdate] = useState<{ status: string; timestamp: Date | string } | undefined>(undefined);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
+  const [conversationDetailsSyncedAt, setConversationDetailsSyncedAt] = useState(0);
 
   // Refs for race condition handling and dedup
   const fetchGenRef = useRef(0);
@@ -45,6 +47,15 @@ export function useChat(selectedUserId: string) {
     const page = await fetchMessagePage(1);
     if (!page.messages.length) return null;
     return page.messages[page.messages.length - 1];
+  }
+
+  async function fetchConversationDetails(): Promise<ConversationDetails | null> {
+    const response = await fetch(`/api/inbox/conversations/${encodeURIComponent(selectedUserId)}/details`);
+    if (!response.ok) {
+      throw new Error('Failed to load conversation details');
+    }
+    const data = await response.json();
+    return data.details ?? null;
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,6 +100,8 @@ export function useChat(selectedUserId: string) {
         setHasMoreMessages(true);
         nextCursorRef.current = null;
         clearReconcileTimers();
+        setConversationDetails(null);
+        setConversationDetailsSyncedAt(0);
 
         const cachedMessages = await getCachedMessages(selectedUserId);
         if (cachedMessages && cachedMessages.length > 0) {
@@ -96,10 +109,15 @@ export function useChat(selectedUserId: string) {
           setLoading(false);
         }
 
-        const page = await fetchMessagePage(INITIAL_PAGE_SIZE);
+        const [page, details] = await Promise.all([
+          fetchMessagePage(INITIAL_PAGE_SIZE),
+          fetchConversationDetails(),
+        ]);
         if (gen !== fetchGenRef.current) return;
 
         setChatHistory(page.messages);
+        setConversationDetails(details);
+        setConversationDetailsSyncedAt(Date.now());
         nextCursorRef.current = page.nextCursor;
         setHasMoreMessages(page.hasMore);
         setCachedMessages(selectedUserId, page.messages).catch(e => console.error('Cache update failed:', e));
@@ -362,18 +380,20 @@ export function useChat(selectedUserId: string) {
     // Create optimistic message
     const optimisticMessage: Message = {
       id: tempId,
+      clientTempId: tempId,
       fromMe: true,
       type: 'audio',
       timestamp: now,
       attachmentUrl: URL.createObjectURL(blob),
       duration: formatDuration(duration),
+      pending: true,
     };
 
     setChatHistory((prev) => [...prev, optimisticMessage]);
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
-    updateConversationPreview(selectedUserId, '🎤 Voice Message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
+    updateConversationPreview(selectedUserId, 'Voice message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
       .catch(err => console.error('Failed to update preview:', err));
 
     try {
@@ -385,6 +405,8 @@ export function useChat(selectedUserId: string) {
       formData.append('file', file);
       formData.append('recipientId', user.recipientId);
       formData.append('type', 'audio');
+      formData.append('clientTempId', tempId);
+      formData.append('duration', formatDuration(duration));
 
       const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to send audio');
@@ -433,5 +455,7 @@ export function useChat(selectedUserId: string) {
     handleSendAudio,
     statusUpdate,
     loadOlderMessages,
+    conversationDetails,
+    conversationDetailsSyncedAt,
   };
 }

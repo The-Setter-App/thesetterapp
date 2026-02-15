@@ -16,19 +16,13 @@ interface ChatWindowProps {
   };
 }
 
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-  </svg>
-);
-
 export default function ChatWindow({
   messages,
   loading,
   loadingOlder,
   hasMore,
   onLoadMore,
-  statusUpdate
+  statusUpdate: _statusUpdate
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -108,26 +102,6 @@ export default function ChatWindow({
       </div>
     );
   }
-
-  const formatStatusTimestamp = (timestamp: Date | string) => {
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-    
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    const dayName = days[date.getDay()];
-    const monthName = months[date.getMonth()];
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    const minutesStr = minutes < 10 ? `0${minutes}` : minutes;
-    
-    return `${dayName}, ${monthName} ${day}, ${year} ${hours}:${minutesStr} ${ampm}`;
-  };
 
   return (
     <div
@@ -221,15 +195,6 @@ export default function ChatWindow({
         </div>
       ))}
 
-      {/* Status Update Marker */}
-      {statusUpdate && (
-        <div className="flex flex-col items-center py-6">
-          <StarIcon className="w-6 h-6 text-yellow-400 mb-2" />
-          <div className="font-bold text-sm text-gray-800">Status Update: {statusUpdate.status}</div>
-          <div className="text-[10px] text-gray-400">{formatStatusTimestamp(statusUpdate.timestamp)}</div>
-        </div>
-      )}
-      
       {/* Scroll anchor */}
       <div ref={bottomRef} />
 

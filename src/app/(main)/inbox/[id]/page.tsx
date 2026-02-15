@@ -29,6 +29,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     handleSendAudio,
     statusUpdate,
     loadOlderMessages,
+    conversationDetails,
+    conversationDetailsSyncedAt,
   } = useChat(id);
 
   const handleRightResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -111,7 +113,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           >
             <div className="w-px bg-stone-200 group-hover:bg-stone-300 transition-colors" />
           </div>
-          <DetailsPanel user={user} width={rightWidth} />
+          <DetailsPanel
+            user={user}
+            width={rightWidth}
+            syncedDetails={conversationDetails}
+            syncedAt={conversationDetailsSyncedAt}
+          />
         </>
       )}
     </div>

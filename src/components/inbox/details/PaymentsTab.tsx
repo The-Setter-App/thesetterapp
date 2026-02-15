@@ -67,6 +67,8 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
   const parsedAmount = parseAmountToNumber(value.amount);
   const setterCommission = parsedAmount * COMMISSION_RATE;
   const closerCommission = parsedAmount * COMMISSION_RATE;
+  const amountValue = value.amount.trim();
+  const amountValid = !amountValue || Number.isFinite(Number.parseFloat(amountValue.replace(/[^0-9.]/g, "")));
 
   return (
     <div className="p-6 overflow-y-auto pb-20">
@@ -74,12 +76,12 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
         <div>
           <label className="text-xs text-gray-600 font-medium mb-1 block">Amount</label>
           <input
-            className="h-11 border border-gray-200 rounded-lg px-3 bg-white text-sm font-medium text-gray-900 w-full outline-none"
+            className={`h-11 border rounded-lg px-3 bg-white text-sm font-medium text-gray-900 w-full outline-none ${amountValid ? "border-gray-200" : "border-rose-300"}`}
             value={value.amount}
             placeholder="Ex: 4000 or $4,000"
             onChange={(e) => onChange({ ...value, amount: e.target.value })}
           />
-          <Hint text="Type total deal amount in USD." />
+          <Hint text={amountValid ? "Type total deal amount in USD." : "Amount must be numeric."} />
         </div>
         <div>
           <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Method</label>

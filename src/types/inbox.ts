@@ -94,9 +94,25 @@ export interface PaymentDetails {
   paymentNotes: string;
 }
 
+export interface ConversationTimelineEvent {
+  id: string;
+  type: 'status_update';
+  status: StatusType;
+  title: string;
+  sub: string;
+  timestamp: string;
+}
+
+export interface ConversationContactDetails {
+  phoneNumber: string;
+  email: string;
+}
+
 export interface ConversationDetails {
   notes: string;
   paymentDetails: PaymentDetails;
+  timelineEvents: ConversationTimelineEvent[];
+  contactDetails: ConversationContactDetails;
 }
 
 export interface Message {
@@ -111,6 +127,13 @@ export interface Message {
   isEmpty?: boolean;
   pending?: boolean;
   clientTempId?: string;
+  source?: 'instagram' | 'local_audio_fallback';
+  audioStorage?: {
+    kind: 'gridfs';
+    fileId: string;
+    mimeType: string;
+    size: number;
+  };
 }
 
 export interface MessagePageResponse {
