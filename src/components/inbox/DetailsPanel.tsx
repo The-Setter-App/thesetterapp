@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User } from "@/types/inbox";
+import type { PaymentDetails } from "@/types/inbox";
 import DetailsPanelHeader from "./details/DetailsPanelHeader";
 import SummaryTab from "./details/SummaryTab";
 import NotesTab from "./details/NotesTab";
@@ -20,6 +21,90 @@ interface DetailsPanelProps {
 
 export default function DetailsPanel({ user, width }: DetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailsTabName>("Summary");
+  const [notes, setNotes] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
+    amount: "",
+    paymentMethod: "Fanbasis",
+    payOption: "One Time",
+    paymentFrequency: "One Time",
+    setterPaid: "No",
+    closerPaid: "No",
+    paymentNotes: "",
+  });
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const recipientId = user.recipientId;
+
+    if (!recipientId) return;
+
+    setDetailsLoaded(false);
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/inbox/conversations/${encodeURIComponent(recipientId)}/details`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active) return;
+
+        setNotes(data.details?.notes ?? "");
+        setPaymentDetails({
+          amount: data.details?.paymentDetails?.amount ?? "",
+          paymentMethod: data.details?.paymentDetails?.paymentMethod ?? "Fanbasis",
+          payOption: data.details?.paymentDetails?.payOption ?? "One Time",
+          paymentFrequency: data.details?.paymentDetails?.paymentFrequency ?? "One Time",
+          setterPaid: data.details?.paymentDetails?.setterPaid ?? "No",
+          closerPaid: data.details?.paymentDetails?.closerPaid ?? "No",
+          paymentNotes: data.details?.paymentDetails?.paymentNotes ?? "",
+        });
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to fetch details:", error);
+      } finally {
+        if (active) setDetailsLoaded(true);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user.recipientId]);
+
+  useEffect(() => {
+    if (!detailsLoaded || !user.recipientId) return;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId!)}/details`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes }),
+        });
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to save notes:", error);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [notes, detailsLoaded, user.recipientId]);
+
+  useEffect(() => {
+    if (!detailsLoaded || !user.recipientId) return;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId!)}/details`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentDetails }),
+        });
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to save payment details:", error);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [paymentDetails, detailsLoaded, user.recipientId]);
 
   const getTabButtonClass = (tabName: DetailsTabName) => {
     const isActive = activeTab === tabName;
@@ -54,9 +139,9 @@ export default function DetailsPanel({ user, width }: DetailsPanelProps) {
       {/* Tab Content */}
       <div className="flex-1 bg-white overflow-hidden flex flex-col">
         {activeTab === "Summary" && <SummaryTab />}
-        {activeTab === "Notes" && <NotesTab />}
+        {activeTab === "Notes" && <NotesTab notes={notes} onChange={setNotes} />}
         {activeTab === "Timeline" && <TimelineTab />}
-        {activeTab === "Payments" && <PaymentsTab />}
+        {activeTab === "Payments" && <PaymentsTab value={paymentDetails} onChange={setPaymentDetails} />}
         {activeTab === "Calls" && <CallsTab />}
       </div>
     </aside>

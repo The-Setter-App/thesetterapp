@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useCallback, useRef } from 'react';
+import { useState, use, useCallback, useEffect, useRef } from 'react';
 import ChatWindow from '@/components/inbox/ChatWindow';
 import DetailsPanel from '@/components/inbox/DetailsPanel';
 import ChatHeader from '@/components/inbox/ChatHeader';
@@ -31,11 +31,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     loadOlderMessages,
   } = useChat(id);
 
-  const handleRightResizeStart = useCallback(() => {
+  const handleRightResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
     isResizingRightRef.current = true;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
   }, []);
 
-  const handleRightResizeMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+  const handleRightResizeMove = useCallback((event: MouseEvent) => {
     if (!isResizingRightRef.current) return;
     const nextWidth = Math.max(320, Math.min(620, window.innerWidth - event.clientX));
     setRightWidth(nextWidth);
@@ -43,7 +46,21 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   const handleRightResizeEnd = useCallback(() => {
     isResizingRightRef.current = false;
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleRightResizeMove);
+    window.addEventListener('mouseup', handleRightResizeEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleRightResizeMove);
+      window.removeEventListener('mouseup', handleRightResizeEnd);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [handleRightResizeMove, handleRightResizeEnd]);
 
   if (!user && !loading) {
     return (
@@ -54,12 +71,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }
 
   return (
-    <div
-      className="flex-1 flex h-full overflow-hidden"
-      onMouseMove={handleRightResizeMove}
-      onMouseUp={handleRightResizeEnd}
-      onMouseLeave={handleRightResizeEnd}
-    >
+    <div className="flex-1 flex h-full overflow-hidden">
       <main className="flex-1 flex flex-col min-w-0 bg-white border-r border-gray-200">
         <ChatHeader 
           user={user} 
@@ -92,11 +104,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       {user && showVisible && (
         <>
           <div
-            className="hidden md:block w-1 cursor-col-resize bg-stone-200 hover:bg-stone-300 transition-colors"
+            className="group hidden md:flex w-3 -mx-1 cursor-ew-resize items-stretch justify-center select-none touch-none"
             onMouseDown={handleRightResizeStart}
             aria-label="Resize right sidebar"
             role="separator"
-          />
+          >
+            <div className="w-px bg-stone-200 group-hover:bg-stone-300 transition-colors" />
+          </div>
           <DetailsPanel user={user} width={rightWidth} />
         </>
       )}

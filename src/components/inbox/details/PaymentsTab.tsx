@@ -1,191 +1,170 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import FieldDropdown, { type DropdownOption } from "./FieldDropdown";
+import type { PaymentDetails } from "@/types/inbox";
 
-interface PaymentMethod {
-  name: string;
-  icon: string;
+interface PaymentsTabProps {
+  value: PaymentDetails;
+  onChange: (next: PaymentDetails) => void;
 }
 
-const paymentMethods: PaymentMethod[] = [
-  { name: "Fanbasis", icon: "/icons/PaymentIcons/Fanbasis.svg" },
-  { name: "Whop", icon: "/icons/PaymentIcons/Whop.svg" },
-  { name: "Stripe", icon: "/icons/PaymentIcons/Stripe.svg" },
-  { name: "PayPal", icon: "/icons/PaymentIcons/PayPal.svg" },
-  { name: "Zelle", icon: "/icons/PaymentIcons/Zelle.svg" },
-  { name: "Wire/Invoice", icon: "/icons/PaymentIcons/Wire.svg" },
-  { name: "Venmo", icon: "/icons/PaymentIcons/Venmo.svg" },
-  { name: "Cash App", icon: "/icons/PaymentIcons/CashApp.svg" },
-  { name: "Crypto", icon: "/icons/PaymentIcons/Crypto.svg" },
-  { name: "Other", icon: "/icons/PaymentIcons/Other.svg" },
+const COMMISSION_RATE = 0.05;
+
+const PAYMENT_METHOD_OPTIONS: DropdownOption[] = [
+  { value: "Fanbasis", label: "Fanbasis", iconSrc: "/icons/PaymentIcons/Fanbasis.svg" },
+  { value: "Whop", label: "Whop", iconSrc: "/icons/PaymentIcons/Whop.svg" },
+  { value: "Stripe", label: "Stripe", iconSrc: "/icons/PaymentIcons/Stripe.svg" },
+  { value: "PayPal", label: "PayPal", iconSrc: "/icons/PaymentIcons/PayPal.svg" },
+  { value: "Zelle", label: "Zelle", iconSrc: "/icons/PaymentIcons/Zelle.svg" },
+  { value: "Wire/Invoice", label: "Wire/Invoice", iconSrc: "/icons/PaymentIcons/Wire.svg" },
+  { value: "Venmo", label: "Venmo", iconSrc: "/icons/PaymentIcons/Venmo.svg" },
+  { value: "Cash App", label: "Cash App", iconSrc: "/icons/PaymentIcons/CashApp.svg" },
+  { value: "Crypto", label: "Crypto", iconSrc: "/icons/PaymentIcons/Crypto.svg" },
+  { value: "Other", label: "Other", iconSrc: "/icons/PaymentIcons/Other.svg" },
 ];
 
-function PaymentMethodDropdown({ value, onChange }: { value: string; onChange: (val: string) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+const PAY_OPTION_OPTIONS: DropdownOption[] = [
+  { value: "One Time", label: "One Time" },
+  { value: "2 Installments", label: "2 Installments" },
+  { value: "3 Installments", label: "3 Installments" },
+  { value: "4 Installments", label: "4 Installments" },
+  { value: "6 Installments", label: "6 Installments" },
+  { value: "12 Installments", label: "12 Installments" },
+];
 
-  const selectedMethod = paymentMethods.find((m) => m.name === value) || paymentMethods[0];
+const PAYMENT_FREQUENCY_OPTIONS: DropdownOption[] = [
+  { value: "One Time", label: "One Time" },
+  { value: "Weekly", label: "Weekly" },
+  { value: "Biweekly", label: "Biweekly" },
+  { value: "Monthly", label: "Monthly" },
+  { value: "Quarterly", label: "Quarterly" },
+];
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+const PAID_OPTIONS: DropdownOption[] = [
+  { value: "No", label: "No" },
+  { value: "Yes", label: "Yes" },
+];
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <div
-        className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm font-medium text-gray-900 flex items-center justify-between cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="flex items-center">
-          <span className="w-5 h-5 rounded flex items-center justify-center text-[10px] mr-2">
-            <img src={selectedMethod.icon} alt={selectedMethod.name} className="w-4 h-4" />
-          </span>
-          {selectedMethod.name}
-        </div>
-        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-      {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto border border-gray-200">
-          {paymentMethods.map((method) => (
-            <div
-              key={method.name}
-              className="flex items-center justify-between p-2.5 hover:bg-gray-100 cursor-pointer"
-              onClick={() => { onChange(method.name); setIsOpen(false); }}
-            >
-              <div className="flex items-center">
-                <span className="w-5 h-5 rounded flex items-center justify-center text-[10px] mr-2">
-                  <img src={method.icon} alt={method.name} className="w-4 h-4" />
-                </span>
-                <span className="text-sm font-medium text-gray-900">{method.name}</span>
-              </div>
-              {value === method.name ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-blue-500">
-                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <div className="w-5 h-5 rounded-full border border-gray-200" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function parseAmountToNumber(amount: string): number {
+  const cleaned = amount.replace(/[^0-9.]/g, "");
+  const numeric = Number.parseFloat(cleaned);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
-const ChevronDownSmall = () => (
-  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
-export default function PaymentsTab() {
-  const [amount, setAmount] = useState("$4,000 USD");
-  const [paymentMethod, setPaymentMethod] = useState("Fanbasis");
-  const [setterPaid, setSetterPaid] = useState("Yes");
-  const [closerPaid, setCloserPaid] = useState("No");
-  const [paymentNotes, setPaymentNotes] = useState("Guy wants to work 1 on 1 on his fitness offer");
+function Hint({ text }: { text: string }) {
+  return <p className="mt-1 text-[11px] text-gray-400">{text}</p>;
+}
+
+export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
+  const parsedAmount = parseAmountToNumber(value.amount);
+  const setterCommission = parsedAmount * COMMISSION_RATE;
+  const closerCommission = parsedAmount * COMMISSION_RATE;
 
   return (
     <div className="p-6 overflow-y-auto pb-20">
-      {/* Amount & Payment Method */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Amount</label>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Amount</label>
           <input
-            className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm font-medium text-gray-900 w-full outline-none"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            className="h-11 border border-gray-200 rounded-lg px-3 bg-white text-sm font-medium text-gray-900 w-full outline-none"
+            value={value.amount}
+            placeholder="Ex: 4000 or $4,000"
+            onChange={(e) => onChange({ ...value, amount: e.target.value })}
           />
+          <Hint text="Type total deal amount in USD." />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Payment Method</label>
-          <PaymentMethodDropdown value={paymentMethod} onChange={setPaymentMethod} />
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Method</label>
+          <FieldDropdown
+            value={value.paymentMethod}
+            options={PAYMENT_METHOD_OPTIONS}
+            placeholder="Select payment method"
+            onChange={(paymentMethod) => onChange({ ...value, paymentMethod })}
+          />
+          <Hint text="Choose where the client paid." />
         </div>
       </div>
 
-      {/* Pay Option & Frequency */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Pay Option</label>
-          <div className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 flex items-center justify-between">
-            6 Installments
-            <ChevronDownSmall />
-          </div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Pay Option</label>
+          <FieldDropdown
+            value={value.payOption}
+            options={PAY_OPTION_OPTIONS}
+            placeholder="Select pay option"
+            onChange={(payOption) => onChange({ ...value, payOption })}
+          />
+          <Hint text="Pick one-time or installment count." />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Payment Frequency</label>
-          <div className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 flex items-center justify-between">
-            One Time
-            <ChevronDownSmall />
-          </div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Frequency</label>
+          <FieldDropdown
+            value={value.paymentFrequency}
+            options={PAYMENT_FREQUENCY_OPTIONS}
+            placeholder="Select payment frequency"
+            onChange={(paymentFrequency) => onChange({ ...value, paymentFrequency })}
+          />
+          <Hint text="How often installment payments happen." />
         </div>
       </div>
 
-      {/* Commissions */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Setter Commission</label>
-          <div className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-400">$200</div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Setter Commission</label>
+          <div className="h-11 border border-gray-200 rounded-lg px-3 bg-stone-50 text-sm text-gray-700 flex items-center">
+            {formatCurrency(setterCommission)}
+          </div>
+          <Hint text="Auto-calculated at 5% of amount." />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Closer Commission</label>
-          <div className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-400">$400</div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Closer Commission</label>
+          <div className="h-11 border border-gray-200 rounded-lg px-3 bg-stone-50 text-sm text-gray-700 flex items-center">
+            {formatCurrency(closerCommission)}
+          </div>
+          <Hint text="Auto-calculated at 5% of amount." />
         </div>
       </div>
 
-      {/* Paid Status */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Setter Paid</label>
-          <div className="relative">
-            <select
-              className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 w-full appearance-none outline-none"
-              value={setterPaid}
-              onChange={(e) => setSetterPaid(e.target.value)}
-            >
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-            <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Setter Paid</label>
+          <FieldDropdown
+            value={value.setterPaid}
+            options={PAID_OPTIONS}
+            placeholder="Select status"
+            onChange={(setterPaid) => onChange({ ...value, setterPaid: setterPaid as "Yes" | "No" })}
+          />
+          <Hint text="Mark if setter commission was paid." />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium mb-1 block">Closer Paid</label>
-          <div className="relative">
-            <select
-              className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 w-full appearance-none outline-none"
-              value={closerPaid}
-              onChange={(e) => setCloserPaid(e.target.value)}
-            >
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-            <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+          <label className="text-xs text-gray-600 font-medium mb-1 block">Closer Paid</label>
+          <FieldDropdown
+            value={value.closerPaid}
+            options={PAID_OPTIONS}
+            placeholder="Select status"
+            onChange={(closerPaid) => onChange({ ...value, closerPaid: closerPaid as "Yes" | "No" })}
+          />
+          <Hint text="Mark if closer commission was paid." />
         </div>
       </div>
 
-      {/* Payment Notes */}
       <div className="mb-4">
-        <label className="text-xs text-gray-500 font-medium mb-1 block">Payment notes</label>
+        <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Notes</label>
         <textarea
-          className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 h-32 w-full resize-none outline-none"
-          value={paymentNotes}
-          onChange={(e) => setPaymentNotes(e.target.value)}
+          className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 h-28 w-full resize-none outline-none"
+          value={value.paymentNotes}
+          placeholder="Add transaction context, receipts, or follow-up notes"
+          onChange={(e) => onChange({ ...value, paymentNotes: e.target.value })}
         />
+        <Hint text="Internal notes about this payment." />
       </div>
     </div>
   );

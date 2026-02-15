@@ -1,10 +1,20 @@
 import clientPromise from '@/lib/mongodb';
-import { User, Message } from '@/types/inbox';
+import { User, Message, ConversationDetails, PaymentDetails } from '@/types/inbox';
 
 const DB_NAME = 'thesetterapp';
 const CONVERSATIONS_COLLECTION = 'conversations';
 const MESSAGES_COLLECTION = 'messages';
 const SYNC_COLLECTION = 'inbox_sync_jobs';
+
+const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
+  amount: '',
+  paymentMethod: 'Fanbasis',
+  payOption: 'One Time',
+  paymentFrequency: 'One Time',
+  setterPaid: 'No',
+  closerPaid: 'No',
+  paymentNotes: '',
+};
 
 let indexesReady = false;
 
@@ -357,6 +367,74 @@ export async function updateUserAvatar(
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { recipientId, ownerEmail },
     { $set: { avatar: avatarUrl } }
+  );
+}
+
+export async function getConversationDetails(
+  recipientId: string,
+  ownerEmail: string
+): Promise<ConversationDetails | null> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
+    { recipientId, ownerEmail },
+    { projection: { notes: 1, paymentDetails: 1 } }
+  );
+
+  if (!doc) return null;
+
+  const notes = typeof (doc as { notes?: unknown }).notes === 'string'
+    ? (doc as { notes?: string }).notes || ''
+    : '';
+  const payment = (doc as { paymentDetails?: Partial<PaymentDetails> }).paymentDetails || {};
+
+  return {
+    notes,
+    paymentDetails: {
+      amount: typeof payment.amount === 'string' ? payment.amount : DEFAULT_PAYMENT_DETAILS.amount,
+      paymentMethod: typeof payment.paymentMethod === 'string' ? payment.paymentMethod : DEFAULT_PAYMENT_DETAILS.paymentMethod,
+      payOption: typeof payment.payOption === 'string' ? payment.payOption : DEFAULT_PAYMENT_DETAILS.payOption,
+      paymentFrequency: typeof payment.paymentFrequency === 'string' ? payment.paymentFrequency : DEFAULT_PAYMENT_DETAILS.paymentFrequency,
+      setterPaid: payment.setterPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.setterPaid,
+      closerPaid: payment.closerPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.closerPaid,
+      paymentNotes: typeof payment.paymentNotes === 'string' ? payment.paymentNotes : DEFAULT_PAYMENT_DETAILS.paymentNotes,
+    },
+  };
+}
+
+export async function updateConversationDetails(
+  recipientId: string,
+  ownerEmail: string,
+  details: Partial<ConversationDetails>
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  const setPayload: Record<string, unknown> = {};
+
+  if (typeof details.notes === 'string') {
+    setPayload.notes = details.notes;
+  }
+
+  if (details.paymentDetails) {
+    const payment = details.paymentDetails;
+    if (typeof payment.amount === 'string') setPayload['paymentDetails.amount'] = payment.amount;
+    if (typeof payment.paymentMethod === 'string') setPayload['paymentDetails.paymentMethod'] = payment.paymentMethod;
+    if (typeof payment.payOption === 'string') setPayload['paymentDetails.payOption'] = payment.payOption;
+    if (typeof payment.paymentFrequency === 'string') setPayload['paymentDetails.paymentFrequency'] = payment.paymentFrequency;
+    if (payment.setterPaid === 'Yes' || payment.setterPaid === 'No') setPayload['paymentDetails.setterPaid'] = payment.setterPaid;
+    if (payment.closerPaid === 'Yes' || payment.closerPaid === 'No') setPayload['paymentDetails.closerPaid'] = payment.closerPaid;
+    if (typeof payment.paymentNotes === 'string') setPayload['paymentDetails.paymentNotes'] = payment.paymentNotes;
+  }
+
+  if (Object.keys(setPayload).length === 0) return;
+
+  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
+    { recipientId, ownerEmail },
+    { $set: setPayload }
   );
 }
 

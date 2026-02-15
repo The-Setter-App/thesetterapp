@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+interface NotesTabProps {
+  notes: string;
+  onChange: (next: string) => void;
+}
 
-export default function NotesTab() {
-  const [notes, setNotes] = useState("Guy said he wants to become a astronaut I guess");
+export default function NotesTab({ notes, onChange }: NotesTabProps) {
 
   return (
     <div className="p-6">
@@ -11,9 +13,11 @@ export default function NotesTab() {
         <textarea
           className="text-gray-700 font-bold text-sm w-full h-full resize-none outline-none"
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add notes about this lead, objections, and next step."
+          onChange={(e) => onChange(e.target.value)}
         />
       </div>
+      <p className="mt-2 text-[11px] text-gray-400">Saved per conversation. Keep key context here for the team.</p>
     </div>
   );
 }

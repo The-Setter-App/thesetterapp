@@ -80,6 +80,23 @@ export interface User {
   isActive?: boolean;
   conversationId?: string;
   recipientId?: string;
+  notes?: string;
+  paymentDetails?: PaymentDetails;
+}
+
+export interface PaymentDetails {
+  amount: string;
+  paymentMethod: string;
+  payOption: string;
+  paymentFrequency: string;
+  setterPaid: 'Yes' | 'No';
+  closerPaid: 'Yes' | 'No';
+  paymentNotes: string;
+}
+
+export interface ConversationDetails {
+  notes: string;
+  paymentDetails: PaymentDetails;
 }
 
 export interface Message {
