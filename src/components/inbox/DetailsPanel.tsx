@@ -15,9 +15,10 @@ const DETAILS_TABS: DetailsTabName[] = ["Summary", "Notes", "Timeline", "Payment
 
 interface DetailsPanelProps {
   user: User;
+  width?: number;
 }
 
-export default function DetailsPanel({ user }: DetailsPanelProps) {
+export default function DetailsPanel({ user, width }: DetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailsTabName>("Summary");
 
   const getTabButtonClass = (tabName: DetailsTabName) => {
@@ -28,7 +29,10 @@ export default function DetailsPanel({ user }: DetailsPanelProps) {
   };
 
   return (
-    <aside className="w-[400px] bg-white flex flex-col flex-shrink-0 relative">
+    <aside
+      className="bg-white flex flex-col flex-shrink-0 relative"
+      style={width ? { width: `${width}px` } : { width: "400px" }}
+    >
       {/* Header: Avatar, Name, Status, Contacts, Setter/Closer */}
       <DetailsPanelHeader user={user} />
 

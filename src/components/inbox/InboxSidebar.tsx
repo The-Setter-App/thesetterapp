@@ -56,7 +56,11 @@ function isStatusType(value: unknown): value is StatusType {
 }
 
 
-export default function InboxSidebar() {
+interface InboxSidebarProps {
+  width?: number;
+}
+
+export default function InboxSidebar({ width }: InboxSidebarProps) {
   const router = useRouter();
   const params = useParams();
   const selectedUserId = params?.id as string;
@@ -168,7 +172,10 @@ export default function InboxSidebar() {
   });
 
   return (
-    <aside className={`${inter.className} w-[380px] border-r border-gray-200 bg-white flex flex-col flex-shrink-0 h-full antialiased`}>
+    <aside
+      className={`${inter.className} border-r border-gray-200 bg-white flex flex-col flex-shrink-0 h-full antialiased`}
+      style={width ? { width: `${width}px` } : undefined}
+    >
       {/* Sidebar Header */}
       <div className="p-4 pb-3 border-b border-gray-200">
         <h2 className="text-xl font-bold tracking-tight mb-1 text-gray-800">Inbox</h2>

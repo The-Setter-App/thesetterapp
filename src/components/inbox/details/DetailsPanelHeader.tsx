@@ -132,8 +132,7 @@ export default function DetailsPanelHeader({ user }: DetailsPanelHeaderProps) {
 
       {/* Name & Handle */}
       <h3 className="font-bold text-xl text-gray-900">{displayName}</h3>
-      <p className="text-sm text-gray-500 mb-1">{user.name}</p>
-      <p className="text-sm text-gray-300 mb-5">我知道你知道.</p>
+      <p className="text-sm text-gray-500 mb-5">{user.name}</p>
 
       {/* Status Button */}
       <div className="relative w-full mb-4">
