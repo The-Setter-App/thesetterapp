@@ -160,6 +160,7 @@ export interface SSEMessageData {
   recipientId: string;
   messageId: string;
   text?: string;
+  duration?: string;
   attachments?: SSEAttachment[];
   timestamp: number;
   conversationId?: string;

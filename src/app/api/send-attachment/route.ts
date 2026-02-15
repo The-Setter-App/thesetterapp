@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
           recipientId,
           messageId: savedMessage.id,
           text: '',
+          duration: savedMessage.duration,
           attachments: [
             {
               type: 'audio',

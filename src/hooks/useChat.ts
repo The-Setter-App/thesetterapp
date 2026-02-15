@@ -135,7 +135,7 @@ export function useChat(selectedUserId: string) {
   useSSE('/api/sse', {
     onMessage: (message) => {
       if (message.type === 'new_message' || message.type === 'message_echo') {
-        const { fromMe: sseFromMe, text, messageId, timestamp, attachments } = message.data;
+        const { fromMe: sseFromMe, text, messageId, timestamp, attachments, duration } = message.data;
         const isForThisConversation =
           message.data.senderId === selectedUserId ||
           message.data.recipientId === selectedUserId;
@@ -170,6 +170,7 @@ export function useChat(selectedUserId: string) {
           fromMe,
           type: messageType,
           text: text || '',
+          duration,
           timestamp: new Date(timestamp).toISOString(),
           attachmentUrl,
         };
@@ -195,6 +196,7 @@ export function useChat(selectedUserId: string) {
                   ...newMessage,
                   type: newMessage.type !== 'text' ? newMessage.type : msg.type,
                   attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
+                  duration: newMessage.duration || msg.duration,
                   pending: false,
                 };
               });
