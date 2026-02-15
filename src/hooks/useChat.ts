@@ -1,22 +1,51 @@
 import { useState, useEffect, useRef } from 'react';
-import { getInboxUsers, getConversationMessages, sendNewMessage, updateConversationPreview } from '@/app/actions/inbox';
+import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
 import { getCachedUsers, getCachedMessages, setCachedMessages } from '@/lib/clientCache';
-import type { User, Message } from '@/types/inbox';
+import type { User, Message, MessagePageResponse } from '@/types/inbox';
 import { useSSE } from '@/hooks/useSSE';
 
 export function useChat(selectedUserId: string) {
+  const INITIAL_PAGE_SIZE = 20;
   const [user, setUser] = useState<User | null>(null);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState('');
   const [statusUpdate, setStatusUpdate] = useState<{ status: string; timestamp: Date | string } | undefined>(undefined);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
   // Refs for race condition handling and dedup
   const fetchGenRef = useRef(0);
   const pendingTempIdsRef = useRef<string[]>([]);
+  const nextCursorRef = useRef<string | null>(null);
+  const reconcileTimersRef = useRef<number[]>([]);
+
+  const clearReconcileTimers = () => {
+    for (const timer of reconcileTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    reconcileTimersRef.current = [];
+  };
+
+  async function fetchMessagePage(limit: number, cursor?: string): Promise<MessagePageResponse> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+
+    const response = await fetch(`/api/inbox/conversations/${encodeURIComponent(selectedUserId)}/messages?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to load messages');
+    }
+
+    return response.json();
+  }
+
+  async function fetchLatestMessage(): Promise<Message | null> {
+    const page = await fetchMessagePage(1);
+    if (!page.messages.length) return null;
+    return page.messages[page.messages.length - 1];
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,17 +85,24 @@ export function useChat(selectedUserId: string) {
     async function loadMessages() {
       try {
         setLoading(true);
+        setLoadingOlder(false);
+        setHasMoreMessages(true);
+        nextCursorRef.current = null;
+        clearReconcileTimers();
+
         const cachedMessages = await getCachedMessages(selectedUserId);
         if (cachedMessages && cachedMessages.length > 0) {
-          setChatHistory(cachedMessages);
+          setChatHistory(cachedMessages.slice(-INITIAL_PAGE_SIZE));
           setLoading(false);
         }
 
-        const messages = await getConversationMessages(selectedUserId);
+        const page = await fetchMessagePage(INITIAL_PAGE_SIZE);
         if (gen !== fetchGenRef.current) return;
 
-        setChatHistory(messages);
-        setCachedMessages(selectedUserId, messages).catch(e => console.error('Cache update failed:', e));
+        setChatHistory(page.messages);
+        nextCursorRef.current = page.nextCursor;
+        setHasMoreMessages(page.hasMore);
+        setCachedMessages(selectedUserId, page.messages).catch(e => console.error('Cache update failed:', e));
         setLoading(false);
       } catch (err) {
         console.error('Error loading messages:', err);
@@ -96,15 +132,18 @@ export function useChat(selectedUserId: string) {
 
         if (attachments && attachments.length > 0) {
           const attachment = attachments[0];
-          if (attachment.image_data) {
+          const payloadUrl = attachment.payload?.url;
+          if (attachment.image_data || attachment.type === 'image') {
             messageType = 'image';
-            attachmentUrl = attachment.image_data.url;
-          } else if (attachment.video_data) {
+            attachmentUrl = attachment.image_data?.url || payloadUrl;
+          } else if (attachment.video_data || attachment.type === 'video') {
             messageType = 'video';
-            attachmentUrl = attachment.video_data.url;
-          } else if (attachment.file_url) {
-            messageType = 'file';
-            attachmentUrl = attachment.file_url;
+            attachmentUrl = attachment.video_data?.url || payloadUrl;
+          } else if (attachment.file_url || payloadUrl || attachment.type === 'audio' || attachment.type === 'file') {
+            const fileUrl = attachment.file_url || payloadUrl;
+            const isAudio = attachment.type === 'audio' || Boolean(fileUrl && (fileUrl.includes('audio') || fileUrl.endsWith('.mp3') || fileUrl.endsWith('.m4a') || fileUrl.endsWith('.ogg')));
+            messageType = isAudio ? 'audio' : 'file';
+            attachmentUrl = fileUrl;
           }
         }
 
@@ -124,7 +163,9 @@ export function useChat(selectedUserId: string) {
             const queue = pendingTempIdsRef.current;
             const queueIdx = queue.findIndex((tempId) => {
               const tempMsg = prev.find((m) => m.id === tempId);
-              return tempMsg && tempMsg.text === newMessage.text;
+              if (!tempMsg || !tempMsg.pending) return false;
+              if (tempMsg.text && newMessage.text) return tempMsg.text === newMessage.text;
+              return tempMsg.type === newMessage.type;
             });
 
             if (queueIdx !== -1) {
@@ -136,6 +177,7 @@ export function useChat(selectedUserId: string) {
                   ...newMessage,
                   type: newMessage.type !== 'text' ? newMessage.type : msg.type,
                   attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
+                  pending: false,
                 };
               });
               setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
@@ -147,20 +189,33 @@ export function useChat(selectedUserId: string) {
           return updated;
         });
       }
-
-      if (message.type === 'messages_synced') {
-        const syncedRecipientId = message.data?.recipientId;
-        if (syncedRecipientId === selectedUserId) {
-          getConversationMessages(selectedUserId).then((freshMessages) => {
-            if (freshMessages && freshMessages.length > 0) {
-              setChatHistory(freshMessages);
-              setCachedMessages(selectedUserId, freshMessages).catch(e => console.error('Cache update failed:', e));
-            }
-          }).catch(err => console.error('Failed to refresh after sync:', err));
-        }
-      }
     },
   });
+
+  const loadOlderMessages = async () => {
+    if (loadingOlder || !hasMoreMessages || !nextCursorRef.current) return;
+
+    try {
+      setLoadingOlder(true);
+      const page = await fetchMessagePage(INITIAL_PAGE_SIZE, nextCursorRef.current);
+
+      setChatHistory((prev) => {
+        if (page.messages.length === 0) return prev;
+        const seen = new Set(prev.map((msg) => msg.id));
+        const older = page.messages.filter((msg) => !seen.has(msg.id));
+        const updated = [...older, ...prev];
+        setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
+        return updated;
+      });
+
+      nextCursorRef.current = page.nextCursor;
+      setHasMoreMessages(page.hasMore);
+    } catch (err) {
+      console.error('Failed to load older messages:', err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     const hasText = messageInput.trim().length > 0;
@@ -179,11 +234,13 @@ export function useChat(selectedUserId: string) {
       tempIds.push(imageTempId);
       optimisticMessages.push({
         id: imageTempId,
+        clientTempId: imageTempId,
         fromMe: true,
         type: 'image',
         text: '',
         timestamp: now,
         attachmentUrl: currentPreview || undefined,
+        pending: true,
       });
     }
 
@@ -192,10 +249,12 @@ export function useChat(selectedUserId: string) {
       tempIds.push(textTempId);
       optimisticMessages.push({
         id: textTempId,
+        clientTempId: textTempId,
         fromMe: true,
         type: 'text',
         text: messageText,
         timestamp: now,
+        pending: true,
       });
     }
 
@@ -206,11 +265,10 @@ export function useChat(selectedUserId: string) {
     setAttachmentPreview('');
 
     const previewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const previewText = messageText || (hasAttachment ? '📷 Image' : 'Message');
+    const previewText = messageText || (hasAttachment ? 'Image' : 'Message');
     updateConversationPreview(selectedUserId, previewText, previewTime, false, true).catch(err => console.error('Failed to update preview:', err));
 
     try {
-      setSendingMessage(true);
       if (currentFile) {
         const formData = new FormData();
         formData.append('file', currentFile);
@@ -219,11 +277,63 @@ export function useChat(selectedUserId: string) {
 
         const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed to send attachment');
-        
-        if (messageText) await sendNewMessage(user.recipientId, messageText);
+
+        if (messageText) {
+          const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId)}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
+          });
+          if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
+        }
       } else {
-        await sendNewMessage(user.recipientId, messageText);
+        const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId)}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
+        });
+        if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
       }
+
+      const timer = window.setTimeout(() => {
+        const hasPending = tempIds.some((tempId) => pendingTempIdsRef.current.includes(tempId));
+        if (!hasPending) return;
+
+        fetchLatestMessage()
+          .then((latest) => {
+            if (!latest || !latest.fromMe) return;
+
+            setChatHistory((prev) => {
+              if (prev.some((msg) => msg.id === latest.id)) return prev;
+
+              const queue = pendingTempIdsRef.current;
+              const queueIdx = queue.findIndex((tempId) => {
+                const tempMsg = prev.find((m) => m.id === tempId);
+                return Boolean(
+                  tempMsg?.pending &&
+                  ((tempMsg.text && latest.text && tempMsg.text === latest.text) || tempMsg?.type === latest.type)
+                );
+              });
+              if (queueIdx === -1) return prev;
+
+              const matchedTempId = queue[queueIdx];
+              queue.splice(queueIdx, 1);
+              const updated = prev.map((msg) => {
+                if (msg.id !== matchedTempId) return msg;
+                return {
+                  ...latest,
+                  pending: false,
+                  type: latest.type !== 'text' ? latest.type : msg.type,
+                  attachmentUrl: latest.attachmentUrl || msg.attachmentUrl,
+                };
+              });
+              setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
+              return updated;
+            });
+          })
+          .catch((err) => console.error('Failed latest message fallback:', err));
+      }, 3500);
+      reconcileTimersRef.current.push(timer);
     } catch (err) {
       console.error('Error sending message:', err);
       const tempIdSet = new Set(tempIds);
@@ -234,8 +344,6 @@ export function useChat(selectedUserId: string) {
         setAttachmentPreview(currentPreview);
       }
       alert('Failed to send message');
-    } finally {
-      setSendingMessage(false);
     }
   };
 
@@ -303,19 +411,27 @@ export function useChat(selectedUserId: string) {
     return () => window.removeEventListener('userStatusUpdated', handler);
   }, [selectedUserId]);
 
+  useEffect(() => {
+    return () => {
+      clearReconcileTimers();
+    };
+  }, []);
+
   return {
     user,
     chatHistory,
     loading,
+    loadingOlder,
+    hasMoreMessages,
     messageInput,
     setMessageInput,
-    sendingMessage,
     attachmentFile,
     attachmentPreview,
     handleFileSelect,
     clearAttachment,
     handleSendMessage,
     handleSendAudio,
-    statusUpdate
+    statusUpdate,
+    loadOlderMessages,
   };
 }

@@ -137,6 +137,80 @@ async function resolveConversationId(
   }
 }
 
+function normalizeWebhookAttachments(attachments?: unknown[]): {
+  normalized: SSEAttachment[];
+  messageType: Message['type'];
+  attachmentUrl?: string;
+} {
+  if (!attachments?.length) {
+    return { normalized: [], messageType: 'text' };
+  }
+
+  const normalized: SSEAttachment[] = [];
+  let messageType: Message['type'] = 'text';
+  let attachmentUrl: string | undefined;
+
+  for (const raw of attachments) {
+    const att = raw as {
+      type?: string;
+      payload?: { url?: string };
+      image_data?: { url: string; width?: number; height?: number };
+      video_data?: { url: string; width?: number; height?: number };
+      file_url?: string;
+    };
+
+    const url = att.payload?.url || att.image_data?.url || att.video_data?.url || att.file_url;
+    const attType = att.type;
+
+    if (att.image_data?.url || attType === 'image') {
+      const imageUrl = att.image_data?.url || url;
+      if (imageUrl) {
+        normalized.push({
+          type: 'image',
+          image_data: { url: imageUrl, width: att.image_data?.width || 0, height: att.image_data?.height || 0 },
+          payload: { url: imageUrl },
+        });
+        if (!attachmentUrl) {
+          attachmentUrl = imageUrl;
+          messageType = 'image';
+        }
+      }
+      continue;
+    }
+
+    if (att.video_data?.url || attType === 'video') {
+      const videoUrl = att.video_data?.url || url;
+      if (videoUrl) {
+        normalized.push({
+          type: 'video',
+          video_data: { url: videoUrl, width: att.video_data?.width || 0, height: att.video_data?.height || 0 },
+          payload: { url: videoUrl },
+        });
+        if (!attachmentUrl) {
+          attachmentUrl = videoUrl;
+          messageType = 'video';
+        }
+      }
+      continue;
+    }
+
+    if (url) {
+      const isAudio = attType === 'audio' || url.includes('audio') || url.endsWith('.mp3') || url.endsWith('.m4a') || url.endsWith('.ogg');
+      normalized.push({
+        type: isAudio ? 'audio' : 'file',
+        file_url: url,
+        payload: { url },
+      });
+      if (!attachmentUrl) {
+        attachmentUrl = url;
+        messageType = isAudio ? 'audio' : 'file';
+      }
+    }
+  }
+
+  return { normalized, messageType, attachmentUrl };
+}
+
 /**
  * Handle incoming messaging events.
  *
@@ -218,29 +292,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     const attachments = msg.attachments;
     const isEcho = Boolean(msg.is_echo);
 
-    // Determine message type and attachment URL
-    let messageType: Message['type'] = 'text';
-    let attachmentUrl: string | undefined;
-
-    const sseAttachments = attachments as SSEAttachment[] | undefined;
-    if (sseAttachments && sseAttachments.length > 0) {
-      const att = sseAttachments[0];
-      if (att.image_data) {
-        messageType = 'image';
-        attachmentUrl = att.image_data.url;
-      } else if (att.video_data) {
-        messageType = 'video';
-        attachmentUrl = att.video_data.url;
-      } else if (att.file_url) {
-        // Check if it's an audio file by URL pattern (Facebook audio attachments)
-        if (att.file_url.includes('audio') || att.file_url.endsWith('.mp3') || att.file_url.endsWith('.m4a') || att.file_url.endsWith('.ogg')) {
-          messageType = 'audio';
-        } else {
-          messageType = 'file';
-        }
-        attachmentUrl = att.file_url;
-      }
-    }
+    const { normalized: sseAttachments, messageType, attachmentUrl } = normalizeWebhookAttachments(attachments);
 
     // Persist to MongoDB if conversation is known
     if (conversationId) {

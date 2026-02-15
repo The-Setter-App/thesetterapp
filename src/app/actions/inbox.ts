@@ -195,7 +195,7 @@ export async function getConversationMessages(recipientId: string): Promise<Mess
         }
 
         const accessToken = decryptData(creds.accessToken);
-        const rawMessages = await fetchMessages(conversationId, accessToken, 50, creds.graphVersion);
+        const rawMessages = await fetchMessages(conversationId, accessToken, 20, creds.graphVersion);
         const apiMessages = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, creds.instagramUserId));
         await saveMessagesToDb(apiMessages, conversationId, ownerEmail);
         console.log(`[InboxActions] Background sync complete for ${conversationId}`);

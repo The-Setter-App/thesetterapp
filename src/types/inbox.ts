@@ -92,15 +92,26 @@ export interface Message {
   timestamp?: string;
   attachmentUrl?: string;
   isEmpty?: boolean;
+  pending?: boolean;
+  clientTempId?: string;
+}
+
+export interface MessagePageResponse {
+  messages: Message[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  source: 'mongo';
 }
 
 // ── SSE Event Types ─────────────────────────────────────────────────────────
 
 /** Attachment shape as sent by the webhook (raw from Facebook). */
 export interface SSEAttachment {
+  type?: 'image' | 'video' | 'audio' | 'file';
   image_data?: { url: string; width: number; height: number };
   video_data?: { url: string; width: number; height: number };
   file_url?: string;
+  payload?: { url?: string };
 }
 
 /** Payload embedded in every message-related SSE event. */

@@ -1,30 +1,20 @@
 "use client";
 
 import { Message } from '@/types/inbox';
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import AudioMessage from './AudioMessage';
 
 interface ChatWindowProps {
   messages: Message[];
   loading?: boolean;
+  loadingOlder?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   statusUpdate?: {
     status: string;
     timestamp: Date | string;
   };
 }
-
-const PlayIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-  </svg>
-);
-
-const VolumeIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
-    <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
-  </svg>
-);
 
 const StarIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -32,31 +22,58 @@ const StarIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const AudioWave = ({ color }: { color: string }) => {
-  const heights = useMemo(() => {
-    return [...Array(20)].map(() => Math.random() * 100);
-  }, []);
-
-  return (
-    <div className="flex items-center space-x-0.5 h-4 mx-2">
-      {heights.map((height, i) => (
-        <div key={i} className={`w-0.5 rounded-full ${color}`} style={{ height: `${height}%` }} />
-      ))}
-    </div>
-  );
-};
-
-export default function ChatWindow({ messages, loading, statusUpdate }: ChatWindowProps) {
+export default function ChatWindow({
+  messages,
+  loading,
+  loadingOlder,
+  hasMore,
+  onLoadMore,
+  statusUpdate
+}: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const previousCountRef = useRef(0);
+  const previousScrollHeightRef = useRef(0);
+  const prependingRef = useRef(false);
+  const loadingOlderRef = useRef(Boolean(loadingOlder));
 
-  // Scroll to bottom when messages change (new message or conversation opened)
   useEffect(() => {
-    // Use requestAnimationFrame to ensure DOM has updated
-    requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-    });
+    if (!loadingOlderRef.current && loadingOlder) {
+      prependingRef.current = true;
+      previousScrollHeightRef.current = scrollRef.current?.scrollHeight || 0;
+    }
+    loadingOlderRef.current = Boolean(loadingOlder);
+  }, [loadingOlder]);
+
+  // Scroll behavior:
+  // - keep viewport stable when older messages are prepended
+  // - otherwise stay pinned to bottom for new messages
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    if (prependingRef.current) {
+      requestAnimationFrame(() => {
+        const newScrollHeight = container.scrollHeight;
+        const delta = newScrollHeight - previousScrollHeightRef.current;
+        container.scrollTop += delta;
+        prependingRef.current = false;
+      });
+      previousCountRef.current = messages.length;
+      return;
+    }
+
+    const wasFirstRender = previousCountRef.current === 0;
+    // Only autoscroll when a new message is appended.
+    // Do not autoscroll when an existing message updates (e.g. pending -> sent).
+    const messageAppended = messages.length > previousCountRef.current;
+    if (wasFirstRender || messageAppended) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      });
+    }
+    previousCountRef.current = messages.length;
   }, [messages]);
 
   useEffect(() => {
@@ -113,7 +130,30 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
   };
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    >
+      {(loadingOlder || hasMore) && (
+        <div className="flex justify-center py-2">
+          {hasMore ? (
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={loadingOlder}
+              className="h-11 rounded-full bg-stone-100 px-4 text-xs font-medium text-stone-800 transition-colors hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loadingOlder ? 'Loading older messages...' : 'Load more messages'}
+            </button>
+          ) : (
+            <div className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
+              No more messages
+            </div>
+          )}
+        </div>
+      )}
+
       {messages.map((msg) => (
         <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
           <div
@@ -141,6 +181,9 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
                 />
                 {msg.text && <p className="px-3 py-2">{msg.text}</p>}
               </div>
+            )}
+            {msg.type === 'image' && !msg.attachmentUrl && (
+              <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
             )}
             
             {msg.type === 'video' && msg.attachmentUrl && (
@@ -171,6 +214,9 @@ export default function ChatWindow({ messages, loading, statusUpdate }: ChatWind
               </div>
             )}
           </div>
+          {msg.pending && msg.fromMe && (
+            <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
+          )}
           {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
         </div>
       ))}

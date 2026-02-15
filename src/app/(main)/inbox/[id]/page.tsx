@@ -15,16 +15,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     user,
     chatHistory,
     loading,
+    loadingOlder,
+    hasMoreMessages,
     messageInput,
     setMessageInput,
-    sendingMessage,
     attachmentFile,
     attachmentPreview,
     handleFileSelect,
     clearAttachment,
     handleSendMessage,
     handleSendAudio,
-    statusUpdate
+    statusUpdate,
+    loadOlderMessages,
   } = useChat(id);
 
   if (!user && !loading) {
@@ -44,13 +46,19 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           onToggleVisible={() => setShowVisible(!showVisible)} 
         />
 
-        <ChatWindow messages={chatHistory} loading={loading} statusUpdate={statusUpdate} />
+        <ChatWindow
+          messages={chatHistory}
+          loading={loading}
+          loadingOlder={loadingOlder}
+          hasMore={hasMoreMessages}
+          onLoadMore={loadOlderMessages}
+          statusUpdate={statusUpdate}
+        />
 
         <MessageInput 
           messageInput={messageInput}
           setMessageInput={setMessageInput}
           handleSendMessage={handleSendMessage}
-          sendingMessage={sendingMessage}
           user={user}
           attachmentFile={attachmentFile}
           attachmentPreview={attachmentPreview}

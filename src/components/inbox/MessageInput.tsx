@@ -8,7 +8,6 @@ interface MessageInputProps {
   messageInput: string;
   setMessageInput: (value: string) => void;
   handleSendMessage: () => void;
-  sendingMessage: boolean;
   user: User | null;
   attachmentFile: File | null;
   attachmentPreview: string;
@@ -21,7 +20,6 @@ export default function MessageInput({
   messageInput,
   setMessageInput,
   handleSendMessage,
-  sendingMessage,
   user,
   attachmentFile,
   attachmentPreview,
@@ -124,7 +122,7 @@ export default function MessageInput({
                 onClick={startRecording}
                 className="p-2 rounded-full hover:text-gray-500 hover:bg-gray-50 transition-colors"
                 title="Record Voice Note"
-                disabled={sendingMessage || !user}
+                disabled={!user}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -144,12 +142,9 @@ export default function MessageInput({
                   handleSendMessage();
                 }
               }}
-              disabled={sendingMessage || !user}
+              disabled={!user}
               rows={1}
             />
-            {sendingMessage && (
-              <div className="ml-2 h-4 w-4 border-2 border-[#8771FF] border-t-transparent rounded-full animate-spin"></div>
-            )}
           </>
         )}
       </div>
