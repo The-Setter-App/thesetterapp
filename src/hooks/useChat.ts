@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
-import { getCachedUsers, getCachedMessages, setCachedMessages } from '@/lib/clientCache';
+import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages } from '@/lib/clientCache';
 import type { User, Message, MessagePageResponse, ConversationDetails } from '@/types/inbox';
 import { useSSE } from '@/hooks/useSSE';
 
@@ -23,12 +23,31 @@ export function useChat(selectedUserId: string) {
   const pendingTempIdsRef = useRef<string[]>([]);
   const nextCursorRef = useRef<string | null>(null);
   const reconcileTimersRef = useRef<number[]>([]);
+  const detailsRefreshTimerRef = useRef<number | null>(null);
 
   const clearReconcileTimers = () => {
     for (const timer of reconcileTimersRef.current) {
       window.clearTimeout(timer);
     }
     reconcileTimersRef.current = [];
+  };
+
+  const scheduleConversationDetailsRefresh = () => {
+    if (detailsRefreshTimerRef.current) {
+      window.clearTimeout(detailsRefreshTimerRef.current);
+    }
+    detailsRefreshTimerRef.current = window.setTimeout(async () => {
+      try {
+        const details = await fetchConversationDetails();
+        setConversationDetails(details);
+        setConversationDetailsSyncedAt(Date.now());
+        if (details) {
+          setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
+        }
+      } catch (err) {
+        console.error('Failed to refresh conversation details:', err);
+      }
+    }, 250);
   };
 
   async function fetchMessagePage(limit: number, cursor?: string): Promise<MessagePageResponse> {
@@ -103,10 +122,17 @@ export function useChat(selectedUserId: string) {
         setConversationDetails(null);
         setConversationDetailsSyncedAt(0);
 
-        const cachedMessages = await getCachedMessages(selectedUserId);
+        const [cachedMessages, cachedDetails] = await Promise.all([
+          getCachedMessages(selectedUserId),
+          getCachedConversationDetails(selectedUserId),
+        ]);
         if (cachedMessages && cachedMessages.length > 0) {
           setChatHistory(cachedMessages.slice(-INITIAL_PAGE_SIZE));
           setLoading(false);
+        }
+        if (cachedDetails) {
+          setConversationDetails(cachedDetails);
+          setConversationDetailsSyncedAt(Date.now());
         }
 
         const [page, details] = await Promise.all([
@@ -121,6 +147,9 @@ export function useChat(selectedUserId: string) {
         nextCursorRef.current = page.nextCursor;
         setHasMoreMessages(page.hasMore);
         setCachedMessages(selectedUserId, page.messages).catch(e => console.error('Cache update failed:', e));
+        if (details) {
+          setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
+        }
         setLoading(false);
       } catch (err) {
         console.error('Error loading messages:', err);
@@ -208,6 +237,14 @@ export function useChat(selectedUserId: string) {
           setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
           return updated;
         });
+
+        scheduleConversationDetailsRefresh();
+        return;
+      }
+
+      if (message.type === 'messages_synced') {
+        if (message.data.recipientId !== selectedUserId) return;
+        scheduleConversationDetailsRefresh();
       }
     },
   });
@@ -438,6 +475,9 @@ export function useChat(selectedUserId: string) {
   useEffect(() => {
     return () => {
       clearReconcileTimers();
+      if (detailsRefreshTimerRef.current) {
+        window.clearTimeout(detailsRefreshTimerRef.current);
+      }
     };
   }, []);
 
