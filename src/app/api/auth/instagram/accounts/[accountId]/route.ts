@@ -26,11 +26,16 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ accountId: string }> }
 ) {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) {
+    return NextResponse.json({ error: 'APP_URL is not configured' }, { status: 500 });
+  }
+
   const response = await DELETE(request, context);
   if (!response.ok) {
     const payload = await response.json();
     const error = payload?.error || 'disconnect_failed';
-    return NextResponse.redirect(new URL(`/settings?error=${encodeURIComponent(error)}`, request.nextUrl.origin));
+    return NextResponse.redirect(new URL(`/settings?error=${encodeURIComponent(error)}`, appUrl));
   }
-  return NextResponse.redirect(new URL('/settings?success=disconnected', request.nextUrl.origin));
+  return NextResponse.redirect(new URL('/settings?success=disconnected', appUrl));
 }
