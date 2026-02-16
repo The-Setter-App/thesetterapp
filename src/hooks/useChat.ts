@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
-import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages } from '@/lib/clientCache';
+import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages, setCachedUsers } from '@/lib/clientCache';
 import type { User, Message, MessagePageResponse, ConversationDetails } from '@/types/inbox';
 import { useSSE } from '@/hooks/useSSE';
 
@@ -25,6 +25,7 @@ export function useChat(selectedUserId: string) {
   const nextCursorRef = useRef<string | null>(null);
   const reconcileTimersRef = useRef<number[]>([]);
   const detailsRefreshTimerRef = useRef<number | null>(null);
+  const NO_MESSAGES_PLACEHOLDER_REGEX = /^no messages yet$/i;
 
   const clearReconcileTimers = () => {
     for (const timer of reconcileTimersRef.current) {
@@ -76,6 +77,79 @@ export function useChat(selectedUserId: string) {
     }
     const data = await response.json();
     return data.details ?? null;
+  }
+
+  function getMessagePreviewText(message: Message): string {
+    const text = typeof message.text === 'string' ? message.text.trim() : '';
+    if (text) return text;
+
+    if (message.type === 'audio') {
+      return message.fromMe ? 'You sent a voice message' : 'Sent a voice message';
+    }
+    if (message.type === 'image') {
+      return message.fromMe ? 'You sent an image' : 'Sent an image';
+    }
+    if (message.type === 'video') {
+      return message.fromMe ? 'You sent a video' : 'Sent a video';
+    }
+    if (message.type === 'file') {
+      return message.fromMe ? 'You sent an attachment' : 'Sent an attachment';
+    }
+
+    return message.fromMe ? 'You sent a message' : 'Sent a message';
+  }
+
+  async function hydrateSidebarPreviewFromMessages(messages: Message[]) {
+    if (!messages.length) return;
+
+    const latest = [...messages].reverse().find((msg) => {
+      const text = typeof msg.text === 'string' ? msg.text.trim() : '';
+      return Boolean(text) || msg.type !== 'text' || Boolean(msg.attachmentUrl);
+    });
+    if (!latest) return;
+
+    const previewText = getMessagePreviewText(latest);
+    if (!previewText) return;
+
+    const previewTime = latest.timestamp
+      ? new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const previewUpdatedAt = latest.timestamp ? new Date(latest.timestamp).toISOString() : new Date().toISOString();
+
+    const cachedUsers = await getCachedUsers();
+    const target = cachedUsers?.find((u) => u.id === selectedUserId);
+    const currentPreview = target?.lastMessage?.trim() || user?.lastMessage?.trim() || '';
+
+    if (currentPreview && !NO_MESSAGES_PLACEHOLDER_REGEX.test(currentPreview)) return;
+
+    if (cachedUsers?.length) {
+      const updated = cachedUsers.map((u) => {
+        if (u.id !== selectedUserId) return u;
+        return {
+          ...u,
+          lastMessage: previewText,
+          time: previewTime,
+          updatedAt: previewUpdatedAt,
+        };
+      });
+      setCachedUsers(updated).catch((e) => console.error('Cache update failed:', e));
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('conversationPreviewHydrated', {
+        detail: {
+          userId: selectedUserId,
+          lastMessage: previewText,
+          time: previewTime,
+          updatedAt: previewUpdatedAt,
+        },
+      })
+    );
+
+    updateConversationPreview(selectedUserId, previewText, previewTime, false, false).catch((err) =>
+      console.error('Failed to hydrate conversation preview:', err)
+    );
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,6 +234,7 @@ export function useChat(selectedUserId: string) {
         if (details) {
           setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
         }
+        hydrateSidebarPreviewFromMessages(page.messages).catch((e) => console.error('Preview hydration failed:', e));
         setLoading(false);
         setInitialLoadSettled(true);
       } catch (err) {

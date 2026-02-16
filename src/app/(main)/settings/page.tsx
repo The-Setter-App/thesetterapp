@@ -13,12 +13,13 @@ import {
   Clock,
   CircleAlert,
   CircleCheck,
-  Trash2,
   Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import DisconnectCacheCleanup from '@/components/settings/DisconnectCacheCleanup';
+import DisconnectAccountButton from '@/components/settings/DisconnectAccountButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const error = params.error;
   const success = params.success;
   const warning = params.warning;
+  const disconnectedAccountId = typeof params.disconnectedAccountId === 'string' ? params.disconnectedAccountId : undefined;
   const missingRaw = params.missing;
   const missingScopes = typeof missingRaw === 'string' ? missingRaw.split(',').filter(Boolean) : [];
   const connectedCountRaw = params.connectedCount;
@@ -47,6 +49,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900">
+      <DisconnectCacheCleanup disconnectedAccountId={disconnectedAccountId} />
       <div className="pt-8 max-w-[1000px] mx-auto space-y-8 px-4 md:px-6 pb-20">
         <header className="mb-8">
           <div className="flex items-center gap-4 mb-2">
@@ -166,11 +169,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                       </div>
                     </div>
 
-                    <form action={`/api/auth/instagram/accounts/${encodeURIComponent(account.accountId)}`} method="post">
-                      <Button variant="outline" className="bg-white w-full md:w-auto" leftIcon={<Trash2 size={15} />}>
-                        Disconnect
-                      </Button>
-                    </form>
+                    <DisconnectAccountButton
+                      accountId={account.accountId}
+                      accountLabel={account.instagramUsername ? `@${account.instagramUsername.replace(/^@/, '')}` : account.pageName || 'this account'}
+                    />
                   </div>
                 </div>
               ))}

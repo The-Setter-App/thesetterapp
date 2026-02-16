@@ -115,6 +115,22 @@ class InboxCache {
     }
   }
 
+  async delete(key: string): Promise<void> {
+    try {
+      const db = await this.openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(key);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error(`[InboxCache] Error deleting key ${key}:`, error);
+    }
+  }
+
   async reset(): Promise<void> {
     try {
       // Close any open connection first
@@ -175,4 +191,27 @@ export async function clearCache(): Promise<void> {
 
 export async function resetCache(): Promise<void> {
   return inboxCache.reset();
+}
+
+export async function removeCachedConversationsByAccount(accountId: string): Promise<void> {
+  if (!accountId) return;
+
+  const users = await getCachedUsers();
+  if (!users || users.length === 0) return;
+
+  const removedConversationIds = users
+    .filter((user) => user.accountId === accountId)
+    .map((user) => user.id);
+
+  if (removedConversationIds.length === 0) return;
+
+  const nextUsers = users.filter((user) => user.accountId !== accountId);
+  await setCachedUsers(nextUsers);
+
+  await Promise.all(
+    removedConversationIds.flatMap((conversationId) => [
+      inboxCache.delete(`messages_${conversationId}`),
+      inboxCache.delete(`conversation_details_${conversationId}`),
+    ])
+  );
 }

@@ -265,9 +265,33 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       if (!customEvent.detail?.userId || !isStatusType(customEvent.detail?.status)) return;
       applyUserStatusUpdate(customEvent.detail.userId, customEvent.detail.status);
     };
+    const previewHydratedHandler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId?: string; lastMessage?: string; time?: string; updatedAt?: string }>;
+      const payload = customEvent.detail;
+      if (!payload?.userId || !payload.lastMessage) return;
+
+      setUsers((prev) => {
+        const idx = prev.findIndex((u) => u.id === payload.userId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessage: payload.lastMessage || updated[idx].lastMessage,
+          time: payload.time || updated[idx].time,
+          updatedAt: payload.updatedAt || updated[idx].updatedAt,
+        };
+        const sorted = sortUsersByRecency(updated);
+        setCachedUsers(sorted).catch((err) => console.error(err));
+        return sorted;
+      });
+    };
 
     window.addEventListener('userStatusUpdated', handler);
-    return () => window.removeEventListener('userStatusUpdated', handler);
+    window.addEventListener('conversationPreviewHydrated', previewHydratedHandler);
+    return () => {
+      window.removeEventListener('userStatusUpdated', handler);
+      window.removeEventListener('conversationPreviewHydrated', previewHydratedHandler);
+    };
   }, [applyUserStatusUpdate]);
 
   useEffect(() => {

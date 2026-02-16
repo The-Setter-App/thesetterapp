@@ -107,7 +107,7 @@ export default function InboxLayout({
     setChatReady((prev) => (readyEpoch === epoch ? true : prev));
   }, [epoch]);
 
-  const gateVisible = shouldRequireGate && !gateTimedOut && !(sidebarReady && chatReady);
+  const gateVisible = false;
 
   return (
     <InboxSyncProvider
@@ -120,7 +120,7 @@ export default function InboxLayout({
       }}
     >
       <div className="relative flex h-screen overflow-hidden bg-stone-50 font-sans text-stone-900">
-        <div className={`flex h-full w-full overflow-hidden ${gateVisible ? "pointer-events-none opacity-0" : ""}`}>
+        <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
           <div
             className="group hidden md:flex w-3 -mx-1 cursor-ew-resize items-stretch justify-center select-none touch-none"
@@ -132,10 +132,6 @@ export default function InboxLayout({
           </div>
           {children}
         </div>
-
-        {gateVisible && (
-          <InboxSkeletonOverlay leftWidth={leftWidth} />
-        )}
       </div>
     </InboxSyncProvider>
   );
