@@ -96,11 +96,11 @@ export function useChat(selectedUserId: string) {
     async function loadUser() {
       try {
         const cachedUsers = await getCachedUsers();
-        const foundUser = cachedUsers?.find(u => u.recipientId === selectedUserId);
+        const foundUser = cachedUsers?.find((u) => u.id === selectedUserId);
         if (foundUser) setUser(foundUser);
 
         const users = await getInboxUsers();
-        const target = users.find(u => u.recipientId === selectedUserId);
+        const target = users.find((u) => u.id === selectedUserId);
         if (target) setUser(target);
       } catch (err) {
         console.error('Error loading user:', err);
@@ -165,9 +165,12 @@ export function useChat(selectedUserId: string) {
     onMessage: (message) => {
       if (message.type === 'new_message' || message.type === 'message_echo') {
         const { fromMe: sseFromMe, text, messageId, timestamp, attachments, duration } = message.data;
-        const isForThisConversation =
-          message.data.senderId === selectedUserId ||
-          message.data.recipientId === selectedUserId;
+        const sameConversationId = message.data.conversationId === selectedUserId;
+        const sameParticipant =
+          Boolean(user?.recipientId) &&
+          (message.data.senderId === user?.recipientId || message.data.recipientId === user?.recipientId);
+        const sameAccount = !user?.accountId || !message.data.accountId || user.accountId === message.data.accountId;
+        const isForThisConversation = sameConversationId || (sameParticipant && sameAccount);
 
         if (!isForThisConversation) return;
 
@@ -243,7 +246,12 @@ export function useChat(selectedUserId: string) {
       }
 
       if (message.type === 'messages_synced') {
-        if (message.data.recipientId !== selectedUserId) return;
+        if (message.data.conversationId !== selectedUserId) {
+          const sameParticipant =
+            Boolean(user?.recipientId) &&
+            message.data.recipientId === user?.recipientId;
+          if (!sameParticipant) return;
+        }
         scheduleConversationDetailsRefresh();
       }
     },
@@ -277,7 +285,7 @@ export function useChat(selectedUserId: string) {
   const handleSendMessage = async () => {
     const hasText = messageInput.trim().length > 0;
     const hasAttachment = !!attachmentFile;
-    if ((!hasText && !hasAttachment) || !user?.recipientId) return;
+    if ((!hasText && !hasAttachment) || !user?.id) return;
 
     const messageText = messageInput.trim();
     const currentFile = attachmentFile;
@@ -329,14 +337,14 @@ export function useChat(selectedUserId: string) {
       if (currentFile) {
         const formData = new FormData();
         formData.append('file', currentFile);
-        formData.append('recipientId', user.recipientId);
+        formData.append('conversationId', user.id);
         formData.append('type', 'image');
 
         const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed to send attachment');
 
         if (messageText) {
-          const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId)}/send`, {
+          const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
@@ -344,7 +352,7 @@ export function useChat(selectedUserId: string) {
           if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
         }
       } else {
-        const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId)}/send`, {
+        const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
@@ -405,7 +413,7 @@ export function useChat(selectedUserId: string) {
   };
 
   const handleSendAudio = async (blob: Blob, duration: number) => {
-    if (!user?.recipientId) return;
+    if (!user?.id) return;
 
     const formatDuration = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -442,7 +450,7 @@ export function useChat(selectedUserId: string) {
       const file = new File([blob], `voice_note.${ext}`, { type: blob.type });
       
       formData.append('file', file);
-      formData.append('recipientId', user.recipientId);
+      formData.append('conversationId', user.id);
       formData.append('type', 'audio');
       formData.append('clientTempId', tempId);
       formData.append('duration', formatDuration(duration));

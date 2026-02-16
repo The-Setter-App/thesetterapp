@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { findConversationByRecipientId } from '@/lib/inboxRepository';
+import { findConversationById } from '@/lib/inboxRepository';
 import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -11,11 +11,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const recipientId = searchParams.get('recipientId');
-  if (!recipientId) {
-    return new Response(JSON.stringify({ error: 'Missing recipientId' }), { status: 400 });
+  const conversationId = searchParams.get('conversationId');
+  if (!conversationId) {
+    return new Response(JSON.stringify({ error: 'Missing conversationId' }), { status: 400 });
   }
-  const user = await findConversationByRecipientId(recipientId, session.email);
+  const user = await findConversationById(conversationId, session.email);
   if (!user) {
     return new Response(JSON.stringify({ error: 'User not found' }), { status: 404 });
   }

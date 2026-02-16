@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
+import { REQUIRED_INSTAGRAM_SCOPES } from '@/lib/instagramPermissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,14 +28,7 @@ export async function GET(request: NextRequest) {
   // instagram_manage_messages: Send/receive messages (DMs)
   // pages_show_list: List pages to find the connected one
   // pages_manage_metadata: Subscribe to webhooks
-  const scopes = [
-    'instagram_basic',
-    'instagram_manage_comments',
-    'instagram_manage_messages',
-    'pages_show_list',
-    'pages_manage_metadata',
-    'pages_read_engagement' // Often needed for webhooks/comments
-  ].join(',');
+  const scopes = REQUIRED_INSTAGRAM_SCOPES.join(',');
 
   const url = new URL('https://www.facebook.com/v24.0/dialog/oauth');
   url.searchParams.append('client_id', appId);
@@ -42,6 +36,9 @@ export async function GET(request: NextRequest) {
   url.searchParams.append('state', state);
   url.searchParams.append('scope', scopes);
   url.searchParams.append('response_type', 'code');
+  // Force Facebook to re-evaluate granted page permissions and page selection.
+  url.searchParams.append('auth_type', 'rerequest');
+  url.searchParams.append('return_scopes', 'true');
 
   const response = NextResponse.redirect(url.toString());
   

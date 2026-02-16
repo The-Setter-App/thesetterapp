@@ -18,6 +18,15 @@ interface GraphApiError {
 
 const DEFAULT_GRAPH_VERSION = 'v24.0';
 const GRAPH_MIN_CHUNK = 5;
+const GRAPH_MIN_CONVERSATION_CHUNK = 5;
+const GRAPH_CODE_REDUCE_PAYLOAD = 1;
+const GRAPH_DEBUG = process.env.GRAPH_API_DEBUG === 'true';
+
+function debugLog(...args: unknown[]) {
+  if (GRAPH_DEBUG) {
+    console.log(...args);
+  }
+}
 
 type GraphPaging = {
   cursors?: {
@@ -63,6 +72,14 @@ function parseGraphApiError(errorBody: string): string {
   }
 }
 
+function parseGraphApiErrorData(errorBody: string): GraphApiError | null {
+  try {
+    return JSON.parse(errorBody) as GraphApiError;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchConversationsPage(
   pageId: string,
   accessToken: string,
@@ -78,24 +95,38 @@ export async function fetchConversationsPage(
   const graphVersion = options?.graphVersion ?? DEFAULT_GRAPH_VERSION;
   const after = options?.after;
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
-  const url = new URL(`${baseUrl}/${pageId}/conversations`);
-  url.searchParams.append('fields', fields);
-  url.searchParams.append('platform', 'instagram');
-  url.searchParams.append('limit', String(limit));
-  if (after) {
-    url.searchParams.append('after', after);
-  }
-  url.searchParams.append('access_token', accessToken);
+  let conversationLimit = Math.max(1, limit);
 
-  const response = await fetch(url.toString());
-  if (!response.ok) {
+  while (true) {
+    const url = new URL(`${baseUrl}/${pageId}/conversations`);
+    url.searchParams.append('fields', fields);
+    url.searchParams.append('platform', 'instagram');
+    url.searchParams.append('limit', String(conversationLimit));
+    if (after) {
+      url.searchParams.append('after', after);
+    }
+    url.searchParams.append('access_token', accessToken);
+
+    const response = await fetch(url.toString());
+    if (response.ok) {
+      const data: RawGraphConversationsPageResponse = await response.json();
+      return data;
+    }
+
     const errorBody = await response.text();
-    console.error(`[GraphAPI DEBUG] Raw error response: ${errorBody}`);
+    const errorData = parseGraphApiErrorData(errorBody);
+    const errorCode = errorData?.error?.code;
+    if (errorCode === GRAPH_CODE_REDUCE_PAYLOAD && conversationLimit > GRAPH_MIN_CONVERSATION_CHUNK) {
+      conversationLimit = Math.max(GRAPH_MIN_CONVERSATION_CHUNK, Math.floor(conversationLimit / 2));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      continue;
+    }
+
+    debugLog(`[GraphAPI DEBUG] Raw error response: ${errorBody}`);
     throw new Error(parseGraphApiError(errorBody));
   }
 
-  const data: RawGraphConversationsPageResponse = await response.json();
-  return data;
+  throw new Error('Graph API Error: Failed to fetch conversations');
 }
 
 /**
@@ -114,13 +145,55 @@ export async function fetchConversations(
       fields: 'id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}',
       graphVersion,
     });
-    console.log(`[GraphAPI] Fetched ${data.data.length} conversations`);
+    debugLog(`[GraphAPI] Fetched ${data.data.length} conversations`);
 
     return data as RawGraphConversationsResponse;
   } catch (error) {
     console.error('[GraphAPI] Error fetching conversations:', error);
     throw error;
   }
+}
+
+/**
+ * Fetch conversations across all available pages for this Page node using `after` cursor pagination.
+ * `maxPages` caps API calls to avoid runaway sync jobs.
+ */
+export async function fetchAllConversations(
+  pageId: string,
+  accessToken: string,
+  options?: {
+    pageLimit?: number;
+    maxPages?: number;
+    graphVersion?: string;
+  }
+): Promise<RawGraphConversationsResponse> {
+  const pageLimit = options?.pageLimit ?? 25;
+  const maxPages = options?.maxPages ?? 20;
+  const graphVersion = options?.graphVersion ?? DEFAULT_GRAPH_VERSION;
+  const fields = 'id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}';
+
+  const conversations: RawGraphConversationsResponse['data'] = [];
+  let after: string | undefined;
+  let pageCount = 0;
+
+  while (pageCount < maxPages) {
+    const chunk = await fetchConversationsPage(pageId, accessToken, {
+      limit: pageLimit,
+      after,
+      fields,
+      graphVersion,
+    });
+    conversations.push(...(chunk.data as RawGraphConversationsResponse['data']));
+    pageCount += 1;
+
+    const nextAfter = chunk.paging?.cursors?.after;
+    if (!nextAfter) break;
+    after = nextAfter;
+  }
+
+  debugLog(`[GraphAPI] Fetched ${conversations.length} conversations across ${pageCount} page(s) for page ${pageId}`);
+
+  return { data: conversations };
 }
 
 /**
@@ -187,7 +260,7 @@ export async function fetchMessagesChunk(
       const messages = data.data || [];
       const nextBeforeCursor = data.paging?.cursors?.before || null;
 
-      console.log(`[GraphAPI] Fetched ${messages.length} messages for conversation ${conversationId}`);
+      debugLog(`[GraphAPI] Fetched ${messages.length} messages for conversation ${conversationId}`);
 
       return { messages, nextBeforeCursor };
     } catch (error) {
@@ -237,8 +310,7 @@ export async function sendMessage(
       throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
     }
 
-    const result = await response.json();
-    console.log(`[GraphAPI] Message sent successfully:`, result);
+    await response.json();
   } catch (error) {
     console.error('[GraphAPI] Error sending message:', error);
     throw error;
@@ -290,8 +362,7 @@ export async function sendAttachmentMessage(
       throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
     }
 
-    const result = await response.json();
-    console.log(`[GraphAPI] Attachment sent successfully:`, result);
+    await response.json();
   } catch (error) {
     console.error('[GraphAPI] Error sending attachment:', error);
     throw error;
@@ -308,17 +379,25 @@ export async function fetchUserProfile(
   graphVersion: string = DEFAULT_GRAPH_VERSION
 ): Promise<string | null> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
-  const url = new URL(`${baseUrl}/${userId}`);
-  url.searchParams.append('fields', 'profile_pic');
-  url.searchParams.append('access_token', accessToken);
+  const primaryUrl = new URL(`${baseUrl}/${userId}`);
+  primaryUrl.searchParams.append('fields', 'profile_pic,name,username');
+  primaryUrl.searchParams.append('access_token', accessToken);
 
   try {
-    const response = await fetch(url.toString());
-    
+    const response = await fetch(primaryUrl.toString());
+
     if (!response.ok) {
-        // We don't want to throw here, just return null as it's not critical
-        console.warn(`[GraphAPI] Failed to fetch profile pic for ${userId}: ${response.status}`);
+      // Fallback to minimal field set if the node rejects expanded fields.
+      const fallbackUrl = new URL(`${baseUrl}/${userId}`);
+      fallbackUrl.searchParams.append('fields', 'profile_pic');
+      fallbackUrl.searchParams.append('access_token', accessToken);
+      const fallbackRes = await fetch(fallbackUrl.toString());
+      if (!fallbackRes.ok) {
+        console.warn(`[GraphAPI] Failed to fetch profile pic for ${userId}: ${fallbackRes.status}`);
         return null;
+      }
+      const fallbackData = await fallbackRes.json();
+      return fallbackData.profile_pic || null;
     }
 
     const data = await response.json();

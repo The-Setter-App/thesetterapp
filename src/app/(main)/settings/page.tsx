@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth';
-import { getUser } from '@/lib/userRepository';
+import { getUser, getConnectedInstagramAccounts } from '@/lib/userRepository';
 import { redirect } from 'next/navigation';
 import {
   Settings,
@@ -13,7 +13,8 @@ import {
   Clock,
   CircleAlert,
   CircleCheck,
-  RefreshCw,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -32,166 +33,180 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const user = await getUser(session.email);
   if (!user) redirect('/login');
 
-  const config = user.instagramConfig;
-  const isConnected = config?.isConnected ?? false;
+  const accounts = await getConnectedInstagramAccounts(session.email);
+  const isConnected = accounts.length > 0;
 
   const params = await searchParams;
   const error = params.error;
   const success = params.success;
-
-  const connectionDetails = isConnected && config ? [
-    { label: 'Facebook Page ID', value: config.pageId, icon: Hash },
-    { label: 'Instagram User ID', value: config.instagramUserId, icon: User },
-    { label: 'Graph API Version', value: config.graphVersion, icon: Globe },
-    { label: 'Access Token', value: '••••••••••••••••••••••••', icon: KeyRound, suffix: 'Encrypted' },
-    { label: 'Last Updated', value: new Date(config.updatedAt).toLocaleString(), icon: Clock },
-  ] : [];
+  const warning = params.warning;
+  const missingRaw = params.missing;
+  const missingScopes = typeof missingRaw === 'string' ? missingRaw.split(',').filter(Boolean) : [];
+  const connectedCountRaw = params.connectedCount;
+  const connectedCount = typeof connectedCountRaw === 'string' ? Number.parseInt(connectedCountRaw, 10) : undefined;
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900">
-      <div className="pt-8 max-w-[1000px] mx-auto space-y-8 px-6 pb-20">
-
-        {/* Header */}
+    <div className="min-h-screen bg-stone-50 text-stone-900">
+      <div className="pt-8 max-w-[1000px] mx-auto space-y-8 px-4 md:px-6 pb-20">
         <header className="mb-8">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-[#F3F0FF] flex items-center justify-center shadow-sm">
-              <Settings size={24} className="text-[#8771FF]" />
+            <div className="w-12 h-12 rounded-2xl bg-stone-900 text-white flex items-center justify-center shadow-sm">
+              <Settings size={24} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Settings</h1>
-              <p className="text-gray-500 mt-1">
-                Manage your Instagram connection and application preferences.
-              </p>
+              <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+              <p className="text-stone-600 mt-1">Manage your Instagram connections and application preferences.</p>
             </div>
           </div>
         </header>
 
-        {/* Toast Alerts */}
         {error && (
-          <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-6 py-4 animate-in fade-in slide-in-from-top-2">
-            <CircleAlert size={20} className="text-red-500 shrink-0" />
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-6 py-4">
+            <CircleAlert size={20} className="text-red-600 shrink-0" />
             <p className="text-sm font-medium text-red-700">
-              Error connecting to Instagram: {error}
+              {error === 'missing_required_scopes'
+                ? `Missing required permissions: ${missingScopes.join(', ')}`
+                : `Error connecting to Instagram: ${error}`}
             </p>
           </div>
         )}
 
         {success && (
-          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl px-6 py-4 animate-in fade-in slide-in-from-top-2">
-            <CircleCheck size={20} className="text-emerald-500 shrink-0" />
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-6 py-4">
+            <CircleCheck size={20} className="text-emerald-600 shrink-0" />
             <p className="text-sm font-medium text-emerald-700">
-              Successfully connected to Instagram!
+              {success === 'disconnected'
+                ? 'Instagram account disconnected successfully.'
+                : `Connected Instagram account${connectedCount && connectedCount > 1 ? 's' : ''} successfully${
+                    connectedCount ? ` (${connectedCount} found)` : ''
+                  }.`}
             </p>
           </div>
         )}
 
-        {/* Instagram Integration Card */}
-        <Card noPadding className="overflow-hidden">
-          {/* Card Header */}
-          <div className="px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 border-b border-gray-100">
+        {warning && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4">
+            <CircleAlert size={20} className="text-amber-600 shrink-0" />
+            <p className="text-sm font-medium text-amber-700">
+              Instagram connected, but one or more Page webhook subscriptions failed. Reconnect and check server logs.
+            </p>
+          </div>
+        )}
+
+        <Card noPadding className="overflow-hidden bg-white border border-stone-200 shadow-sm rounded-2xl">
+          <div className="px-6 md:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 border-b border-stone-100">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#f0ecff] to-[#e8e3ff] flex items-center justify-center shadow-inner">
-                <Instagram size={24} className="text-[#8771FF]" />
+              <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center">
+                <Instagram size={24} className="text-stone-700" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Instagram Integration</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Sync your Instagram Direct Messages.</p>
+                <h3 className="text-lg font-bold">Instagram Integrations</h3>
+                <p className="text-sm text-stone-600 mt-0.5">Sync your Instagram Direct Messages from multiple accounts.</p>
               </div>
             </div>
 
-            {/* Status Badge */}
             {isConnected ? (
               <Badge variant="success" className="px-3 py-1.5 text-sm gap-1.5">
-                <Link2 size={14} /> Connected
+                <Link2 size={14} /> {accounts.length} Connected
               </Badge>
             ) : (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm gap-1.5 bg-gray-50 text-gray-500">
+              <Badge variant="outline" className="px-3 py-1.5 text-sm gap-1.5 bg-stone-100 text-stone-600">
                 <Link2Off size={14} /> Not Connected
               </Badge>
             )}
           </div>
 
-          {/* Connection Details */}
-          {isConnected && connectionDetails.length > 0 && (
-            <div className="px-8 py-4">
-              {connectionDetails.map((detail, index) => {
-                const Icon = detail.icon;
-                return (
-                  <div
-                    key={detail.label}
-                    className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 py-5 ${
-                      index < connectionDetails.length - 1 ? 'border-b border-gray-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                      <Icon size={18} className="text-gray-400" />
-                      <span className="text-sm font-medium text-gray-600">{detail.label}</span>
-                    </div>
-                    <div className="flex items-center gap-3 sm:ml-4">
-                      <span className="text-sm text-gray-900 font-mono bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
-                        {detail.value}
-                      </span>
-                      {detail.suffix && (
-                        <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded-md">{detail.suffix}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Not Connected Empty State */}
           {!isConnected && (
             <div className="px-8 py-16 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-3xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-6 shadow-sm">
-                <Link2Off size={28} className="text-gray-300" />
+              <div className="w-16 h-16 rounded-3xl bg-stone-100 border border-stone-200 flex items-center justify-center mb-6 shadow-sm">
+                <Link2Off size={28} className="text-stone-400" />
               </div>
-              <p className="text-base font-bold text-gray-900 mb-2">No Instagram account connected</p>
-              <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
-                Connect your Facebook Page to start syncing Instagram Direct Messages with Setter.
+              <p className="text-base font-bold mb-2">No Instagram accounts connected</p>
+              <p className="text-sm text-stone-600 max-w-sm leading-relaxed">
+                Connect your Facebook Pages to start syncing Instagram Direct Messages with Setter.
               </p>
             </div>
           )}
 
-          {/* Card Footer / Action */}
-          <div className="px-8 py-6 bg-[#FAFAFA] border-t border-gray-100 flex justify-end">
-            <a href="/api/auth/instagram/login" className="inline-block">
-               {isConnected ? (
-                 <Button variant="outline" className="bg-white" leftIcon={<RefreshCw size={16} />}>
-                   Reconnect Instagram
-                 </Button>
-               ) : (
-                 <Button leftIcon={<Instagram size={16} />}>
-                   Connect Instagram
-                 </Button>
-               )}
+          {isConnected && (
+            <div className="px-4 md:px-8 py-4 space-y-4">
+              {accounts.map((account) => (
+                <div key={account.accountId} className="rounded-2xl border border-stone-200 bg-stone-50 p-4 md:p-5">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="px-2 py-1 text-xs">
+                          Account
+                        </Badge>
+                        <span className="text-sm font-semibold text-stone-800">
+                          {account.instagramUsername ? `@${account.instagramUsername.replace(/^@/, '')}` : account.pageName || 'Unnamed account'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-stone-700">
+                          <Hash size={15} className="text-stone-500" />
+                          <span className="font-mono text-xs">{account.pageId}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-stone-700">
+                          <User size={15} className="text-stone-500" />
+                          <span className="font-mono text-xs">{account.instagramUserId}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-stone-700">
+                          <Globe size={15} className="text-stone-500" />
+                          <span>{account.graphVersion}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-stone-700">
+                          <Clock size={15} className="text-stone-500" />
+                          <span>{new Date(account.updatedAt).toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-stone-700">
+                          <KeyRound size={15} className="text-stone-500" />
+                          <span>Token encrypted</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form action={`/api/auth/instagram/accounts/${encodeURIComponent(account.accountId)}`} method="post">
+                      <Button variant="outline" className="bg-white w-full md:w-auto" leftIcon={<Trash2 size={15} />}>
+                        Disconnect
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="px-6 md:px-8 py-6 bg-stone-100 border-t border-stone-200 flex justify-end">
+            <a href="/api/auth/instagram/login" className="inline-block w-full md:w-auto">
+              <Button className="w-full md:w-auto" leftIcon={<Plus size={16} />}>
+                Add Instagram Account
+              </Button>
             </a>
           </div>
         </Card>
 
-        {/* Account Info Card */}
-        <Card noPadding className="overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900">Account</h3>
-            <p className="text-sm text-gray-500 mt-0.5">Your personal account information.</p>
+        <Card noPadding className="overflow-hidden bg-white border border-stone-200 shadow-sm rounded-2xl">
+          <div className="px-6 md:px-8 py-6 border-b border-stone-100">
+            <h3 className="text-lg font-bold">Account</h3>
+            <p className="text-sm text-stone-600 mt-0.5">Your personal account information.</p>
           </div>
-          <div className="px-8 py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 py-5 border-b border-gray-50">
+          <div className="px-6 md:px-8 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 py-5 border-b border-stone-100">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                <User size={18} className="text-gray-400" />
-                <span className="text-sm font-medium text-gray-600">Email</span>
+                <User size={18} className="text-stone-500" />
+                <span className="text-sm font-medium text-stone-600">Email</span>
               </div>
               <div className="sm:ml-4">
-                <span className="text-sm text-gray-900 font-mono bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
+                <span className="text-sm font-mono bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm">
                   {user.email}
                 </span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 py-5">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                <KeyRound size={18} className="text-gray-400" />
-                <span className="text-sm font-medium text-gray-600">Role</span>
+                <KeyRound size={18} className="text-stone-500" />
+                <span className="text-sm font-medium text-stone-600">Role</span>
               </div>
               <div className="sm:ml-4">
                 <Badge variant="secondary" className="px-3 py-1 text-sm capitalize">
@@ -201,7 +216,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
           </div>
         </Card>
-
       </div>
     </div>
   );

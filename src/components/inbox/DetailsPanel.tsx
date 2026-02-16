@@ -63,8 +63,8 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
   }, []);
 
   useEffect(() => {
-    const recipientId = user.recipientId;
-    if (!recipientId) return;
+    const conversationId = user.id;
+    if (!conversationId) return;
 
     let active = true;
     setDetailsLoaded(false);
@@ -95,7 +95,7 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     (async () => {
       try {
-        const res = await fetch(`/api/inbox/conversations/${encodeURIComponent(recipientId)}/details`);
+        const res = await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/details`);
         if (!res.ok || !active) return;
         const data = await res.json();
         if (!active) return;
@@ -110,14 +110,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     return () => {
       active = false;
     };
-  }, [syncedDetails, syncedAt, user.recipientId]);
+  }, [syncedDetails, syncedAt, user.id]);
 
   useEffect(() => {
-    if (!detailsLoaded || !user.recipientId) return;
+    if (!detailsLoaded || !user.id) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId!)}/details`, {
+        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ notes }),
@@ -128,14 +128,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [notes, detailsLoaded, user.recipientId]);
+  }, [notes, detailsLoaded, user.id]);
 
   useEffect(() => {
-    if (!detailsLoaded || !user.recipientId) return;
+    if (!detailsLoaded || !user.id) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId!)}/details`, {
+        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentDetails }),
@@ -146,14 +146,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [paymentDetails, detailsLoaded, user.recipientId]);
+  }, [paymentDetails, detailsLoaded, user.id]);
 
   useEffect(() => {
-    if (!detailsLoaded || !user.recipientId) return;
+    if (!detailsLoaded || !user.id) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId!)}/details`, {
+        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contactDetails }),
@@ -164,12 +164,12 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [contactDetails, detailsLoaded, user.recipientId]);
+  }, [contactDetails, detailsLoaded, user.id]);
 
   useSSE("/api/sse", {
     onMessage: (message) => {
       if (message.type !== "user_status_updated") return;
-      if (message.data.userId !== user.recipientId) return;
+      if (message.data.conversationId !== user.id) return;
       appendStatusTimelineEvent(message.data.status, "status_sse");
     },
   });
@@ -177,13 +177,13 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
   useEffect(() => {
     const handleLocalStatus = (event: Event) => {
       const custom = event as CustomEvent<{ userId?: string; status?: StatusType }>;
-      if (!custom.detail?.userId || custom.detail.userId !== user.recipientId || !custom.detail.status) return;
+      if (!custom.detail?.userId || custom.detail.userId !== user.id || !custom.detail.status) return;
       appendStatusTimelineEvent(custom.detail.status, "status_local");
     };
 
     window.addEventListener("userStatusUpdated", handleLocalStatus);
     return () => window.removeEventListener("userStatusUpdated", handleLocalStatus);
-  }, [appendStatusTimelineEvent, user.recipientId]);
+  }, [appendStatusTimelineEvent, user.id]);
 
   const getTabButtonClass = (tabName: DetailsTabName) => {
     const isActive = activeTab === tabName;
@@ -193,10 +193,10 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
   };
 
   const handleClearTimeline = useCallback(async () => {
-    if (!user.recipientId) return;
+    if (!user.id) return;
     setTimelineEvents([]);
     try {
-      await fetch(`/api/inbox/conversations/${encodeURIComponent(user.recipientId)}/details`, {
+      await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timelineEvents: [] }),
@@ -204,7 +204,7 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     } catch (error) {
       console.error("[DetailsPanel] Failed to clear timeline:", error);
     }
-  }, [user.recipientId]);
+  }, [user.id]);
 
   return (
     <aside

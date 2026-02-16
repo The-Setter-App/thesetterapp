@@ -74,13 +74,19 @@ export default function FilterModal({
   onClose,
   selectedStatuses,
   setSelectedStatuses,
-  statusOptions
+  statusOptions,
+  accountOptions,
+  selectedAccountIds,
+  setSelectedAccountIds,
 }: {
   show: boolean;
   onClose: () => void;
   selectedStatuses: StatusType[];
   setSelectedStatuses: React.Dispatch<React.SetStateAction<StatusType[]>>;
   statusOptions: StatusType[];
+  accountOptions: Array<{ id: string; label: string }>;
+  selectedAccountIds: string[];
+  setSelectedAccountIds: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   if (!show) return null;
   return (
@@ -117,12 +123,34 @@ export default function FilterModal({
           </div>
           <div className="space-y-1">
             <label className="text-[14px] font-medium text-[#2B2B2C] px-1">Accounts</label>
-            <div className="w-full h-[32px] px-2 flex items-center justify-between bg-white border border-[#F0F2F6] rounded-md cursor-pointer">
-              <span className="flex items-center gap-2 text-[12px] text-[#2B2B2C]">
-                <Image src="/all-accounts.svg" alt="All accounts" width={16} height={16} />
-                All accounts
-              </span>
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+            <div className="w-full max-h-[140px] overflow-y-auto px-2 py-2 bg-white border border-[#F0F2F6] rounded-md space-y-1">
+              {accountOptions.length === 0 && (
+                <span className="flex items-center gap-2 text-[12px] text-[#9CA3AF] px-1 py-1">
+                  <Image src="/all-accounts.svg" alt="All accounts" width={16} height={16} />
+                  No connected accounts
+                </span>
+              )}
+              {accountOptions.map((account) => {
+                const checked = selectedAccountIds.includes(account.id);
+                return (
+                  <button
+                    key={account.id}
+                    onClick={() =>
+                      setSelectedAccountIds((prev) =>
+                        prev.includes(account.id)
+                          ? prev.filter((id) => id !== account.id)
+                          : [...prev, account.id]
+                      )
+                    }
+                    className="w-full flex items-center gap-2 text-left text-[12px] text-[#2B2B2C] px-1 py-1 rounded hover:bg-[#F8F8FA]"
+                  >
+                    <div className={`w-[13px] h-[13px] rounded-[3px] border ${checked ? 'bg-[#8771FF] border-[#8771FF]' : 'bg-white border-[#F0F2F6]'} flex items-center justify-center`}>
+                      {checked && <div className="w-1.5 h-1 border-l-2 border-b-2 border-white -rotate-45 mb-0.5" />}
+                    </div>
+                    <span className="truncate">{account.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -131,6 +159,7 @@ export default function FilterModal({
           <button
             onClick={() => {
               setSelectedStatuses([]);
+              setSelectedAccountIds([]);
               onClose();
             }}
             className="px-3 py-1 text-[12px] font-medium text-[#8771FF] hover:bg-slate-50 rounded-lg transition-colors"

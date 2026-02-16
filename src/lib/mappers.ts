@@ -28,7 +28,8 @@ export function getRelativeTime(dateString: string): string {
  */
 export function mapConversationToUser(
   raw: RawGraphConversation,
-  userId: string
+  userId: string,
+  context?: { accountId?: string; ownerPageId?: string; accountLabel?: string }
 ): User {
   // Find the participant who is NOT your Instagram user (i.e., the other person)
   const recipient = raw.participants.data.find((p) => p.id !== userId);
@@ -46,6 +47,11 @@ export function mapConversationToUser(
   
   return {
     id: raw.id,
+    updatedAt: raw.updated_time,
+    accountId: context?.accountId,
+    ownerInstagramUserId: userId,
+    ownerPageId: context?.ownerPageId,
+    accountLabel: context?.accountLabel,
     name: displayName,
     time: getRelativeTime(raw.updated_time),
     lastMessage: lastMessageText.length > 35 ? `${lastMessageText.slice(0, 35)}...` : lastMessageText,

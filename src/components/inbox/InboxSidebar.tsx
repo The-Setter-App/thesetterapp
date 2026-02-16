@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Inter } from 'next/font/google'; // Import Inter
-import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
+import { getInboxConnectionState, getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
 import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clientCache';
 import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
 import ConversationList from '@/components/inbox/ConversationList';
 import { useSSE } from '@/hooks/useSSE';
 import Image from 'next/image';
+import Link from 'next/link';
 import FilterModal from './FilterModal';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -55,6 +56,55 @@ function isStatusType(value: unknown): value is StatusType {
   return typeof value === 'string' && statusOptions.includes(value as StatusType);
 }
 
+function getTimestampMs(value?: string): number {
+  if (!value) return 0;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function isRelativeTimeLabel(value?: string): boolean {
+  if (!value) return true;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return true;
+  return (
+    normalized === 'just now' ||
+    normalized === 'yesterday' ||
+    normalized.endsWith(' min') ||
+    normalized.endsWith(' mins') ||
+    normalized.endsWith(' hour') ||
+    normalized.endsWith(' hours') ||
+    normalized.endsWith(' day') ||
+    normalized.endsWith(' days')
+  );
+}
+
+function getStableDisplayTime(updatedAt?: string, currentLabel?: string): string {
+  if (!updatedAt) return currentLabel || '';
+  const ms = Date.parse(updatedAt);
+  if (!Number.isFinite(ms)) return currentLabel || '';
+  if (!isRelativeTimeLabel(currentLabel)) return currentLabel || '';
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function normalizeUsersFromBackend(list: User[]): User[] {
+  return list.map((user) => ({
+    ...user,
+    time: getStableDisplayTime(user.updatedAt, user.time),
+  }));
+}
+
+function sortUsersByRecency(list: User[]): User[] {
+  return [...list].sort((a, b) => {
+    const timeDiff = getTimestampMs(b.updatedAt) - getTimestampMs(a.updatedAt);
+    if (timeDiff !== 0) return timeDiff;
+
+    const unreadDiff = (b.unread ?? 0) - (a.unread ?? 0);
+    if (unreadDiff !== 0) return unreadDiff;
+
+    return b.id.localeCompare(a.id);
+  });
+}
+
 
 interface InboxSidebarProps {
   width?: number;
@@ -69,8 +119,10 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'priority' | 'unread'>('all');
   const [loading, setLoading] = useState(true);
+  const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
  
 
   const refetchInFlightRef = useRef(false);
@@ -83,6 +135,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   useEffect(() => {
     localStorage.setItem('inbox_filter_statuses', JSON.stringify(selectedStatuses));
   }, [selectedStatuses]);
+  useEffect(() => {
+    const saved = localStorage.getItem('inbox_filter_accounts');
+    if (saved) setSelectedAccountIds(JSON.parse(saved));
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('inbox_filter_accounts', JSON.stringify(selectedAccountIds));
+  }, [selectedAccountIds]);
 
 
   const refetchConversations = useCallback(async () => {
@@ -90,14 +149,15 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     refetchInFlightRef.current = true;
     try {
       const freshUsers = await getInboxUsers();
-      setUsers(freshUsers);
-      setCachedUsers(freshUsers).catch(e => console.error(e));
+      const sorted = sortUsersByRecency(normalizeUsersFromBackend(freshUsers));
+      setUsers(sorted);
+      setCachedUsers(sorted).catch(e => console.error(e));
     } finally { refetchInFlightRef.current = false; }
   }, []);
 
   const applyUserStatusUpdate = useCallback((userId: string, status: StatusType) => {
     setUsers((prev) => {
-      const idx = prev.findIndex((u) => u.recipientId === userId || u.id === userId);
+      const idx = prev.findIndex((u) => u.id === userId);
       if (idx === -1) return prev;
       const updated = [...prev];
       updated[idx] = {
@@ -113,7 +173,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean, fromMe = false) => {
     const { text, timestamp, attachments } = data;
     setUsers((prev) => {
-      const idx = prev.findIndex((u) => u.recipientId === data.senderId || u.recipientId === data.recipientId);
+      const idx = prev.findIndex((u) => {
+        if (u.id === data.conversationId) return true;
+        if (!u.recipientId) return false;
+        const sameParticipant = u.recipientId === data.senderId || u.recipientId === data.recipientId;
+        const sameAccount = !u.accountId || !data.accountId || u.accountId === data.accountId;
+        return sameParticipant && sameAccount;
+      });
       if (idx === -1) { refetchConversations(); return prev; }
       const updated = [...prev];
       const conv = { ...updated[idx] };
@@ -128,22 +194,49 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           firstAttachment.file_url.endsWith('.webm') ||
           firstAttachment.file_url.endsWith('.mp4')
         ));
+      const isImageAttachment =
+        firstAttachment?.type === 'image' ||
+        Boolean(firstAttachment?.image_data?.url) ||
+        Boolean(firstAttachment?.file_url && (
+          firstAttachment.file_url.endsWith('.jpg') ||
+          firstAttachment.file_url.endsWith('.jpeg') ||
+          firstAttachment.file_url.endsWith('.png') ||
+          firstAttachment.file_url.endsWith('.webp') ||
+          firstAttachment.file_url.endsWith('.gif')
+        ));
+      const isVideoAttachment =
+        firstAttachment?.type === 'video' ||
+        Boolean(firstAttachment?.video_data?.url) ||
+        Boolean(firstAttachment?.file_url && (
+          firstAttachment.file_url.endsWith('.mov') ||
+          firstAttachment.file_url.endsWith('.mp4') ||
+          firstAttachment.file_url.endsWith('.m4v') ||
+          firstAttachment.file_url.endsWith('.webm')
+        ));
+      const hasAnyAttachment = Boolean(firstAttachment);
 
       const outgoing = isEcho || fromMe;
       if (text && text.trim().length > 0) {
         conv.lastMessage = text;
       } else if (isAudioAttachment) {
         conv.lastMessage = outgoing ? 'You sent a voice message' : 'Sent a voice message';
+      } else if (isImageAttachment) {
+        conv.lastMessage = outgoing ? 'You sent an image' : 'Sent an image';
+      } else if (isVideoAttachment) {
+        conv.lastMessage = outgoing ? 'You sent a video' : 'Sent a video';
+      } else if (hasAnyAttachment) {
+        conv.lastMessage = outgoing ? 'You sent an attachment' : 'Sent an attachment';
       } else {
-        conv.lastMessage = '[attachment]';
+        conv.lastMessage = outgoing ? 'You sent a message' : 'Sent a message';
       }
       conv.time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      conv.updatedAt = new Date(timestamp).toISOString();
       if (outgoing) conv.unread = 0;
       else conv.unread = (conv.unread ?? 0) + 1;
-      updated.splice(idx, 1);
-      updated.unshift(conv);
-      setCachedUsers(updated).catch(e => console.error(e));
-      return updated;
+      updated[idx] = conv;
+      const sorted = sortUsersByRecency(updated);
+      setCachedUsers(sorted).catch(e => console.error(e));
+      return sorted;
     });
   }, [refetchConversations]);
 
@@ -153,7 +246,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true, true);
       else if (message.type === 'user_status_updated') {
         if (isStatusType(message.data.status)) {
-          applyUserStatusUpdate(message.data.userId, message.data.status);
+          applyUserStatusUpdate(message.data.conversationId, message.data.status);
         }
       }
     }
@@ -172,11 +265,25 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   useEffect(() => {
     async function loadUsers() {
+      const connectionState = await getInboxConnectionState();
+      setHasConnectedAccounts(connectionState.hasConnectedAccounts);
+
+      if (!connectionState.hasConnectedAccounts) {
+        setUsers([]);
+        setCachedUsers([]).catch(e => console.error(e));
+        setLoading(false);
+        return;
+      }
+
       const cached = await getCachedUsers();
-      if (cached?.length) { setUsers(cached); setLoading(false); }
+      if (cached?.length) {
+        setUsers(sortUsersByRecency(normalizeUsersFromBackend(cached)));
+        setLoading(false);
+      }
       const fresh = await getInboxUsers();
-      setUsers(fresh);
-      setCachedUsers(fresh).catch(e => console.error(e));
+      const sorted = sortUsersByRecency(normalizeUsersFromBackend(fresh));
+      setUsers(sorted);
+      setCachedUsers(sorted).catch(e => console.error(e));
       setLoading(false);
     }
     loadUsers();
@@ -185,9 +292,18 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const filteredUsers = users.filter(u => {
     const matchesTab = activeTab === 'all' || (activeTab === 'priority' && u.status === 'Qualified') || (activeTab === 'unread' && (u.unread ?? 0) > 0);
     const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(u.status);
+    const matchesAccount = selectedAccountIds.length === 0 || (u.accountId ? selectedAccountIds.includes(u.accountId) : false);
     const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || (u.lastMessage?.toLowerCase().includes(search.toLowerCase()));
-    return matchesTab && matchesStatus && matchesSearch;
+    return matchesTab && matchesStatus && matchesAccount && matchesSearch;
   });
+
+  const accountOptions = Array.from(
+    new Map(
+      users
+        .filter((u): u is User & { accountId: string } => Boolean(u.accountId))
+        .map((u) => [u.accountId, { id: u.accountId, label: u.accountLabel || u.ownerInstagramUserId || u.accountId }])
+    ).values()
+  );
 
   return (
     <aside
@@ -201,60 +317,77 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       </div>
 
       {/* Search & Filter */}
-      <div className="p-4 pb-3">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <SearchIcon className="h-4 w-4 text-gray-400" />
-            </span>
-            <input
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50 text-sm font-medium placeholder-gray-400 focus:outline-none focus:border-gray-300"
-              placeholder="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <button 
-            onClick={() => setShowFilterModal(true)}
-            className="px-3 py-2 bg-white border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 flex items-center"
-          >
-            <FilterIcon className="w-4 h-4 mr-1.5" />
-            Filter
-            {selectedStatuses.length > 0 && (
-              <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#8771FF] text-[10px] text-white">
-                {selectedStatuses.length}
+      {hasConnectedAccounts && (
+        <div className="p-4 pb-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <SearchIcon className="h-4 w-4 text-gray-400" />
               </span>
-            )}
-          </button>
+              <input
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50 text-sm font-medium placeholder-gray-400 focus:outline-none focus:border-gray-300"
+                placeholder="Search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <button 
+              onClick={() => setShowFilterModal(true)}
+              className="px-3 py-2 bg-white border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 flex items-center"
+            >
+              <FilterIcon className="w-4 h-4 mr-1.5" />
+              Filter
+              {selectedStatuses.length > 0 && (
+                <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#8771FF] text-[10px] text-white">
+                  {selectedStatuses.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tabs */}
-      <div className="border-t border-b border-gray-200 px-4 py-3">
-        <div className="flex gap-2 text-xs font-bold">
-          {['all', 'priority', 'unread'].map((tab) => (
-            <button
-              key={tab}
-              className={`flex-1 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? 'bg-[#8771FF] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-              onClick={() => setActiveTab(tab as any)}
-            >
-              {tab} [{tab === 'all' ? users.length : tab === 'priority' ? users.filter(u => u.status === 'Qualified').length : users.filter(u => (u.unread ?? 0) > 0).length}]
-            </button>
-          ))}
+      {hasConnectedAccounts && (
+        <div className="border-t border-b border-gray-200 px-4 py-3">
+          <div className="flex gap-2 text-xs font-bold">
+            {['all', 'priority', 'unread'].map((tab) => (
+              <button
+                key={tab}
+                className={`flex-1 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? 'bg-[#8771FF] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                onClick={() => setActiveTab(tab as any)}
+              >
+                {tab} [{tab === 'all' ? users.length : tab === 'priority' ? users.filter(u => u.status === 'Qualified').length : users.filter(u => (u.unread ?? 0) > 0).length}]
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <div className="h-8 w-8 border-4 border-[#8771FF] border-t-transparent rounded-full animate-spin"></div>
           </div>
+        ) : !hasConnectedAccounts ? (
+          <div className="h-full flex items-center justify-center p-6">
+            <div className="text-center">
+              <p className="text-sm font-semibold text-gray-800">No connected accounts yet</p>
+              <p className="text-xs text-gray-500 mt-1">Connect an Instagram account in Settings to start syncing.</p>
+              <Link
+                href="/settings"
+                className="inline-flex mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800"
+              >
+                Go to Settings
+              </Link>
+            </div>
+          </div>
         ) : (
           <ConversationList 
             users={filteredUsers} 
             selectedUserId={selectedUserId} 
-            onSelectUser={(id) => router.push(`/inbox/${id}`)} 
+            onSelectUser={(id) => router.push(`/inbox/${id}`)}
             onAction={(a) => alert(`Moved to ${a}`)} 
           />
         )}
@@ -267,6 +400,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         selectedStatuses={selectedStatuses}
         setSelectedStatuses={setSelectedStatuses}
         statusOptions={statusOptions}
+        accountOptions={accountOptions}
+        selectedAccountIds={selectedAccountIds}
+        setSelectedAccountIds={setSelectedAccountIds}
       />
     </aside>
   );

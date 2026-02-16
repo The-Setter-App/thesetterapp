@@ -63,7 +63,7 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
   const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
   const [copiedField, setCopiedField] = useState<"phone" | "email" | null>(null);
 
-  const userId = user.recipientId || user.id;
+  const userId = user.id;
 
   // Keep local status in sync when switching conversations.
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
   // Listen for SSE status updates (cross-tab / external updates)
   useSSE('/api/sse', {
     onMessage: (msg) => {
-      if (msg.type === 'user_status_updated' && msg.data.userId === userId && isStatusType(msg.data.status)) {
+      if (msg.type === 'user_status_updated' && msg.data.conversationId === userId && isStatusType(msg.data.status)) {
         setCurrentStatus(msg.data.status);
       }
     }

@@ -50,11 +50,11 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
       {users.map((u) => (
         <div
-          key={u.recipientId || u.id}
+          key={u.id}
           className={`group flex items-center px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
-            selectedUserId === u.recipientId ? 'bg-blue-50/50' : ''
+            selectedUserId === u.id ? 'bg-blue-50/50' : ''
           }`}
-          onClick={() => onSelectUser(u.recipientId || u.id)}
+          onClick={() => onSelectUser(u.id)}
         >
           <div className="relative flex-shrink-0">
             <img 
@@ -80,6 +80,9 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
               <span className="text-[10px] text-gray-400 ml-2 whitespace-nowrap">{u.time}</span>
             </div>
             <div className="text-xs text-gray-500 truncate">{u.lastMessage}</div>
+            {u.accountLabel && (
+              <div className="mt-1 text-[10px] text-stone-500 truncate">Account: {u.accountLabel}</div>
+            )}
           </div>
 
           <div className="flex-shrink-0">

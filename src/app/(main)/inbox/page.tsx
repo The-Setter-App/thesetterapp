@@ -1,6 +1,30 @@
-"use client";
+import Link from 'next/link';
+import { getSession } from '@/lib/auth';
+import { getConnectedInstagramAccounts } from '@/lib/userRepository';
 
-export default function InboxPage() {
+export default async function InboxPage() {
+  const session = await getSession();
+  const hasConnectedAccounts = session?.email
+    ? (await getConnectedInstagramAccounts(session.email)).length > 0
+    : false;
+
+  if (!hasConnectedAccounts) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-white h-full border-r border-gray-200 px-6">
+        <div className="text-center text-gray-500">
+          <h3 className="text-lg font-medium text-gray-900">No connected accounts yet</h3>
+          <p className="mt-1 text-sm text-gray-500">Connect your Instagram account in Settings to start using Inbox.</p>
+          <Link
+            href="/settings"
+            className="inline-flex mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800"
+          >
+            Go to Settings
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex items-center justify-center bg-white h-full border-r border-gray-200">
       <div className="text-center text-gray-500">

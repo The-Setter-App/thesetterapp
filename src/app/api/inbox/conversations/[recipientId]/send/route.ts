@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getUserCredentials } from '@/lib/userRepository';
+import { getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
 import { sendMessage } from '@/lib/graphApi';
 import { syncLatestMessages } from '@/app/actions/inbox';
+import { findConversationById } from '@/lib/inboxRepository';
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { recipientId } = await context.params;
+    const { recipientId: conversationId } = await context.params;
     const body = (await request.json()) as { text?: string; clientTempId?: string };
     const text = body.text?.trim();
 
@@ -23,15 +24,20 @@ export async function POST(
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
 
-    const creds = await getUserCredentials(session.email);
-    if (!creds?.instagramUserId) {
+    const conversation = await findConversationById(conversationId, session.email);
+    if (!conversation?.recipientId || !conversation.accountId) {
+      return NextResponse.json({ error: 'No active conversation found' }, { status: 404 });
+    }
+
+    const account = await getInstagramAccountById(session.email, conversation.accountId);
+    if (!account) {
       return NextResponse.json({ error: 'No active Instagram connection found' }, { status: 400 });
     }
 
-    const accessToken = decryptData(creds.accessToken);
-    await sendMessage(creds.pageId, recipientId, text, accessToken, creds.graphVersion);
+    const accessToken = decryptData(account.accessToken);
+    await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion);
 
-    syncLatestMessages(recipientId, { text }).catch((err) => {
+    syncLatestMessages(conversationId, { text }).catch((err) => {
       console.warn('[InboxSendAPI] Background sync failed:', err);
     });
 

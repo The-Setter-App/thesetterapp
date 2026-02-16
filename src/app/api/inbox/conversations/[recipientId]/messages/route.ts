@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { findConversationByRecipientId, getMessagesPageFromDb, saveMessagesToDb } from '@/lib/inboxRepository';
-import { getUserCredentials } from '@/lib/userRepository';
+import { findConversationById, getMessagesPageFromDb, saveMessagesToDb } from '@/lib/inboxRepository';
+import { getConnectedInstagramAccounts, getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
 import { fetchMessages } from '@/lib/graphApi';
 import { mapGraphMessageToAppMessage } from '@/lib/mappers';
@@ -19,14 +19,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { recipientId } = await context.params;
+    const { recipientId: conversationId } = await context.params;
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get('cursor') || undefined;
     const requestedLimit = Number(searchParams.get('limit'));
     const parsedLimit = Number.isFinite(requestedLimit) ? requestedLimit : DEFAULT_INITIAL_LIMIT;
     const limit = Math.min(Math.max(parsedLimit, 1), MAX_PAGE_LIMIT);
 
-    const conversation = await findConversationByRecipientId(recipientId, session.email);
+    const conversation = await findConversationById(conversationId, session.email);
     if (!conversation?.id) {
       return NextResponse.json({
         messages: [],
@@ -40,11 +40,21 @@ export async function GET(
 
     // Guardrail: if Mongo has no messages for this conversation, fetch latest 20 from Graph and persist.
     if (!cursor && page.messages.length === 0) {
-      const creds = await getUserCredentials(session.email);
-      if (creds?.instagramUserId) {
-        const accessToken = decryptData(creds.accessToken);
-        const rawMessages = await fetchMessages(conversation.id, accessToken, 20, creds.graphVersion);
-        const mapped = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, creds.instagramUserId));
+      let account = conversation.accountId ? await getInstagramAccountById(session.email, conversation.accountId) : null;
+      if (!account) {
+        const connectedAccounts = await getConnectedInstagramAccounts(session.email);
+        if (conversation.ownerInstagramUserId) {
+          account =
+            connectedAccounts.find((a) => a.instagramUserId === conversation.ownerInstagramUserId) || null;
+        }
+        if (!account && connectedAccounts.length === 1) {
+          account = connectedAccounts[0];
+        }
+      }
+      if (account?.instagramUserId) {
+        const accessToken = decryptData(account.accessToken);
+        const rawMessages = await fetchMessages(conversation.id, accessToken, 20, account.graphVersion);
+        const mapped = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, account.instagramUserId));
         await saveMessagesToDb(mapped, conversation.id, session.email);
         page = await getMessagesPageFromDb(conversation.id, session.email, limit, cursor);
       }

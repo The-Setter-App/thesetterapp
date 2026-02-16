@@ -68,6 +68,11 @@ export interface RawGraphConversationsResponse {
 // Application UI Types
 export interface User {
   id: string;
+  updatedAt?: string;
+  accountId?: string;
+  ownerInstagramUserId?: string;
+  ownerPageId?: string;
+  accountLabel?: string;
   name: string;
   time: string;
   lastMessage: string;
@@ -158,12 +163,13 @@ export interface SSEAttachment {
 export interface SSEMessageData {
   senderId: string;
   recipientId: string;
+  conversationId: string;
+  accountId?: string;
   messageId: string;
   text?: string;
   duration?: string;
   attachments?: SSEAttachment[];
   timestamp: number;
-  conversationId?: string;
   fromMe?: boolean;
 }
 
@@ -182,7 +188,7 @@ export interface SSESyncedData {
 
 /** Payload for user_status_updated SSE events. */
 export interface SSEUserStatusData {
-  userId: string;
+  conversationId: string;
   status: StatusType;
 }
 

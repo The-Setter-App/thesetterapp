@@ -9,11 +9,26 @@ export interface InstagramConfig {
   updatedAt: Date;
 }
 
+export interface InstagramAccountConnection {
+  accountId: string;
+  accessToken: string; // Encrypted
+  pageId: string;
+  instagramUserId: string; // IGSID
+  graphVersion: string;
+  isConnected: boolean;
+  connectedAt: Date;
+  updatedAt: Date;
+  pageName?: string;
+  instagramUsername?: string;
+}
+
 export interface User {
   email: string;
   role: UserRole;
   createdAt: Date;
   lastLoginAt?: Date;
+  instagramAccounts?: InstagramAccountConnection[];
+  // Legacy single-account shape kept for backward compatibility/migration.
   instagramConfig?: InstagramConfig;
 }
 

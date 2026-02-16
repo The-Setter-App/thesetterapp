@@ -21,8 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { recipientId } = await context.params;
-    const details = await getConversationDetails(recipientId, session.email);
+    const { recipientId: conversationId } = await context.params;
+    const details = await getConversationDetails(conversationId, session.email);
 
     return NextResponse.json({
       details: details ?? {
@@ -59,7 +59,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { recipientId } = await context.params;
+    const { recipientId: conversationId } = await context.params;
     const body = (await request.json()) as Partial<ConversationDetails>;
 
     if (typeof body.notes === 'string' && body.notes.length > 4000) {
@@ -94,7 +94,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Timeline events must be an array' }, { status: 400 });
     }
 
-    await updateConversationDetails(recipientId, session.email, body);
+    await updateConversationDetails(conversationId, session.email, body);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

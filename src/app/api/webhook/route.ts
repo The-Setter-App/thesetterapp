@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { sseEmitter } from '../sse/route';
 import { 
-  findConversationIdByParticipant, 
+  findConversationIdByParticipantAndAccount,
+  findConversationIdByParticipantUnique,
   saveMessageToDb, 
   updateConversationMetadata, 
   saveConversationsToDb,
   updateUserAvatar
 } from '@/lib/inboxRepository';
-import { fetchConversations, fetchUserProfile } from '@/lib/graphApi';
+import { fetchAllConversations, fetchUserProfile } from '@/lib/graphApi';
 import { mapConversationToUser, getRelativeTime } from '@/lib/mappers';
 import { getUserByInstagramId } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
@@ -21,6 +22,13 @@ import type { SSEEvent, SSEAttachment, Message } from '@/types/inbox';
 
 const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'your_verify_token_here';
 const APP_SECRET = process.env.FB_APP_SECRET || '';
+const WEBHOOK_DEBUG = process.env.WEBHOOK_DEBUG === 'true';
+
+function webhookDebug(...args: unknown[]) {
+  if (WEBHOOK_DEBUG) {
+    console.log(...args);
+  }
+}
 
 /**
  * GET handler - Webhook verification
@@ -38,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Check the mode and token sent are correct
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
       // Respond with 200 OK and challenge token from the request
-      console.log('[Webhook] Verification successful');
+      webhookDebug('[Webhook] Verification successful');
       return new NextResponse(challenge, { status: 200 });
     }
     
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Process webhook event
     if (data.object === 'instagram') {
-      console.log('[Webhook] Instagram event received');
+      webhookDebug('[Webhook] Instagram event received');
       
       for (const entry of data.entry) {
         // Handle messaging events
@@ -131,7 +139,9 @@ async function resolveConversationId(
 ): Promise<string | undefined> {
   try {
     const participantId = senderId === instagramUserId ? recipientId : senderId;
-    return await findConversationIdByParticipant(participantId, ownerEmail);
+    const scoped = await findConversationIdByParticipantAndAccount(participantId, ownerEmail, instagramUserId);
+    if (scoped) return scoped;
+    return await findConversationIdByParticipantUnique(participantId, ownerEmail);
   } catch {
     return undefined;
   }
@@ -229,27 +239,28 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
   // We need to check which one matches a connected Instagram account in our DB.
   
   // First, check if the recipient is our user (Incoming message)
-  let user = await getUserByInstagramId(recipient.id);
+  let identity = await getUserByInstagramId(recipient.id);
   let instagramUserId = recipient.id;
 
   // If not, check if the sender is our user (Outgoing message / Echo)
-  if (!user) {
-    user = await getUserByInstagramId(sender.id);
+  if (!identity) {
+    identity = await getUserByInstagramId(sender.id);
     instagramUserId = sender.id;
   }
 
-  if (!user || !user.instagramConfig) {
+  if (!identity) {
     console.warn(`[Webhook] No user found for participant IDs: ${sender.id}, ${recipient.id}. Ignoring.`);
     return;
   }
 
-  const creds = user.instagramConfig;
-  const ownerEmail = user.email; // Extracted email for isolation
+  const owner = identity.user;
+  const creds = identity.account;
+  const ownerEmail = owner.email; // Extracted email for isolation
   const senderId = sender.id;
   const recipientId = recipient.id;
   const timestamp = event.timestamp as number;
 
-  console.log(`[Webhook] Message event from ${senderId} to ${recipientId} (Owner: ${ownerEmail})`);
+  webhookDebug(`[Webhook] Message event from ${senderId} to ${recipientId} (Owner: ${ownerEmail})`);
 
   // Derive fromMe: the sender is our page/IG user
   const fromMe = senderId === instagramUserId;
@@ -260,17 +271,27 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
   // If conversation not found in DB, try to fetch fresh list from Graph API
   // This handles the case where a new lead messages while the app was offline
   if (!conversationId) {
-    console.log('[Webhook] Conversation ID not found in DB. Fetching fresh list from Graph API...');
+    webhookDebug('[Webhook] Conversation ID not found in DB. Fetching fresh list from Graph API...');
     try {
       const accessToken = decryptData(creds.accessToken);
-      const rawConvs = await fetchConversations(creds.pageId, accessToken, 50, creds.graphVersion);
-      const users = rawConvs.data.map(c => mapConversationToUser(c, instagramUserId));
+      const rawConvs = await fetchAllConversations(creds.pageId, accessToken, {
+        pageLimit: 50,
+        maxPages: 20,
+        graphVersion: creds.graphVersion,
+      });
+      const users = rawConvs.data.map((c) =>
+        mapConversationToUser(c, instagramUserId, {
+          accountId: creds.accountId,
+          ownerPageId: creds.pageId,
+          accountLabel: creds.instagramUsername || creds.pageName,
+        })
+      );
       await saveConversationsToDb(users, ownerEmail);
       
       // Retry resolving after refresh
       conversationId = await resolveConversationId(senderId, recipientId, instagramUserId, ownerEmail);
       if (conversationId) {
-        console.log(`[Webhook] Successfully resolved conversation ID ${conversationId} after refresh`);
+        webhookDebug(`[Webhook] Successfully resolved conversation ID ${conversationId} after refresh`);
       } else {
         console.warn('[Webhook] Still could not resolve conversation ID after refresh');
       }
@@ -306,7 +327,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       };
       
       await saveMessageToDb(newMessage, conversationId, ownerEmail);
-      console.log(`[Webhook] Persisted message ${messageId} to MongoDB`);
+      webhookDebug(`[Webhook] Persisted message ${messageId} to MongoDB`);
 
       // Update Conversation Metadata (Last Message, Time, Unread)
       // This ensures the sidebar is up-to-date in the DB immediately
@@ -333,9 +354,10 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           previewText,
           timeStr,
           incrementUnread,
-          clearUnread
+          clearUnread,
+          new Date(timestamp).toISOString()
         );
-        console.log(`[Webhook] Updated metadata for conversation ${conversationId}`);
+        webhookDebug(`[Webhook] Updated metadata for conversation ${conversationId}`);
 
         // Fetch and update profile picture for incoming messages
         if (!fromMe && !isEcho) {
@@ -345,8 +367,8 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
             const profilePic = await fetchUserProfile(senderId, accessToken, creds.graphVersion);
             
             if (profilePic) {
-              await updateUserAvatar(senderId, ownerEmail, profilePic);
-              console.log(`[Webhook] Updated avatar for ${senderId}`);
+              await updateUserAvatar(conversationId, ownerEmail, profilePic);
+              webhookDebug(`[Webhook] Updated avatar for ${senderId}`);
             }
           } catch (err) {
             console.error(`[Webhook] Failed to update avatar for ${senderId}:`, err);
@@ -365,19 +387,20 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       data: {
         senderId,
         recipientId,
+        conversationId: conversationId || '',
+        accountId: creds.accountId,
         messageId,
         text: messageText,
         attachments: sseAttachments,
         timestamp,
-        conversationId,
         fromMe: isEcho ? true : fromMe,
       },
     };
 
     if (isEcho) {
-      console.log(`[Webhook] Message echo (sent): ${messageText || '[attachment]'}`);
+      webhookDebug(`[Webhook] Message echo (sent): ${messageText || '[attachment]'}`);
     } else {
-      console.log(`[Webhook] Message received: ${messageText || '[attachment]'}`);
+      webhookDebug(`[Webhook] Message received: ${messageText || '[attachment]'}`);
     }
 
     sseEmitter.emit('message', ssePayload);
@@ -385,7 +408,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
   // Handle message seen (read receipts)
   if (event.message_seen) {
-    console.log('[Webhook] Message seen event');
+    webhookDebug('[Webhook] Message seen event');
 
     const seenPayload: SSEEvent = {
       type: 'message_seen',
@@ -402,7 +425,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
   // Handle message delivery
   if (event.delivery) {
-    console.log('[Webhook] Message delivery event');
+    webhookDebug('[Webhook] Message delivery event');
   }
 }
 
@@ -410,17 +433,17 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
  * Handle change events (reactions, deletions, etc.)
  */
 async function handleChange(change: any) {
-  console.log('[Webhook] Change event:', change.field);
+  webhookDebug('[Webhook] Change event:', change.field);
   
   // Handle different types of changes
   switch (change.field) {
     case 'messages':
-      console.log('[Webhook] Message change detected');
+      webhookDebug('[Webhook] Message change detected');
       break;
     case 'message_reactions':
-      console.log('[Webhook] Message reaction detected');
+      webhookDebug('[Webhook] Message reaction detected');
       break;
     default:
-      console.log('[Webhook] Unknown change type:', change.field);
+      webhookDebug('[Webhook] Unknown change type:', change.field);
   }
 }

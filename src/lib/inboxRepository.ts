@@ -61,7 +61,11 @@ export async function getConversationsFromDb(ownerEmail: string): Promise<User[]
     const db = client.db(DB_NAME);
     await ensureInboxIndexes(db);
     // Filter by ownerEmail
-    const docs = await db.collection<User>(CONVERSATIONS_COLLECTION).find({ ownerEmail } as any).toArray();
+    const docs = await db
+      .collection<User>(CONVERSATIONS_COLLECTION)
+      .find({ ownerEmail } as any)
+      .sort({ updatedAt: -1, id: -1 })
+      .toArray();
     // Sanitize _id for Client Components
     return docs.map(({ _id, ...rest }: any) => rest as User);
   } catch (error) {
@@ -86,6 +90,15 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   const setPayload: any = { ...rest, ownerEmail };
   if (avatar) {
     setPayload.avatar = avatar;
+  }
+  if (existing?.updatedAt && rest.updatedAt) {
+    const existingMs = Date.parse(existing.updatedAt);
+    const incomingMs = Date.parse(rest.updatedAt);
+    if (Number.isFinite(existingMs) && Number.isFinite(incomingMs) && existingMs > incomingMs) {
+      setPayload.updatedAt = existing.updatedAt;
+    }
+  } else if (existing?.updatedAt && !rest.updatedAt) {
+    setPayload.updatedAt = existing.updatedAt;
   }
   const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
   const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
@@ -129,6 +142,15 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
     const setPayload: any = { ...rest, ownerEmail };
     if (avatar) {
       setPayload.avatar = avatar;
+    }
+    if (existing?.updatedAt && rest.updatedAt) {
+      const existingMs = Date.parse(existing.updatedAt);
+      const incomingMs = Date.parse(rest.updatedAt);
+      if (Number.isFinite(existingMs) && Number.isFinite(incomingMs) && existingMs > incomingMs) {
+        setPayload.updatedAt = existing.updatedAt;
+      }
+    } else if (existing?.updatedAt && !rest.updatedAt) {
+      setPayload.updatedAt = existing.updatedAt;
     }
 
     if (existing && existing.status) {
@@ -175,12 +197,65 @@ export async function findConversationByRecipientId(recipientId: string, ownerEm
   return rest as User;
 }
 
+export async function findConversationById(conversationId: string, ownerEmail: string): Promise<User | null> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ id: conversationId, ownerEmail });
+
+  if (!user) return null;
+  const { _id, ...rest } = user as any;
+  return rest as User;
+}
+
 /**
  * Find a conversation ID by the other participant's ID
  */
 export async function findConversationIdByParticipant(participantId: string, ownerEmail: string): Promise<string | undefined> {
-  const conv = await findConversationByRecipientId(participantId, ownerEmail);
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+  const conv = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({
+    recipientId: participantId,
+    ownerEmail,
+  });
+  if (!conv) return undefined;
+  return conv.id;
+}
+
+export async function findConversationIdByParticipantAndAccount(
+  participantId: string,
+  ownerEmail: string,
+  ownerInstagramUserId: string
+): Promise<string | undefined> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+  const conv = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({
+    recipientId: participantId,
+    ownerEmail,
+    ownerInstagramUserId,
+  });
   return conv?.id;
+}
+
+export async function findConversationIdByParticipantUnique(
+  participantId: string,
+  ownerEmail: string
+): Promise<string | undefined> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+  const docs = await db
+    .collection<User>(CONVERSATIONS_COLLECTION)
+    .find({ recipientId: participantId, ownerEmail })
+    .project({ id: 1 })
+    .limit(2)
+    .toArray();
+
+  // Only return a fallback match when unambiguous.
+  if (docs.length !== 1) return undefined;
+  return docs[0]?.id;
 }
 
 /**
@@ -484,7 +559,8 @@ export async function updateConversationMetadata(
   lastMessage: string,
   time: string,
   incrementUnread: boolean,
-  clearUnread = false
+  clearUnread = false,
+  eventTimestampIso?: string
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -494,6 +570,7 @@ export async function updateConversationMetadata(
     $set: {
       lastMessage,
       time,
+      updatedAt: eventTimestampIso || new Date().toISOString(),
     },
   };
 
@@ -515,7 +592,7 @@ export async function updateConversationMetadata(
  * Update user status by recipientId
  */
 export async function updateUserStatus(
-  recipientId: string,
+  conversationId: string,
   ownerEmail: string,
   newStatus: string
 ): Promise<void> {
@@ -524,7 +601,7 @@ export async function updateUserStatus(
   await ensureInboxIndexes(db);
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { recipientId, ownerEmail },
+    { id: conversationId, ownerEmail },
     { $set: { status: newStatus } }
   );
 }
@@ -533,7 +610,7 @@ export async function updateUserStatus(
  * Update user avatar
  */
 export async function updateUserAvatar(
-  recipientId: string,
+  conversationId: string,
   ownerEmail: string,
   avatarUrl: string
 ): Promise<void> {
@@ -542,13 +619,13 @@ export async function updateUserAvatar(
   await ensureInboxIndexes(db);
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { recipientId, ownerEmail },
+    { id: conversationId, ownerEmail },
     { $set: { avatar: avatarUrl } }
   );
 }
 
 export async function getConversationDetails(
-  recipientId: string,
+  conversationId: string,
   ownerEmail: string
 ): Promise<ConversationDetails | null> {
   const client = await clientPromise;
@@ -556,7 +633,7 @@ export async function getConversationDetails(
   await ensureInboxIndexes(db);
 
   const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { recipientId, ownerEmail },
+    { id: conversationId, ownerEmail },
     { projection: { notes: 1, paymentDetails: 1, timelineEvents: 1, contactDetails: 1 } }
   );
 
@@ -607,7 +684,7 @@ export async function getConversationDetails(
 }
 
 export async function updateConversationDetails(
-  recipientId: string,
+  conversationId: string,
   ownerEmail: string,
   details: Partial<ConversationDetails>
 ): Promise<void> {
@@ -645,13 +722,13 @@ export async function updateConversationDetails(
   if (Object.keys(setPayload).length === 0) return;
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { recipientId, ownerEmail },
+    { id: conversationId, ownerEmail },
     { $set: setPayload }
   );
 }
 
 export async function addStatusTimelineEvent(
-  recipientId: string,
+  conversationId: string,
   ownerEmail: string,
   status: StatusType
 ): Promise<void> {
@@ -670,7 +747,7 @@ export async function addStatusTimelineEvent(
   };
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { recipientId, ownerEmail },
+    { id: conversationId, ownerEmail },
     {
       $push: { timelineEvents: event },
     } as any
