@@ -6,9 +6,11 @@ import DetailsPanel from '@/components/inbox/DetailsPanel';
 import ChatHeader from '@/components/inbox/ChatHeader';
 import MessageInput from '@/components/inbox/MessageInput';
 import { useChat } from '@/hooks/useChat';
+import { useInboxSync } from '@/components/inbox/InboxSyncContext';
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { epoch, markChatReady } = useInboxSync();
   const [showVisible, setShowVisible] = useState(true);
   const [rightWidth, setRightWidth] = useState(400);
   const isResizingRightRef = useRef(false);
@@ -24,6 +26,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     attachmentFile,
     attachmentPreview,
     handleFileSelect,
+    handleAttachmentPaste,
     clearAttachment,
     handleSendMessage,
     handleSendAudio,
@@ -31,6 +34,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     loadOlderMessages,
     conversationDetails,
     conversationDetailsSyncedAt,
+    initialLoadSettled,
   } = useChat(id);
 
   const handleRightResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -64,6 +68,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     };
   }, [handleRightResizeMove, handleRightResizeEnd]);
 
+  useEffect(() => {
+    if (!initialLoadSettled) return;
+    markChatReady(epoch);
+  }, [initialLoadSettled, markChatReady, epoch]);
+
   if (!user && !loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white">
@@ -82,6 +91,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         />
 
         <ChatWindow
+          key={id}
           messages={chatHistory}
           loading={loading}
           loadingOlder={loadingOlder}
@@ -98,6 +108,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           attachmentFile={attachmentFile}
           attachmentPreview={attachmentPreview}
           handleFileSelect={handleFileSelect}
+          handleAttachmentPaste={handleAttachmentPaste}
           clearAttachment={clearAttachment}
           handleSendAudio={handleSendAudio}
         />

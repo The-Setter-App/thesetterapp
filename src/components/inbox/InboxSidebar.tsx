@@ -8,6 +8,7 @@ import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clie
 import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
 import ConversationList from '@/components/inbox/ConversationList';
 import { useSSE } from '@/hooks/useSSE';
+import { useInboxSync } from '@/components/inbox/InboxSyncContext';
 import Image from 'next/image';
 import Link from 'next/link';
 import FilterModal from './FilterModal';
@@ -114,11 +115,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const router = useRouter();
   const params = useParams();
   const selectedUserId = params?.id as string;
+  const { epoch, markSidebarReady } = useInboxSync();
 
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'priority' | 'unread'>('all');
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
@@ -147,12 +150,16 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const refetchConversations = useCallback(async () => {
     if (refetchInFlightRef.current) return;
     refetchInFlightRef.current = true;
+    setIsRefreshing(true);
     try {
       const freshUsers = await getInboxUsers();
       const sorted = sortUsersByRecency(normalizeUsersFromBackend(freshUsers));
       setUsers(sorted);
       setCachedUsers(sorted).catch(e => console.error(e));
-    } finally { refetchInFlightRef.current = false; }
+    } finally {
+      refetchInFlightRef.current = false;
+      setIsRefreshing(false);
+    }
   }, []);
 
   const applyUserStatusUpdate = useCallback((userId: string, status: StatusType) => {
@@ -265,29 +272,38 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   useEffect(() => {
     async function loadUsers() {
-      const connectionState = await getInboxConnectionState();
-      setHasConnectedAccounts(connectionState.hasConnectedAccounts);
+      const currentEpoch = epoch;
+      try {
+        const connectionState = await getInboxConnectionState();
+        setHasConnectedAccounts(connectionState.hasConnectedAccounts);
 
-      if (!connectionState.hasConnectedAccounts) {
-        setUsers([]);
-        setCachedUsers([]).catch(e => console.error(e));
-        setLoading(false);
-        return;
-      }
+        if (!connectionState.hasConnectedAccounts) {
+          setUsers([]);
+          setCachedUsers([]).catch(e => console.error(e));
+          return;
+        }
 
-      const cached = await getCachedUsers();
-      if (cached?.length) {
-        setUsers(sortUsersByRecency(normalizeUsersFromBackend(cached)));
+        const cached = await getCachedUsers();
+        if (cached?.length) {
+          setUsers(sortUsersByRecency(normalizeUsersFromBackend(cached)));
+          setLoading(false);
+        }
+
+        setIsRefreshing(true);
+        const fresh = await getInboxUsers();
+        const sorted = sortUsersByRecency(normalizeUsersFromBackend(fresh));
+        setUsers(sorted);
+        setCachedUsers(sorted).catch(e => console.error(e));
+      } catch (err) {
+        console.error('Error loading conversations:', err);
+      } finally {
+        setIsRefreshing(false);
         setLoading(false);
+        markSidebarReady(currentEpoch);
       }
-      const fresh = await getInboxUsers();
-      const sorted = sortUsersByRecency(normalizeUsersFromBackend(fresh));
-      setUsers(sorted);
-      setCachedUsers(sorted).catch(e => console.error(e));
-      setLoading(false);
     }
     loadUsers();
-  }, []);
+  }, [selectedUserId, epoch, markSidebarReady]);
 
   const filteredUsers = users.filter(u => {
     const matchesTab = activeTab === 'all' || (activeTab === 'priority' && u.status === 'Qualified') || (activeTab === 'unread' && (u.unread ?? 0) > 0);
@@ -312,7 +328,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     >
       {/* Sidebar Header */}
       <div className="p-4 pb-3 border-b border-gray-200">
-        <h2 className="text-xl font-bold tracking-tight mb-1 text-gray-800">Inbox</h2>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight text-gray-800">Inbox</h2>
+          {isRefreshing && hasConnectedAccounts && (
+            <div className="h-4 w-4 rounded-full border-2 border-stone-300 border-t-stone-600 animate-spin" />
+          )}
+        </div>
         <p className="text-xs font-medium text-gray-400">Your unified chat workspace.</p>
       </div>
 

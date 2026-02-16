@@ -31,7 +31,20 @@ export default function ChatWindow({
   const previousScrollHeightRef = useRef(0);
   const prependingRef = useRef(false);
   const loadingOlderRef = useRef(Boolean(loadingOlder));
+  const stickToBottomRef = useRef(true);
   const TIME_SEPARATOR_GAP_MS = 30 * 60 * 1000;
+
+  const isNearBottom = (container: HTMLDivElement): boolean => {
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceFromBottom <= 80;
+  };
+
+  const keepBottomIfPinned = () => {
+    if (!stickToBottomRef.current || prependingRef.current || loadingOlderRef.current) return;
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    });
+  };
 
   const parseMessageTime = (message: Message): number | null => {
     if (!message.timestamp) return null;
@@ -97,10 +110,22 @@ export default function ChatWindow({
     if (wasFirstRender || messageAppended) {
       requestAnimationFrame(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        stickToBottomRef.current = true;
       });
     }
     previousCountRef.current = messages.length;
   }, [messages]);
+
+  // Keep chat pinned when top controls mount/unmount (e.g. hasMore true -> false).
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || prependingRef.current || loadingOlder) return;
+    if (!stickToBottomRef.current) return;
+
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    });
+  }, [hasMore, loadingOlder]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -138,6 +163,9 @@ export default function ChatWindow({
   return (
     <div
       ref={scrollRef}
+      onScroll={(event) => {
+        stickToBottomRef.current = isNearBottom(event.currentTarget);
+      }}
       className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
@@ -177,13 +205,13 @@ export default function ChatWindow({
             <div className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
               <div
                 className={`text-sm ${
-                  msg.type === 'audio' 
+                  msg.type === 'audio' || msg.type === 'image'
                     ? 'bg-transparent p-0' 
                     : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
                 } ${
-                  msg.type === 'audio' 
+                  msg.type === 'audio' || msg.type === 'image'
                     ? '' 
-                    : msg.type === 'image' || msg.type === 'video' ? 'p-1' : 'px-3 py-2'
+                    : msg.type === 'video' ? 'p-1' : 'px-3 py-2'
                 }`}
               >
                 {msg.type === 'text' && (
@@ -196,9 +224,14 @@ export default function ChatWindow({
                       src={msg.attachmentUrl} 
                       alt="Attachment" 
                       className="rounded-xl max-w-full max-h-96 object-cover cursor-pointer"
+                      onLoad={keepBottomIfPinned}
                       onClick={() => setSelectedImage(msg.attachmentUrl || null)}
                     />
-                    {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+                    {msg.text && (
+                      <p className={`mt-1 text-xs ${msg.fromMe ? 'text-stone-200 text-right' : 'text-stone-600 text-left'}`}>
+                        {msg.text}
+                      </p>
+                    )}
                   </div>
                 )}
                 {msg.type === 'image' && !msg.attachmentUrl && (
@@ -210,6 +243,8 @@ export default function ChatWindow({
                     <video 
                       src={msg.attachmentUrl} 
                       controls 
+                      onLoadedMetadata={keepBottomIfPinned}
+                      onLoadedData={keepBottomIfPinned}
                       className="rounded-xl max-w-full max-h-96"
                     />
                     {msg.text && <p className="px-3 py-2">{msg.text}</p>}
@@ -264,7 +299,7 @@ export default function ChatWindow({
           <img
             src={selectedImage}
             alt="Expanded attachment"
-            className="max-h-[85vh] w-full max-w-5xl rounded-2xl object-contain"
+            className="max-h-[85vh] w-full max-w-5xl  object-contain"
             onClick={(event) => event.stopPropagation()}
           />
         </div>

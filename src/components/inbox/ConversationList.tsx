@@ -57,14 +57,14 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
           onClick={() => onSelectUser(u.id)}
         >
           <div className="relative flex-shrink-0">
-            <img 
-              src={u.avatar || "/images/no_profile.jpg"} 
-              alt={u.name} 
-              className="w-10 h-10 rounded-full object-cover" 
+            <img
+              src={u.avatar || "/images/no_profile.jpg"}
+              alt={u.name}
+              className="w-10 h-10 rounded-full object-cover"
             />
             {(u.unread ?? 0) > 0 && (
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#8771FF] text-[10px] font-bold text-white border-2 border-white">
-                {u.unread}
+              <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
+                {(u.unread ?? 0) > 9 ? '9+' : u.unread}
               </span>
             )}
           </div>

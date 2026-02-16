@@ -12,6 +12,7 @@ interface MessageInputProps {
   attachmentFile: File | null;
   attachmentPreview: string;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAttachmentPaste: (file: File) => void;
   clearAttachment: () => void;
   handleSendAudio?: (blob: Blob, duration: number) => void;
 }
@@ -24,6 +25,7 @@ export default function MessageInput({
   attachmentFile,
   attachmentPreview,
   handleFileSelect,
+  handleAttachmentPaste,
   clearAttachment,
   handleSendAudio
 }: MessageInputProps) {
@@ -141,6 +143,16 @@ export default function MessageInput({
                   e.preventDefault();
                   handleSendMessage();
                 }
+              }}
+              onPaste={(e) => {
+                const imageItem = Array.from(e.clipboardData.items).find(
+                  (item) => item.kind === 'file' && item.type.startsWith('image/')
+                );
+                if (!imageItem) return;
+                const pastedImage = imageItem.getAsFile();
+                if (!pastedImage) return;
+                e.preventDefault();
+                handleAttachmentPaste(pastedImage);
               }}
               disabled={!user}
               rows={1}

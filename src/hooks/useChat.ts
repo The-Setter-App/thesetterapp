@@ -17,6 +17,7 @@ export function useChat(selectedUserId: string) {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
   const [conversationDetailsSyncedAt, setConversationDetailsSyncedAt] = useState(0);
+  const [initialLoadSettled, setInitialLoadSettled] = useState(false);
 
   // Refs for race condition handling and dedup
   const fetchGenRef = useRef(0);
@@ -80,9 +81,17 @@ export function useChat(selectedUserId: string) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
     setAttachmentFile(file);
     setAttachmentPreview(URL.createObjectURL(file));
     e.target.value = '';
+  };
+
+  const handleAttachmentPaste = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
+    setAttachmentFile(file);
+    setAttachmentPreview(URL.createObjectURL(file));
   };
 
   const clearAttachment = () => {
@@ -114,6 +123,7 @@ export function useChat(selectedUserId: string) {
     const gen = ++fetchGenRef.current;
     async function loadMessages() {
       try {
+        setInitialLoadSettled(false);
         setLoading(true);
         setLoadingOlder(false);
         setHasMoreMessages(true);
@@ -151,9 +161,13 @@ export function useChat(selectedUserId: string) {
           setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
         }
         setLoading(false);
+        setInitialLoadSettled(true);
       } catch (err) {
         console.error('Error loading messages:', err);
-        if (gen === fetchGenRef.current) setLoading(false);
+        if (gen === fetchGenRef.current) {
+          setLoading(false);
+          setInitialLoadSettled(true);
+        }
       }
     }
     pendingTempIdsRef.current = [];
@@ -500,6 +514,7 @@ export function useChat(selectedUserId: string) {
     attachmentFile,
     attachmentPreview,
     handleFileSelect,
+    handleAttachmentPaste,
     clearAttachment,
     handleSendMessage,
     handleSendAudio,
@@ -507,5 +522,6 @@ export function useChat(selectedUserId: string) {
     loadOlderMessages,
     conversationDetails,
     conversationDetailsSyncedAt,
+    initialLoadSettled,
   };
 }
