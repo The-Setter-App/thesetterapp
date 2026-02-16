@@ -19,6 +19,7 @@ export default function InboxLayout({
   const [sidebarReady, setSidebarReady] = useState(false);
   const [chatReady, setChatReady] = useState(false);
   const [gateTimedOut, setGateTimedOut] = useState(false);
+  const [hasCompletedInitialSync, setHasCompletedInitialSync] = useState(false);
 
   const isResizingLeftRef = useRef(false);
   const gateTimerRef = useRef<number | null>(null);
@@ -54,12 +55,15 @@ export default function InboxLayout({
     };
   }, [handleLeftResizeMove, handleLeftResizeEnd]);
 
+  const shouldRequireGate = isConversationRoute && !hasCompletedInitialSync;
+
   useEffect(() => {
+    if (!shouldRequireGate) return;
     setEpoch((prev) => prev + 1);
     setSidebarReady(false);
     setChatReady(false);
     setGateTimedOut(false);
-  }, [selectedConversationId]);
+  }, [selectedConversationId, shouldRequireGate]);
 
   useEffect(() => {
     if (gateTimerRef.current) {
@@ -67,7 +71,7 @@ export default function InboxLayout({
       gateTimerRef.current = null;
     }
 
-    if (!isConversationRoute || (sidebarReady && chatReady)) {
+    if (!shouldRequireGate || (sidebarReady && chatReady)) {
       return;
     }
 
@@ -82,7 +86,18 @@ export default function InboxLayout({
         gateTimerRef.current = null;
       }
     };
-  }, [isConversationRoute, sidebarReady, chatReady, epoch]);
+  }, [shouldRequireGate, sidebarReady, chatReady, epoch]);
+
+  useEffect(() => {
+    if (!shouldRequireGate) return;
+    if (sidebarReady && chatReady) {
+      setHasCompletedInitialSync(true);
+      return;
+    }
+    if (gateTimedOut) {
+      setHasCompletedInitialSync(true);
+    }
+  }, [shouldRequireGate, sidebarReady, chatReady, gateTimedOut]);
 
   const markSidebarReady = useCallback((readyEpoch: number) => {
     setSidebarReady((prev) => (readyEpoch === epoch ? true : prev));
@@ -92,7 +107,7 @@ export default function InboxLayout({
     setChatReady((prev) => (readyEpoch === epoch ? true : prev));
   }, [epoch]);
 
-  const gateVisible = isConversationRoute && !gateTimedOut && !(sidebarReady && chatReady);
+  const gateVisible = shouldRequireGate && !gateTimedOut && !(sidebarReady && chatReady);
 
   return (
     <InboxSyncProvider

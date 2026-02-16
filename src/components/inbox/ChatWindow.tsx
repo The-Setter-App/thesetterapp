@@ -27,6 +27,7 @@ export default function ChatWindow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [loadedMediaByMessageId, setLoadedMediaByMessageId] = useState<Record<string, boolean>>({});
   const previousCountRef = useRef(0);
   const previousScrollHeightRef = useRef(0);
   const prependingRef = useRef(false);
@@ -74,6 +75,13 @@ export default function ChatWindow({
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+    });
+  };
+
+  const markMediaLoaded = (messageId: string) => {
+    setLoadedMediaByMessageId((prev) => {
+      if (prev[messageId]) return prev;
+      return { ...prev, [messageId]: true };
     });
   };
 
@@ -220,13 +228,23 @@ export default function ChatWindow({
                 
                 {msg.type === 'image' && msg.attachmentUrl && (
                   <div>
-                    <img 
-                      src={msg.attachmentUrl} 
-                      alt="Attachment" 
-                      className="rounded-xl max-w-full max-h-96 object-cover cursor-pointer"
-                      onLoad={keepBottomIfPinned}
-                      onClick={() => setSelectedImage(msg.attachmentUrl || null)}
-                    />
+                    <div
+                      className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                    >
+                      {!loadedMediaByMessageId[msg.id] && (
+                        <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                      )}
+                      <img
+                        src={msg.attachmentUrl}
+                        alt="Attachment"
+                        className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
+                        onLoad={() => {
+                          markMediaLoaded(msg.id);
+                          keepBottomIfPinned();
+                        }}
+                        onClick={() => setSelectedImage(msg.attachmentUrl || null)}
+                      />
+                    </div>
                     {msg.text && (
                       <p className={`mt-1 text-xs ${msg.fromMe ? 'text-stone-200 text-right' : 'text-stone-600 text-left'}`}>
                         {msg.text}
@@ -240,13 +258,23 @@ export default function ChatWindow({
                 
                 {msg.type === 'video' && msg.attachmentUrl && (
                   <div>
-                    <video 
-                      src={msg.attachmentUrl} 
-                      controls 
-                      onLoadedMetadata={keepBottomIfPinned}
-                      onLoadedData={keepBottomIfPinned}
-                      className="rounded-xl max-w-full max-h-96"
-                    />
+                    <div
+                      className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                    >
+                      {!loadedMediaByMessageId[msg.id] && (
+                        <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                      )}
+                      <video
+                        src={msg.attachmentUrl}
+                        controls
+                        onLoadedMetadata={() => {
+                          markMediaLoaded(msg.id);
+                          keepBottomIfPinned();
+                        }}
+                        onLoadedData={keepBottomIfPinned}
+                        className={`block h-auto w-full transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                    </div>
                     {msg.text && <p className="px-3 py-2">{msg.text}</p>}
                   </div>
                 )}
