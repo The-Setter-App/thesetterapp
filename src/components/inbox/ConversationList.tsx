@@ -8,7 +8,7 @@ interface ConversationListProps {
   users: User[];
   selectedUserId: string;
   onSelectUser: (id: string) => void;
-  onAction: (action: 'priority' | 'unread' | 'delete') => void;
+  onAction: (userId: string, action: 'qualified' | 'priority' | 'unpriority' | 'delete') => void;
 }
 
 const VerifiedIcon = () => (
@@ -95,7 +95,7 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
               <button
                 type="button"
                 className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction('priority')}
+                onClick={() => onAction(u.id, 'qualified')}
                 tabIndex={-1}
               >
                 <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
@@ -109,7 +109,7 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
               <button
                 type="button"
                 className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction('delete')}
+                onClick={() => onAction(u.id, 'delete')}
                 tabIndex={-1}
               >
                 <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
@@ -118,18 +118,18 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
                 Unqualify and remove user from inbox
               </span>
             </div>
-            {/* Unread */}
+            {/* Priority / Unpriority */}
             <div className="group/act relative flex items-center">
               <button
                 type="button"
                 className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction('unread')}
+                onClick={() => onAction(u.id, u.isPriority ? 'unpriority' : 'priority')}
                 tabIndex={-1}
               >
-                <FolderMoveIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
+                <FolderMoveIcon className={`w-4 h-4 text-gray-700 ${u.isPriority ? 'group-hover/act:text-red-400' : 'group-hover/act:text-yellow-400'}`} />
               </button>
               <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                Move to priority inbox
+                {u.isPriority ? 'Remove from priority inbox' : 'Move to priority inbox'}
               </span>
             </div>
           </div>

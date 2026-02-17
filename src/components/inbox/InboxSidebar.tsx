@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Inter } from 'next/font/google'; // Import Inter
-import { getInboxConnectionState, getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
+import { getInboxConnectionState, getInboxUsers, updateConversationPriorityAction, updateUserStatusAction } from '@/app/actions/inbox';
 import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clientCache';
 import { isStatusType, STATUS_OPTIONS } from '@/lib/status/config';
 import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
@@ -171,6 +171,20 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     });
   }, []);
 
+  const applyUserPriorityUpdate = useCallback((userId: string, isPriority: boolean) => {
+    setUsers((prev) => {
+      const idx = prev.findIndex((u) => u.id === userId);
+      if (idx === -1) return prev;
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        isPriority,
+      };
+      setCachedUsers(updated).catch(e => console.error(e));
+      return updated;
+    });
+  }, []);
+
   const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean, fromMe = false) => {
     const { text, timestamp, attachments } = data;
     setUsers((prev) => {
@@ -249,6 +263,8 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         if (isStatusType(message.data.status)) {
           applyUserStatusUpdate(message.data.conversationId, message.data.status);
         }
+      } else if (message.type === 'conversation_priority_updated') {
+        applyUserPriorityUpdate(message.data.conversationId, Boolean(message.data.isPriority));
       }
     }
   });
@@ -322,7 +338,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, [epoch, markSidebarReady]);
 
   const filteredUsers = users.filter(u => {
-    const matchesTab = activeTab === 'all' || (activeTab === 'priority' && u.status === 'Qualified') || (activeTab === 'unread' && (u.unread ?? 0) > 0);
+    const matchesTab = activeTab === 'all' || (activeTab === 'priority' && Boolean(u.isPriority)) || (activeTab === 'unread' && (u.unread ?? 0) > 0);
     const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(u.status);
     const matchesAccount = selectedAccountIds.length === 0 || (u.accountId ? selectedAccountIds.includes(u.accountId) : false);
     const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || (u.lastMessage?.toLowerCase().includes(search.toLowerCase()));
@@ -335,6 +351,53 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         .filter((u): u is User & { accountId: string } => Boolean(u.accountId))
         .map((u) => [u.accountId, { id: u.accountId, label: u.accountLabel || u.ownerInstagramUserId || u.accountId }])
     ).values()
+  );
+
+  const handleConversationAction = useCallback(
+    async (userId: string, action: 'qualified' | 'priority' | 'unpriority' | 'delete') => {
+      if (action === 'delete') {
+        return;
+      }
+
+      if (action === 'qualified') {
+        const nextStatus: StatusType = 'Qualified';
+        const previousStatus = users.find((u) => u.id === userId)?.status;
+
+        applyUserStatusUpdate(userId, nextStatus);
+        window.dispatchEvent(
+          new CustomEvent('userStatusUpdated', {
+            detail: { userId, status: nextStatus },
+          })
+        );
+
+        try {
+          await updateUserStatusAction(userId, nextStatus);
+        } catch (error) {
+          console.error('Failed to update status from quick actions:', error);
+          if (previousStatus) {
+            applyUserStatusUpdate(userId, previousStatus);
+            window.dispatchEvent(
+              new CustomEvent('userStatusUpdated', {
+                detail: { userId, status: previousStatus },
+              })
+            );
+          }
+        }
+        return;
+      }
+
+      const nextPriority = action === 'priority';
+      const previousPriority = Boolean(users.find((u) => u.id === userId)?.isPriority);
+      applyUserPriorityUpdate(userId, nextPriority);
+
+      try {
+        await updateConversationPriorityAction(userId, nextPriority);
+      } catch (error) {
+        console.error('Failed to update priority from quick actions:', error);
+        applyUserPriorityUpdate(userId, previousPriority);
+      }
+    },
+    [applyUserPriorityUpdate, applyUserStatusUpdate, users]
   );
 
   return (
@@ -392,7 +455,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
                 className={`flex-1 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? 'bg-[#8771FF] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                 onClick={() => setActiveTab(tab as any)}
               >
-                {tab} [{tab === 'all' ? users.length : tab === 'priority' ? users.filter(u => u.status === 'Qualified').length : users.filter(u => (u.unread ?? 0) > 0).length}]
+                {tab} [{tab === 'all' ? users.length : tab === 'priority' ? users.filter(u => u.isPriority).length : users.filter(u => (u.unread ?? 0) > 0).length}]
               </button>
             ))}
           </div>
@@ -418,7 +481,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             users={filteredUsers} 
             selectedUserId={selectedUserId} 
             onSelectUser={(id) => router.push(`/inbox/${id}`)}
-            onAction={(a) => alert(`Moved to ${a}`)} 
+            onAction={handleConversationAction}
           />
         ) : loading ? (
           <div className="flex h-full items-center justify-center p-6 text-center">

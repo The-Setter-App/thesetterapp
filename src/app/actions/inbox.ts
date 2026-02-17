@@ -13,6 +13,7 @@ import {
   updateConversationMetadata,
   findConversationById,
   updateUserStatus,
+  updateConversationPriority,
   addStatusTimelineEvent,
 } from '@/lib/inboxRepository';
 import { sseEmitter } from '@/app/api/sse/route';
@@ -264,6 +265,21 @@ export async function updateUserStatusAction(conversationId: string, newStatus: 
     });
   } catch (error) {
     console.error('[InboxActions] Error updating user status:', error);
+    throw error;
+  }
+}
+
+export async function updateConversationPriorityAction(conversationId: string, isPriority: boolean): Promise<void> {
+  try {
+    const ownerEmail = await getOwnerEmail();
+    await updateConversationPriority(conversationId, ownerEmail, isPriority);
+
+    sseEmitter.emit('message', {
+      type: 'conversation_priority_updated',
+      data: { conversationId, isPriority },
+    });
+  } catch (error) {
+    console.error('[InboxActions] Error updating conversation priority:', error);
     throw error;
   }
 }

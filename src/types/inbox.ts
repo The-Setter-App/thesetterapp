@@ -79,6 +79,7 @@ export interface User {
   time: string;
   lastMessage: string;
   status: StatusType;
+  isPriority?: boolean;
   statusColor: string;
   icon: string;
   avatar: string | null;
@@ -194,6 +195,11 @@ export interface SSEUserStatusData {
   status: StatusType;
 }
 
+export interface SSEConversationPriorityData {
+  conversationId: string;
+  isPriority: boolean;
+}
+
 /** Union of all SSE events the server can emit. */
 export type SSEEvent =
   | { type: 'connected'; timestamp: string }
@@ -201,4 +207,5 @@ export type SSEEvent =
   | { type: 'message_echo'; timestamp: string; data: SSEMessageData }
   | { type: 'message_seen'; timestamp: string; data: SSESeenData }
   | { type: 'messages_synced'; timestamp: string; data: SSESyncedData }
-  | { type: 'user_status_updated'; timestamp?: string; data: SSEUserStatusData };
+  | { type: 'user_status_updated'; timestamp?: string; data: SSEUserStatusData }
+  | { type: 'conversation_priority_updated'; timestamp?: string; data: SSEConversationPriorityData };

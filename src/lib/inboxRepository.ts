@@ -111,6 +111,9 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   if (existing && typeof existing.status === 'string') {
     setPayload.status = existing.status;
   }
+  if (existing && typeof existing.isPriority === 'boolean') {
+    setPayload.isPriority = existing.isPriority;
+  }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { id: conversation.id, ownerEmail },
@@ -155,6 +158,9 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
 
     if (existing && existing.status) {
       setPayload.status = existing.status;
+    }
+    if (existing && typeof existing.isPriority === 'boolean') {
+      setPayload.isPriority = existing.isPriority;
     }
     const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
     const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
@@ -603,6 +609,21 @@ export async function updateUserStatus(
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { id: conversationId, ownerEmail },
     { $set: { status: newStatus } }
+  );
+}
+
+export async function updateConversationPriority(
+  conversationId: string,
+  ownerEmail: string,
+  isPriority: boolean
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureInboxIndexes(db);
+
+  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
+    { id: conversationId, ownerEmail },
+    { $set: { isPriority } }
   );
 }
 
