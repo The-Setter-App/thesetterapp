@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getInboxConnectionState, getInboxUsers } from "@/app/actions/inbox";
+import { getCachedLeads, getCachedLeadsTimestamp, setCachedLeads } from "@/lib/clientCache";
 import { useSSE } from "@/hooks/useSSE";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { isStatusType } from "@/lib/status/config";
@@ -9,6 +10,7 @@ import type { LeadRow, SortConfig } from "@/types/leads";
 import type { StatusType } from "@/types/status";
 
 const SELECTED_IDS_STORAGE_KEY = "leads-selected-ids";
+const LEADS_CACHE_TTL_MS = 2 * 60 * 1000;
 
 function toRelativeInteractedFromTimestamp(timestampMs: number): string {
   const diffMs = Date.now() - timestampMs;
@@ -90,19 +92,45 @@ export function useLeadsController() {
 
   const refetchTimerRef = useRef<number | null>(null);
 
-  const loadRows = useCallback(async () => {
+  const updateRows = useCallback((updater: (rows: LeadRow[]) => LeadRow[]) => {
+    setBaseRows((prev) => {
+      const next = updater(prev);
+      setCachedLeads(next).catch((cacheError) => console.error("[Leads] Failed to cache leads:", cacheError));
+      return next;
+    });
+  }, []);
+
+  const loadRows = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
+      const force = options?.force === true;
       const connection = await getInboxConnectionState();
       setHasConnectedAccounts(connection.hasConnectedAccounts);
 
       if (!connection.hasConnectedAccounts) {
         setBaseRows([]);
+        setCachedLeads([]).catch((cacheError) => console.error("[Leads] Failed to clear leads cache:", cacheError));
+        return;
+      }
+
+      const [cachedLeads, cachedAt] = await Promise.all([
+        getCachedLeads(),
+        getCachedLeadsTimestamp(),
+      ]);
+      if (cachedLeads?.length) {
+        setBaseRows(cachedLeads);
+        setLoading(false);
+      }
+      const cacheIsFresh =
+        typeof cachedAt === "number" && Date.now() - cachedAt < LEADS_CACHE_TTL_MS;
+      if (!force && cachedLeads?.length && cacheIsFresh) {
         return;
       }
 
       const users = await getInboxUsers();
-      setBaseRows(mapInboxUsersToLeadRows(users));
+      const mapped = mapInboxUsersToLeadRows(users);
+      setBaseRows(mapped);
+      setCachedLeads(mapped).catch((cacheError) => console.error("[Leads] Failed to cache leads:", cacheError));
     } catch (loadError) {
       console.error("[Leads] Failed to load leads:", loadError);
       setError("Failed to load leads");
@@ -223,7 +251,7 @@ export function useLeadsController() {
   }, [filteredRows, selectedIds]);
 
   const refreshRowTimestamp = useCallback((conversationId: string, timestampMs: number, fromMe: boolean) => {
-    setBaseRows((prev) =>
+    updateRows((prev) =>
       prev.map((row) => {
         if (row.id !== conversationId) return row;
         const nextCount = fromMe ? row.messageCount || 0 : (row.messageCount || 0) + 1;
@@ -235,13 +263,13 @@ export function useLeadsController() {
         };
       })
     );
-  }, []);
+  }, [updateRows]);
 
   useSSE("/api/sse", {
     onMessage: (message) => {
       if (message.type === "user_status_updated") {
         if (!isStatusType(message.data.status)) return;
-        setBaseRows((prev) =>
+        updateRows((prev) =>
           prev.map((row) =>
             row.id === message.data.conversationId ? { ...row, status: message.data.status } : row
           )
@@ -256,7 +284,7 @@ export function useLeadsController() {
         if (!rowExists) {
           if (refetchTimerRef.current) window.clearTimeout(refetchTimerRef.current);
           refetchTimerRef.current = window.setTimeout(() => {
-            loadRows();
+            loadRows({ force: true });
           }, 500);
           return;
         }

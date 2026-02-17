@@ -6,11 +6,14 @@
  * Why: localStorage is synchronous and blocks the main thread. IndexedDB is async and handles larger data.
  */
 
+import type { LeadRow } from '@/types/leads';
 import type { User, Message, ConversationDetails } from '@/types/inbox';
 
 const DB_NAME = 'inbox_cache_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'key_value_store';
+const LEADS_CACHE_KEY = "leads";
+const LEADS_CACHE_TIMESTAMP_KEY = "leads_cached_at";
 
 class InboxCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -183,6 +186,19 @@ export async function getCachedConversationDetails(recipientId: string): Promise
 
 export async function setCachedConversationDetails(recipientId: string, details: ConversationDetails): Promise<void> {
   return inboxCache.set(`conversation_details_${recipientId}`, details);
+}
+
+export async function getCachedLeads(): Promise<LeadRow[] | null> {
+  return inboxCache.get<LeadRow[]>(LEADS_CACHE_KEY);
+}
+
+export async function setCachedLeads(leads: LeadRow[]): Promise<void> {
+  await inboxCache.set(LEADS_CACHE_KEY, leads);
+  await inboxCache.set(LEADS_CACHE_TIMESTAMP_KEY, Date.now());
+}
+
+export async function getCachedLeadsTimestamp(): Promise<number | null> {
+  return inboxCache.get<number>(LEADS_CACHE_TIMESTAMP_KEY);
 }
 
 export async function clearCache(): Promise<void> {
