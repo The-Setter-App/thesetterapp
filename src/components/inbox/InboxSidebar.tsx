@@ -118,7 +118,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'priority' | 'unread'>('all');
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
@@ -147,7 +146,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const refetchConversations = useCallback(async () => {
     if (refetchInFlightRef.current) return;
     refetchInFlightRef.current = true;
-    setIsRefreshing(true);
     try {
       const freshUsers = await getInboxUsers();
       const sorted = sortUsersByRecency(normalizeUsersFromBackend(freshUsers));
@@ -155,7 +153,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       setCachedUsers(sorted).catch(e => console.error(e));
     } finally {
       refetchInFlightRef.current = false;
-      setIsRefreshing(false);
     }
   }, []);
 
@@ -295,6 +292,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     async function loadUsers() {
       const currentEpoch = epoch;
       try {
+        const cached = await getCachedUsers();
+        if (cached?.length) {
+          setUsers(sortUsersByRecency(normalizeUsersFromBackend(cached)));
+          setLoading(false);
+        }
+
         const connectionState = await getInboxConnectionState();
         setHasConnectedAccounts(connectionState.hasConnectedAccounts);
 
@@ -304,13 +307,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           return;
         }
 
-        const cached = await getCachedUsers();
-        if (cached?.length) {
-          setUsers(sortUsersByRecency(normalizeUsersFromBackend(cached)));
-          setLoading(false);
-        }
-
-        setIsRefreshing(true);
         const fresh = await getInboxUsers();
         const sorted = sortUsersByRecency(normalizeUsersFromBackend(fresh));
         setUsers(sorted);
@@ -318,13 +314,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       } catch (err) {
         console.error('Error loading conversations:', err);
       } finally {
-        setIsRefreshing(false);
         setLoading(false);
         markSidebarReady(currentEpoch);
       }
     }
     loadUsers();
-  }, [selectedUserId, epoch, markSidebarReady]);
+  }, [epoch, markSidebarReady]);
 
   const filteredUsers = users.filter(u => {
     const matchesTab = activeTab === 'all' || (activeTab === 'priority' && u.status === 'Qualified') || (activeTab === 'unread' && (u.unread ?? 0) > 0);
@@ -351,9 +346,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       <div className="p-4 pb-3 border-b border-gray-200">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight text-gray-800">Inbox</h2>
-          {isRefreshing && hasConnectedAccounts && (
-            <div className="h-4 w-4 rounded-full border-2 border-stone-300 border-t-stone-600 animate-spin" />
-          )}
         </div>
         <p className="text-xs font-medium text-gray-400">Your unified chat workspace.</p>
       </div>
@@ -408,11 +400,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       )}
 
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="h-8 w-8 border-4 border-[#8771FF] border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : !hasConnectedAccounts ? (
+        {!hasConnectedAccounts ? (
           <div className="h-full flex items-center justify-center p-6">
             <div className="text-center">
               <p className="text-sm font-semibold text-gray-800">No connected accounts yet</p>
@@ -425,13 +413,25 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
               </Link>
             </div>
           </div>
-        ) : (
+        ) : filteredUsers.length > 0 ? (
           <ConversationList 
             users={filteredUsers} 
             selectedUserId={selectedUserId} 
             onSelectUser={(id) => router.push(`/inbox/${id}`)}
             onAction={(a) => alert(`Moved to ${a}`)} 
           />
+        ) : loading ? (
+          <div className="flex h-full items-center justify-center p-6 text-center">
+            <p className="text-sm font-medium text-stone-500">Loading conversations...</p>
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center p-6 text-center">
+            <p className="text-sm font-medium text-stone-500">
+              {search || selectedStatuses.length > 0 || selectedAccountIds.length > 0 || activeTab !== 'all'
+                ? 'No conversations match your filters.'
+                : 'No conversations yet.'}
+            </p>
+          </div>
         )}
       </div>
 

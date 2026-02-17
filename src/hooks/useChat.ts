@@ -198,11 +198,12 @@ export function useChat(selectedUserId: string) {
     async function loadMessages() {
       try {
         setInitialLoadSettled(false);
-        setLoading(true);
+        setLoading(false);
         setLoadingOlder(false);
         setHasMoreMessages(true);
         nextCursorRef.current = null;
         clearReconcileTimers();
+        setChatHistory([]);
         setConversationDetails(null);
         setConversationDetailsSyncedAt(0);
 
@@ -210,6 +211,12 @@ export function useChat(selectedUserId: string) {
           getCachedMessages(selectedUserId),
           getCachedConversationDetails(selectedUserId),
         ]);
+        if (gen !== fetchGenRef.current) return;
+
+        const hasCachedMessages = Boolean(cachedMessages && cachedMessages.length > 0);
+        if (!hasCachedMessages) {
+          setLoading(true);
+        }
         if (cachedMessages && cachedMessages.length > 0) {
           setChatHistory(cachedMessages.slice(-INITIAL_PAGE_SIZE));
           setLoading(false);

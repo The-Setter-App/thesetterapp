@@ -81,7 +81,8 @@ function sortRows(rows: LeadRow[], sortConfig: SortConfig): LeadRow[] {
 
 export function useLeadsController() {
   const [baseRows, setBaseRows] = useState<LeadRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoadSettled, setInitialLoadSettled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
 
@@ -104,6 +105,18 @@ export function useLeadsController() {
     try {
       setError(null);
       const force = options?.force === true;
+      const [cachedLeads, cachedAt] = await Promise.all([
+        getCachedLeads(),
+        getCachedLeadsTimestamp(),
+      ]);
+      if (cachedLeads?.length) {
+        setBaseRows(cachedLeads);
+        setLoading(false);
+      }
+      if (!cachedLeads?.length) {
+        setLoading(true);
+      }
+
       const connection = await getInboxConnectionState();
       setHasConnectedAccounts(connection.hasConnectedAccounts);
 
@@ -113,14 +126,6 @@ export function useLeadsController() {
         return;
       }
 
-      const [cachedLeads, cachedAt] = await Promise.all([
-        getCachedLeads(),
-        getCachedLeadsTimestamp(),
-      ]);
-      if (cachedLeads?.length) {
-        setBaseRows(cachedLeads);
-        setLoading(false);
-      }
       const cacheIsFresh =
         typeof cachedAt === "number" && Date.now() - cachedAt < LEADS_CACHE_TTL_MS;
       if (!force && cachedLeads?.length && cacheIsFresh) {
@@ -137,6 +142,7 @@ export function useLeadsController() {
       setBaseRows([]);
     } finally {
       setLoading(false);
+      setInitialLoadSettled(true);
     }
   }, []);
 
@@ -304,6 +310,7 @@ export function useLeadsController() {
 
   return {
     loading,
+    initialLoadSettled,
     error,
     hasConnectedAccounts,
     baseRows,

@@ -40,6 +40,7 @@ function EmptyLeadsState() {
 export default function LeadsPageClient() {
   const {
     loading,
+    initialLoadSettled,
     error,
     hasConnectedAccounts,
     filteredRows,
@@ -73,13 +74,13 @@ export default function LeadsPageClient() {
           getStatusCount={getStatusCount}
         />
 
-        {loading ? (
-          <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm text-stone-500 shadow-sm">
-            Loading leads...
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700 shadow-sm">
             {error}
+          </div>
+        ) : totalCount === 0 && !initialLoadSettled && loading ? (
+          <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm text-stone-500 shadow-sm">
+            Loading leads...
           </div>
         ) : totalCount === 0 ? (
           <EmptyLeadsState />

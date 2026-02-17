@@ -73,15 +73,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     markChatReady(epoch);
   }, [initialLoadSettled, markChatReady, epoch]);
 
-  if (!user && !loading) {
+  if (!user && !loading && initialLoadSettled) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white">
         <p className="text-gray-500">User not found</p>
       </div>
     );
   }
-
-  const showRightPanelSkeleton = loading && showVisible;
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
@@ -126,25 +124,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           >
             <div className="w-px bg-stone-200 group-hover:bg-stone-300 transition-colors" />
           </div>
-          {showRightPanelSkeleton || !user ? (
+          {!user ? (
             <aside
               className="hidden bg-white md:flex md:flex-col"
               style={{ width: `${rightWidth}px` }}
             >
-              <div className="space-y-3 border-b border-stone-100 px-4 py-4">
-                <div className="h-14 w-14 animate-pulse rounded-full bg-stone-200" />
-                <div className="h-4 w-32 animate-pulse rounded bg-stone-200" />
-                <div className="h-3 w-24 animate-pulse rounded bg-stone-100" />
-              </div>
-              <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-3">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-8 flex-1 animate-pulse rounded-full bg-stone-100" />
-                ))}
-              </div>
-              <div className="space-y-3 px-4 py-4">
-                {[1, 2, 3, 4].map((item) => (
-                  <div key={item} className="h-12 animate-pulse rounded-xl bg-stone-100" />
-                ))}
+              <div className="flex h-full items-center justify-center px-4 text-sm font-medium text-stone-500">
+                Loading details...
               </div>
             </aside>
           ) : (
