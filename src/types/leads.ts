@@ -1,6 +1,8 @@
-export type StatusType = 'Won' | 'Unqualified' | 'Booked' | 'New Lead' | 'Qualified' | 'No-Show' | 'In-Contact' | 'Retarget';
+import type { StatusType } from "@/types/status";
 
-export interface Lead {
+export type { StatusType };
+
+export interface LeadRow {
   id: string;
   name: string;
   handle?: string;
@@ -8,13 +10,17 @@ export interface Lead {
   status: StatusType;
   cash: string;
   assignedTo: string;
-  assignedRole: string; 
+  assignedRole: string;
   account: string;
   interacted: string;
+  avatar?: string | null;
+  updatedAtMs?: number;
   selected?: boolean;
 }
 
+export type Lead = LeadRow;
+
 export type SortConfig = {
-  key: keyof Lead;
-  direction: 'asc' | 'desc';
+  key: keyof LeadRow;
+  direction: "asc" | "desc";
 } | null;

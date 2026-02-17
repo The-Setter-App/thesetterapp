@@ -2,8 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import { Search, Trash2, CloudDownload, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { StatusType } from '@/types/leads';
-import { statusTextStyles } from '@/data/mockLeadsData';
+import { STATUS_COLOR_ICON_PATHS, STATUS_OPTIONS, STATUS_TEXT_CLASS_MAP } from '@/lib/status/config';
+import type { StatusType } from '@/types/status';
 
 interface LeadsFiltersProps {
   totalCount: number;
@@ -14,20 +14,7 @@ interface LeadsFiltersProps {
   getStatusCount: (status: StatusType) => number;
 }
 
-const statusColorIcons: Record<StatusType, string> = {
-  'Won': '/icons/status-colors/Won.svg',
-  'Unqualified': '/icons/status-colors/Unqualified.svg',
-  'Booked': '/icons/status-colors/Booked.svg',
-  'New Lead': '/icons/status-colors/NewLead.svg',
-  'Qualified': '/icons/status-colors/Qualified.svg',
-  'No-Show': '/icons/status-colors/NoShow.svg',
-  'In-Contact': '/icons/status-colors/InContact.svg',
-  'Retarget': '/icons/status-colors/Retarget.svg',
-};
-
-const allStatuses: StatusType[] = [
-  'New Lead', 'Qualified', 'Booked', 'Retarget', 'Unqualified', 'No-Show', 'Won', 'In-Contact'
-];
+const allStatuses: StatusType[] = STATUS_OPTIONS;
 
 export default function LeadsFilters({
   totalCount,
@@ -120,7 +107,7 @@ export default function LeadsFilters({
                 <div className="space-y-1">
                   {allStatuses.map((status) => {
                     const isSelected = selectedStatuses.includes(status);
-                    const Icon = statusColorIcons[status];
+                    const Icon = STATUS_COLOR_ICON_PATHS[status];
                     return (
                       <div 
                         key={status}
@@ -129,7 +116,7 @@ export default function LeadsFilters({
                       >
                         <div className="flex items-center gap-3">
                           <img src={Icon} alt="" className="w-4 h-4 opacity-90" />
-                          <span className={`text-sm font-medium ${statusTextStyles[status]}`}>
+                          <span className={`text-sm font-medium ${STATUS_TEXT_CLASS_MAP[status]}`}>
                             {status}
                           </span>
                         </div>

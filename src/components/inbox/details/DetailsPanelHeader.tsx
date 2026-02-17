@@ -5,29 +5,7 @@ import { useSSE } from "@/hooks/useSSE";
 import { User, StatusType } from "@/types/inbox";
 import type { ConversationContactDetails } from "@/types/inbox";
 import { updateUserStatusAction } from "@/app/actions/inbox";
-
-const STATUS_OPTIONS: StatusType[] = [
-  "New Lead",
-  "Qualified",
-  "Booked",
-  "In-Contact",
-  "Won",
-  "No-Show",
-  "Unqualified",
-  "Retarget",
-];
-
-// Map status to icon path
-const statusIconPaths: Record<StatusType, string> = {
-  'Won': '/icons/status-colors/Won.svg',
-  'Unqualified': '/icons/status-colors/Unqualified.svg',
-  'Booked': '/icons/status-colors/Booked.svg',
-  'New Lead': '/icons/status-colors/NewLead.svg',
-  'Qualified': '/icons/status-colors/Qualified.svg',
-  'No-Show': '/icons/status-colors/NoShow.svg',
-  'In-Contact': '/icons/status-colors/InContact.svg',
-  'Retarget': '/icons/status-colors/Retarget.svg',
-};
+import { isStatusType, STATUS_COLOR_ICON_PATHS, STATUS_OPTIONS } from "@/lib/status/config";
 
 const CopyIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -36,7 +14,7 @@ const CopyIcon = ({ className }: { className?: string }) => (
 );
 
 const StatusIcon = ({ status, className }: { status: StatusType; className?: string }) => {
-  const iconPath = statusIconPaths[status];
+  const iconPath = STATUS_COLOR_ICON_PATHS[status];
   if (!iconPath) return null;
   return (
     <img 
@@ -51,10 +29,6 @@ interface DetailsPanelHeaderProps {
   user: User;
   contactDetails: ConversationContactDetails;
   onChangeContactDetails: (next: ConversationContactDetails) => void;
-}
-
-function isStatusType(value: unknown): value is StatusType {
-  return typeof value === 'string' && STATUS_OPTIONS.includes(value as StatusType);
 }
 
 export default function DetailsPanelHeader({ user, contactDetails, onChangeContactDetails }: DetailsPanelHeaderProps) {

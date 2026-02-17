@@ -1,20 +1,10 @@
-import type { ConversationTimelineEvent, StatusType } from "@/types/inbox";
+import { STATUS_COLOR_ICON_PATHS } from "@/lib/status/config";
+import type { ConversationTimelineEvent } from "@/types/inbox";
 
 interface TimelineTabProps {
   events: ConversationTimelineEvent[];
   onClear: () => void;
 }
-
-const statusIconPaths: Record<StatusType, string> = {
-  Won: "/icons/status-colors/Won.svg",
-  Unqualified: "/icons/status-colors/Unqualified.svg",
-  Booked: "/icons/status-colors/Booked.svg",
-  "New Lead": "/icons/status-colors/NewLead.svg",
-  Qualified: "/icons/status-colors/Qualified.svg",
-  "No-Show": "/icons/status-colors/NoShow.svg",
-  "In-Contact": "/icons/status-colors/InContact.svg",
-  Retarget: "/icons/status-colors/Retarget.svg",
-};
 
 function formatEventDate(value: string): string {
   const date = new Date(value);
@@ -85,7 +75,7 @@ export default function TimelineTab({ events, onClear }: TimelineTabProps) {
           <div key={event.id} className="flex gap-x-4">
             <div className="flex flex-col items-center">
               <div className="w-8 h-8 flex items-center justify-center z-10">
-                <img src={statusIconPaths[event.status] || statusIconPaths["New Lead"]} alt={event.status} className="w-5 h-5" />
+                <img src={STATUS_COLOR_ICON_PATHS[event.status] || STATUS_COLOR_ICON_PATHS["New Lead"]} alt={event.status} className="w-5 h-5" />
               </div>
               {idx !== sorted.length - 1 ? <div className="flex-1 w-px border-l-2 border-stone-200 my-2" /> : null}
             </div>

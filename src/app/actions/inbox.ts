@@ -16,20 +16,8 @@ import {
   addStatusTimelineEvent,
 } from '@/lib/inboxRepository';
 import { sseEmitter } from '@/app/api/sse/route';
+import { isStatusType } from '@/lib/status/config';
 import type { User, Message, StatusType } from '@/types/inbox';
-
-function isStatusType(value: string): value is StatusType {
-  return (
-    value === 'Won' ||
-    value === 'Unqualified' ||
-    value === 'Booked' ||
-    value === 'New Lead' ||
-    value === 'Qualified' ||
-    value === 'No-Show' ||
-    value === 'In-Contact' ||
-    value === 'Retarget'
-  );
-}
 
 async function getOwnerEmail(): Promise<string> {
   const session = await getSession();

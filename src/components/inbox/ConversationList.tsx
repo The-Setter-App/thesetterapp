@@ -1,18 +1,8 @@
 "use client";
 
 import Image from 'next/image';
-import { User, StatusType } from '@/types/inbox';
-
-const statusColorIcons = {
-  'Won': '/icons/status-colors/Won.svg',
-  'Unqualified': '/icons/status-colors/Unqualified.svg',
-  'Booked': '/icons/status-colors/Booked.svg',
-  'New Lead': '/icons/status-colors/NewLead.svg',
-  'Qualified': '/icons/status-colors/Qualified.svg',
-  'No-Show': '/icons/status-colors/NoShow.svg',
-  'In-Contact': '/icons/status-colors/InContact.svg',
-  'Retarget': '/icons/status-colors/Retarget.svg',
-};
+import { STATUS_COLOR_ICON_PATHS } from '@/lib/status/config';
+import { User } from '@/types/inbox';
 
 interface ConversationListProps {
   users: User[];
@@ -87,8 +77,8 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
 
           <div className="flex-shrink-0">
             <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border ${u.statusColor}`}>
-              {statusColorIcons[u.status as keyof typeof statusColorIcons] && (
-                <img src={statusColorIcons[u.status as keyof typeof statusColorIcons]} alt={u.status} className="w-4 h-4" />
+              {STATUS_COLOR_ICON_PATHS[u.status] && (
+                <img src={STATUS_COLOR_ICON_PATHS[u.status]} alt={u.status} className="w-4 h-4" />
               )}
               <span>{u.status}</span>
             </div>

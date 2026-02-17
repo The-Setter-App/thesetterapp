@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Inter } from 'next/font/google'; // Import Inter
 import { getInboxConnectionState, getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
 import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clientCache';
+import { isStatusType, STATUS_OPTIONS } from '@/lib/status/config';
 import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
 import ConversationList from '@/components/inbox/ConversationList';
 import { useSSE } from '@/hooks/useSSE';
@@ -40,7 +41,7 @@ const CheckIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const statusOptions: StatusType[] = ['New Lead', 'In-Contact', 'Qualified', 'Unqualified', 'Retarget', 'Won', 'No-Show', 'Booked'];
+const statusOptions: StatusType[] = STATUS_OPTIONS;
 
 const statusColorMap: Record<StatusType, string> = {
   'Won': 'text-green-600 border-green-200 bg-white',
@@ -52,10 +53,6 @@ const statusColorMap: Record<StatusType, string> = {
   'In-Contact': 'text-green-500 border-green-200 bg-white',
   'Retarget': 'text-blue-500 border-blue-200 bg-white',
 };
-
-function isStatusType(value: unknown): value is StatusType {
-  return typeof value === 'string' && statusOptions.includes(value as StatusType);
-}
 
 function getTimestampMs(value?: string): number {
   if (!value) return 0;

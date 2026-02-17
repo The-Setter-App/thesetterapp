@@ -1,4 +1,6 @@
-export type StatusType = 'Won' | 'Unqualified' | 'Booked' | 'New Lead' | 'Qualified' | 'No-Show' | 'In-Contact' | 'Retarget';
+import type { StatusType } from "@/types/status";
+
+export type { StatusType };
 
 // Graph API Raw Response Types
 export interface RawGraphMessage {
