@@ -17,7 +17,7 @@ type IconType = string | LucideIcon;
 
 const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: string }) => {
   const pathname = usePathname();
-  const isActive = pathname === to;
+  const isActive = pathname === to || pathname.startsWith(`${to}/`);
 
   // Helper to check if the icon is a Lucide Component (function) or a file path (string)
   const isLucideIcon = typeof Icon !== 'string';

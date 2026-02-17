@@ -43,18 +43,18 @@ export default function DisconnectAccountButton({
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-900/45 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#F0F2F6] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#F0F2F6] px-5 py-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(135,113,255,0.1)] text-[#8771FF]">
                   <CircleAlert size={18} />
                 </div>
-                <h3 className="text-base font-semibold text-stone-900">Disconnect Account</h3>
+                <h3 className="text-base font-semibold text-[#101011]">Disconnect Account</h3>
               </div>
               <button
                 type="button"
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 focus:outline-none"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#606266] transition-colors hover:bg-[#F8F7FF] hover:text-[#101011] focus:outline-none"
                 onClick={() => {
                   if (submitting) return;
                   setOpen(false);
@@ -79,16 +79,16 @@ export default function DisconnectAccountButton({
               }}
               className="space-y-4 px-5 py-5"
             >
-              <p className="text-sm text-stone-700">
+              <p className="text-sm text-[#606266]">
                 This will disconnect
                 {accountLabel ? ` ${accountLabel}` : " this account"} and remove its inbox chats.
               </p>
-              <p className="text-sm text-stone-600">
+              <p className="text-sm text-[#606266]">
                 Type{" "}
                 <button
                   type="button"
                   onClick={handleCopyDisconnectText}
-                  className="rounded-full bg-stone-100 px-2 py-1 font-semibold text-stone-900 transition-colors hover:bg-stone-200 focus:outline-none"
+                  className="rounded-full bg-[rgba(135,113,255,0.1)] px-2 py-1 font-semibold text-[#8771FF] transition-colors hover:bg-[#F3F0FF] focus:outline-none"
                   title="Click to copy"
                 >
                   DISCONNECT
@@ -101,7 +101,7 @@ export default function DisconnectAccountButton({
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 placeholder="Type DISCONNECT"
-                className="h-12 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none"
+                className="h-12 w-full rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-4 text-sm text-[#101011] placeholder:text-[#9A9CA2] focus:outline-none"
                 autoComplete="off"
               />
 

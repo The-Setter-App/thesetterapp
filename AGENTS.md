@@ -2,8 +2,8 @@
 # Flat UI Mobile-First Design System
 
 ## Core Principles
-- **Warm Modernity**: Prioritize "Warm" neutrals (Stone, Cream, Off-White) over clinical grays.
-- **Card Physics**: Use `bg-white` cards with soft shadows (`shadow-sm`) on `bg-stone-50` backgrounds to create depth.
+- **Brand Consistency First**: Match the existing Inbox, Dashboard, and Login visual language.
+- **Card Physics**: Use `bg-white` cards with soft shadows (`shadow-sm`) on white or very light neutral backgrounds.
 - **Rounded Aesthetics**: Use `rounded-xl` or `rounded-2xl` for cards/sections to enhance the friendly, organic feel.
 - **Visual Density**: "Clean" does not mean "Empty". Use distinct section backgrounds to structure content.
 - Modern, clean aesthetic with thoughtful color palette
@@ -18,20 +18,27 @@
 - Focus outlines/rings (maintain accessibility via other means)
 - Horizontal overflow from absolute elements
 - Desktop-first styling patterns
-- Generic "safe" palettes (default blues, purples, tech gradients)
+- Any new accent palette that does not match the existing product purple + neutral system
 - Excessive white space as a crutch for layout
 - Card-heavy layouts without visual variety
 
 ## Color & Aesthetic Philosophy
-- **Palette Strategy**: Base = Warm Neutrals (Stone/Warm Gray). Accents = Organic/Earthy (Amber, Terracotta, Sage, Burnt Orange).
-- **Contrast Hierarchy**: Use `text-stone-900` (Charcoal) for primary text against `bg-stone-50` (Cream) for softer, high-readability contrast.
-- **Section Rhythm**: Alternate between Light (White/Cream) and Dark (Stone-900/Black) sections to break up scrolling monotony.
-- **Pill Badges**: Use small, rounded-full badges (`bg-stone-100 text-stone-900`) for eyebrow text or categories.
-- Contrast matters: ensure hierarchy through deliberate color relationships
-- Avoid the "startup template" look: no generic hero + 3 cards + blue CTA
-- Simple does not mean bland: minimal MUST have personality and visual interest
-- Avoid "Clinical" or "Lab" aesthetics: Use font weights, borders, and subtle backgrounds to create structure
-- Let the content/brand guide palette, not statistical averages
+- **Source of truth**: Reuse the same palette already present in `login`, `dashboard`, and `inbox`.
+- **Primary Accent (Brand Purple)**:
+  - `#8771FF` = main CTAs, active navigation, highlights
+  - `#6d5ed6` = hover/darker purple state
+  - `rgba(135, 113, 255, 0.10)` / `#F3F0FF` / `#F8F7FF` = subtle accent backgrounds
+- **Neutrals**:
+  - `#101011` = primary text
+  - `#606266` = secondary text
+  - `#F0F2F6` = borders/dividers
+  - `#FFFFFF` = primary surfaces
+- **Status Colors**:
+  - Error: red palette (`bg-red-50 border-red-200 text-red-700`)
+  - Success: prefer purple-tinted success messaging when aligned with auth/connect flows
+  - Warning: neutral or amber, but keep hierarchy subtle
+- **Pill Badges**: Use rounded-full badges with purple-tinted neutral fills for section/category tags.
+- **No palette drift**: Do not introduce Stone/Earthy accents on new pages unless explicitly requested by the user.
 
 ## Full Viewport (Main Sections Only)
 - Hero and primary sections should fill 100vh (min-h-screen or min-h-dvh)
@@ -49,9 +56,11 @@
 
 ### Component Tokens (Reference)
 - **Buttons**: `font-medium`, `rounded-full` or `rounded-xl`, `h-12` (generous touch targets).
-- **Primary**: `bg-stone-900 text-white hover:bg-stone-800 hover:scale-[1.02] active:scale-95 transition-all`.
-- **Secondary**: `bg-stone-100 text-stone-900 hover:bg-stone-200`.
-- **Cards**: `bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow`.
+- **Primary**: `bg-[#8771FF] text-white hover:bg-[#6d5ed6] hover:scale-[1.02] active:scale-95 transition-all`.
+- **Secondary**: `bg-[#F3F0FF] text-[#8771FF] hover:bg-[#EBE5FF]`.
+- **Cards**: `bg-white rounded-2xl border border-[#F0F2F6] shadow-sm`.
+- **Inputs**: `border-[#F0F2F6] bg-white text-[#101011] placeholder:text-[#9A9CA2]`.
+- **Section tint**: `bg-[#F8F7FF]` for subtle grouped content blocks.
 
 ### Touch Targets
 - All interactive elements: minimum 44px height and width
@@ -121,4 +130,6 @@ middleware.ts is replaced by proxy.ts in NextJS 16+
 
 <notes_about_project>
 Frontend is optimistic for good UX, but backend should be pessimistic for security and data integrity. Always validate and sanitize on the server, even if the frontend is doing its best to prevent bad input.
+
+Always follow the design system of the project
 </notes_about_project>
