@@ -12,12 +12,12 @@ interface MetricCardProps {
 
 const MetricCard = ({ value, label, icon }: MetricCardProps) => (
   <div
-    className="p-6 rounded-2xl flex items-center gap-4 flex-1"
+    className="w-full m-1 rounded-xl border border-[#F0F2F6] p-4 md:p-5 flex items-center gap-4"
     style={{ background: 'rgba(135, 113, 255, 0.10)' }}
   >
     <div
       className="w-12 h-12 rounded-full flex items-center justify-center"
-      style={{ background: '#5235EF' }}
+      style={{ background: 'rgba(82, 53, 239, 0.20)' }}
     >
       {icon}
     </div>
@@ -120,6 +120,14 @@ export default function Dashboard() {
   // Conversation rate: percent of leads that are qualified/booked/won out of all leads
   const conversionCount = initialLeadsData.filter(l => ['Qualified', 'Booked', 'Won'].includes(l.status)).length;
   const conversationRate = initialLeadsData.length > 0 ? Math.round((conversionCount / initialLeadsData.length) * 100) : 0;
+  const funnelClipPath = 'polygon(0% 33%, 20% 49%, 40% 55%, 60% 58%, 80% 59.5%, 100% 60%, 100% 62%, 80% 62.5%, 60% 63%, 40% 66%, 20% 72%, 0% 88%)';
+  const funnelSegments = [
+    { start: 0, end: 20, upperStart: 33, upperEnd: 49, lowerStart: 88, lowerEnd: 72, opacity: 1 },
+    { start: 20, end: 40, upperStart: 49, upperEnd: 55, lowerStart: 72, lowerEnd: 66, opacity: 0.8 },
+    { start: 40, end: 60, upperStart: 55, upperEnd: 58, lowerStart: 66, lowerEnd: 63, opacity: 0.6 },
+    { start: 60, end: 80, upperStart: 58, upperEnd: 59.5, lowerStart: 63, lowerEnd: 62.5, opacity: 0.4 },
+    { start: 80, end: 100, upperStart: 59.5, upperEnd: 60, lowerStart: 62.5, lowerEnd: 62, opacity: 0.2 },
+  ];
 
   // SVG icon components
   const DollarIcon = (
@@ -150,11 +158,10 @@ export default function Dashboard() {
       <Head>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
-      <div className="min-h-screen bg-white p-8" style={{ fontFamily: 'Inter, sans-serif' }}>
-        <div className="max-w-[1400px] mx-auto space-y-10">
-          
+      <div className="min-h-[100dvh] w-full bg-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
           {/* Header - Styled from Figma */}
-          <header className="flex justify-between items-center">
+          <header className="flex flex-col gap-4 border-b border-[#F0F2F6] px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
             <div className="flex flex-col gap-1">
               <div style={{
                 color: '#101011',
@@ -175,15 +182,16 @@ export default function Dashboard() {
                 Your Setter Dashboard
               </div>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
               <div className="relative cursor-pointer">
-                <img src="/dashboardIcons/bell.svg" alt="Bell" width={20} height={20} />
+                <img src="/dashboardIcons/bell.svg" alt="Bell" width={24} height={24} />
               </div>
               <form
                 onSubmit={handleSearchSubmit}
                 style={{
-                  width: '220px',
-                  height: '40px',
+                  width: '100%',
+                  maxWidth: '260px',
+                  height: '44px',
                   paddingLeft: '16px',
                   paddingRight: '16px',
                   boxShadow: '0px 1px 2px rgba(16, 24, 40, 0.05)',
@@ -217,72 +225,72 @@ export default function Dashboard() {
             </div>
           </header>
 
-          {/* Figma-style Bottom Border Divider */}
-          {/* Note: marginHorizontal -32px offsets the p-8 padding of the parent container */}
-          <div 
-            style={{ 
-              borderBottom: '1px solid #F0F2F6', 
-              marginTop: '16px', 
-              marginBottom: '16px',
-              marginLeft: '-32px', 
-              marginRight: '-32px' 
-            }} 
-          />
+          <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+            {/* Metrics Grid */}
+            <div className="px-3 md:px-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 md:gap-4">
+              <MetricCard value={`$${totalRevenue.toLocaleString()}`} label="Total revenue" icon={DollarIcon} />
+              <MetricCard value={avgReplyTime} label="Avg reply time" icon={HourglassIcon} />
+              <MetricCard value={`$${revenuePerCall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} label="Revenue per call" icon={DollarIcon} />
+              <MetricCard value={`${conversationRate}%`} label="Conversation rate" icon={ConversionRateIcon} />
+              <MetricCard value={avgReplyRate} label="Avg reply rate" icon={ReplyIcon} />
+            </div>
 
-          {/* Metrics Grid */}
-          <div className="flex flex-wrap gap-4">
-            <MetricCard value={`$${totalRevenue.toLocaleString()}`} label="Total revenue" icon={DollarIcon} />
-            <MetricCard value={avgReplyTime} label="Avg reply time" icon={HourglassIcon} />
-            <MetricCard value={`$${revenuePerCall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} label="Revenue per call" icon={DollarIcon} />
-            <MetricCard value={`${conversationRate}%`} label="Conversation rate" icon={ConversionRateIcon} />
-            <MetricCard value={avgReplyRate} label="Avg reply rate" icon={ReplyIcon} />
-          </div>
-
-          {/* Funnel Visualizer */}
-          <div className="bg-white border border-[#F0F2F6] rounded-[24px] overflow-hidden flex min-h-[400px]">
-            {[
-              { label: 'Conversations', value: conversationsCount.toLocaleString(), clip: 'polygon(0 15%, 100% 35%, 100% 65%, 0 85%)', opacity: 0.7 },
-              { label: 'Qualified', value: qualifiedCount.toLocaleString(), clip: 'polygon(0 35%, 100% 42%, 100% 58%, 0 65%)', opacity: 0.7 },
-              { label: 'Links Sent', value: '861', clip: 'polygon(0 42%, 100% 46%, 100% 54%, 0 58%)', opacity: 0.6 },
-              { label: 'Booked', value: bookedCount.toLocaleString(), clip: 'polygon(0 46%, 100% 48%, 100% 52%, 0 54%)', opacity: 0.5 },
-              { label: 'Closed', value: closedCount.toLocaleString(), clip: 'polygon(0 48%, 100% 49%, 100% 51%, 0 52%)', opacity: 0.4 }
-            ].map((step, i, arr) => (
-              <div key={step.label} className={`flex-1 p-8 relative flex flex-col ${i !== arr.length - 1 ? 'border-r border-[#F0F2F6]' : ''}`}>
-                <div className="z-10">
+            {/* Funnel Visualizer */}
+            <div className="mx-3 md:mx-5 relative h-[357px] bg-white border border-[rgba(135,113,255,0.2)] rounded-[20px] overflow-hidden">
+              <div className="pointer-events-none absolute inset-0 z-0">
+                {funnelSegments.map((segment) => (
                   <div
+                    key={`${segment.start}-${segment.end}`}
+                    className="absolute inset-0 bg-[#8771FF]"
                     style={{
-                      color: '#101011',
-                      fontSize: 14,
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      wordWrap: 'break-word'
+                      opacity: segment.opacity,
+                      clipPath: `polygon(${segment.start}% ${segment.upperStart}%, ${segment.end}% ${segment.upperEnd}%, ${segment.end}% ${segment.lowerEnd}%, ${segment.start}% ${segment.lowerStart}%)`
                     }}
-                  >
-                    {step.label}
-                  </div>
+                  />
+                ))}
+                <div className="absolute inset-0 z-20" style={{ clipPath: funnelClipPath }}>
                   <div
-                    style={{
-                      color: '#8771FF',
-                      fontSize: 24,
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 700,
-                      wordWrap: 'break-word',
-                      marginTop: 4
-                    }}
-                  >
-                    {step.value}
-                  </div>
+                    className="absolute left-0 right-0 h-px bg-[rgba(86,90,104,0.55)]"
+                    style={{ top: "60.9%" }}
+                  />
                 </div>
-                <div
-                  className="absolute inset-0 bg-[#8771FF]"
-                  style={{
-                    clipPath: step.clip,
-                    opacity: step.opacity,
-                    top: '100px'
-                  }}
-                />
               </div>
-            ))}
+              <div className="relative z-10 grid h-full grid-cols-5">
+                {[
+                  { label: 'Conversations', value: conversationsCount.toLocaleString() },
+                  { label: 'Qualified', value: qualifiedCount.toLocaleString() },
+                  { label: 'Links Sent', value: '861' },
+                  { label: 'Booked', value: bookedCount.toLocaleString() },
+                  { label: 'Closed', value: closedCount.toLocaleString() }
+                ].map((step, i, arr) => (
+                  <div key={step.label} className={`p-4 flex flex-col gap-3 ${i !== arr.length - 1 ? 'border-r border-[rgba(135,113,255,0.2)]' : ''}`}>
+                    <div
+                      style={{
+                        color: '#101011',
+                        fontSize: 14,
+                        fontFamily: 'Inter, sans-serif',
+                        fontWeight: 600,
+                        wordWrap: 'break-word'
+                      }}
+                    >
+                      {step.label}
+                    </div>
+                    <div
+                      style={{
+                        color: '#8771FF',
+                        fontSize: 24,
+                        fontFamily: 'Inter, sans-serif',
+                        fontWeight: 700,
+                        wordWrap: 'break-word',
+                        marginTop: 4
+                      }}
+                    >
+                      {step.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
