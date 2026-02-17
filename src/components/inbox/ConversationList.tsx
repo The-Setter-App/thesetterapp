@@ -91,26 +91,47 @@ export default function ConversationList({ users, selectedUserId, onSelectUser, 
             onClick={(e) => e.stopPropagation()}
           >
             {/* Priority */}
-            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('priority')} tabIndex={-1}>
-              <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
-              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+            <div className="group/act relative flex items-center">
+              <button
+                type="button"
+                className="flex h-5 w-5 items-center justify-center"
+                onClick={() => onAction('priority')}
+                tabIndex={-1}
+              >
+                <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
+              </button>
+              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Mark as qualified
               </span>
-            </button>
+            </div>
             {/* Delete */}
-            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('delete')} tabIndex={-1}>
-              <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
-              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+            <div className="group/act relative flex items-center">
+              <button
+                type="button"
+                className="flex h-5 w-5 items-center justify-center"
+                onClick={() => onAction('delete')}
+                tabIndex={-1}
+              >
+                <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
+              </button>
+              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Unqualify and remove user from inbox
               </span>
-            </button>
+            </div>
             {/* Unread */}
-            <button className="flex flex-col items-center group/act relative" onClick={() => onAction('unread')} tabIndex={-1}>
-              <FolderMoveIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
-              <span className="text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+            <div className="group/act relative flex items-center">
+              <button
+                type="button"
+                className="flex h-5 w-5 items-center justify-center"
+                onClick={() => onAction('unread')}
+                tabIndex={-1}
+              >
+                <FolderMoveIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
+              </button>
+              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                 Move to priority inbox
               </span>
-            </button>
+            </div>
           </div>
         </div>
       ))}

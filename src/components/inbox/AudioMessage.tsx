@@ -57,8 +57,26 @@ export default function AudioMessage({ src, duration, isOwn }: AudioMessageProps
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Use provided duration string first, fallback to loaded duration, then 0:00
-  const displayDuration = duration || formatTime(loadedDuration);
+  const parseDuration = (value?: string): number | null => {
+    if (!value) return null;
+    const [minutes, seconds] = value.split(':');
+    const m = Number(minutes);
+    const s = Number(seconds);
+    if (Number.isNaN(m) || Number.isNaN(s)) return null;
+    return (m * 60) + s;
+  };
+
+  const providedDurationSeconds = parseDuration(duration);
+  const hasLoadedDuration = Number.isFinite(loadedDuration) && loadedDuration > 0;
+  const durationMismatch =
+    hasLoadedDuration &&
+    providedDurationSeconds !== null &&
+    Math.abs(loadedDuration - providedDurationSeconds) >= 1;
+
+  // Prefer true media metadata if it disagrees with a stale/wrong saved duration.
+  const displayDuration = durationMismatch
+    ? formatTime(loadedDuration)
+    : (duration || formatTime(loadedDuration));
 
   return (
     <div 

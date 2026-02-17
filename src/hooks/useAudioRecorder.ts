@@ -11,9 +11,14 @@ export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartMsRef = useRef<number | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       // Prefer mp4 or webm; browser support varies
@@ -42,9 +47,20 @@ export function useAudioRecorder() {
       recorder.start(100); 
       setIsRecording(true);
       setRecordingTime(0);
+      recordingStartMsRef.current = Date.now();
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
 
       timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
+        const startMs = recordingStartMsRef.current;
+        if (!startMs) {
+          setRecordingTime(0);
+          return;
+        }
+        const elapsedSeconds = Math.floor((Date.now() - startMs) / 1000);
+        setRecordingTime(elapsedSeconds);
       }, 1000);
 
     } catch (error) {
@@ -61,11 +77,12 @@ export function useAudioRecorder() {
       }
 
       const recorder = mediaRecorderRef.current;
-      const duration = recordingTime;
 
       recorder.onstop = () => {
         const type = recorder.mimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type });
+        const startMs = recordingStartMsRef.current;
+        const duration = startMs ? Math.max(0, Math.floor((Date.now() - startMs) / 1000)) : recordingTime;
         
         // Cleanup
         if (timerRef.current) clearInterval(timerRef.current);
@@ -74,6 +91,7 @@ export function useAudioRecorder() {
         setIsRecording(false);
         setRecordingTime(0);
         mediaRecorderRef.current = null;
+        recordingStartMsRef.current = null;
         chunksRef.current = [];
         
         resolve({ audioBlob: blob, duration });
@@ -92,6 +110,7 @@ export function useAudioRecorder() {
     setIsRecording(false);
     setRecordingTime(0);
     mediaRecorderRef.current = null;
+    recordingStartMsRef.current = null;
     chunksRef.current = [];
   }, []);
 
