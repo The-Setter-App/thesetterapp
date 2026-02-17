@@ -17,7 +17,7 @@ export default async function InboxPage() {
 
   if (!hasConnectedAccounts) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white h-full border-r border-gray-200 px-6">
+      <div className="flex-1 flex items-center justify-center bg-white h-full px-6">
         <div className="text-center text-gray-500">
           <h3 className="text-lg font-medium text-gray-900">No connected accounts yet</h3>
           <p className="mt-1 text-sm text-gray-500">Connect your Instagram account in Settings to start using Inbox.</p>
@@ -33,7 +33,7 @@ export default async function InboxPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-white h-full border-r border-gray-200">
+    <div className="flex-1 flex items-center justify-center bg-white h-full">
       <div className="text-center text-gray-500">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-gray-400">

@@ -123,13 +123,11 @@ export default function InboxLayout({
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
           <div
-            className="group hidden md:flex w-3 -mx-1 cursor-ew-resize items-stretch justify-center select-none touch-none"
+            className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
             onMouseDown={handleLeftResizeStart}
             aria-label="Resize left sidebar"
             role="separator"
-          >
-            <div className="w-px bg-stone-200 group-hover:bg-stone-300 transition-colors" />
-          </div>
+          />
           {children}
         </div>
       </div>
@@ -164,9 +162,7 @@ function InboxSkeletonOverlay({ leftWidth }: { leftWidth: number }) {
         </div>
       </aside>
 
-      <div className="group hidden w-3 -mx-1 items-stretch justify-center md:flex">
-        <div className="w-px bg-stone-200" />
-      </div>
+      <div className="hidden w-px bg-[#F0F2F6] md:flex" />
 
       <div className="flex h-full min-w-0 flex-1 flex-col bg-white">
         <div className="border-b border-stone-100 px-6 py-4">

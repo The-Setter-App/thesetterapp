@@ -83,7 +83,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-      <main className="flex-1 flex flex-col min-w-0 bg-white border-r border-gray-200">
+      <main className="flex-1 flex flex-col min-w-0 bg-white">
         <ChatHeader 
           user={user} 
           showVisible={showVisible} 
@@ -117,13 +117,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       {showVisible && (
         <>
           <div
-            className="group hidden md:flex w-3 -mx-1 cursor-ew-resize items-stretch justify-center select-none touch-none"
+            className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
             onMouseDown={handleRightResizeStart}
             aria-label="Resize right sidebar"
             role="separator"
-          >
-            <div className="w-px bg-stone-200 group-hover:bg-stone-300 transition-colors" />
-          </div>
+          />
           {!user ? (
             <aside
               className="hidden bg-white md:flex md:flex-col"

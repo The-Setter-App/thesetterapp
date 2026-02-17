@@ -402,7 +402,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   return (
     <aside
-      className={`${inter.className} border-r border-gray-200 bg-white flex flex-col flex-shrink-0 h-full antialiased`}
+      className={`${inter.className} bg-white flex flex-col flex-shrink-0 h-full antialiased`}
       style={width ? { width: `${width}px` } : undefined}
     >
       {/* Sidebar Header */}
