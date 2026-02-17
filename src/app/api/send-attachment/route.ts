@@ -2,18 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendAttachmentMessage } from '@/lib/graphApi';
 import { getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
-import { getSession } from '@/lib/auth';
 import { syncLatestMessages } from '@/app/actions/inbox';
 import { findConversationById, saveOrUpdateLocalAudioMessage, saveVoiceNoteBlobToGridFs, updateConversationMetadata } from '@/lib/inboxRepository';
 import { getRelativeTime } from '@/lib/mappers';
 import { sseEmitter } from '../sse/route';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -29,12 +26,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No conversationId provided' }, { status: 400 });
     }
 
-    const conversation = await findConversationById(conversationId, session.email);
+    const conversation = await findConversationById(conversationId, workspaceOwnerEmail);
     if (!conversation?.recipientId || !conversation.accountId) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    const account = await getInstagramAccountById(session.email, conversation.accountId);
+    const account = await getInstagramAccountById(workspaceOwnerEmail, conversation.accountId);
     if (!account?.instagramUserId) {
       return NextResponse.json({ error: 'No Instagram connection' }, { status: 400 });
     }
@@ -60,7 +57,7 @@ export async function POST(request: NextRequest) {
       const bytes = Buffer.from(await file.arrayBuffer());
 
       const audioStorage = await saveVoiceNoteBlobToGridFs({
-        ownerEmail: session.email,
+        ownerEmail: workspaceOwnerEmail,
         conversationId: conversation.id,
         recipientId: conversation.recipientId,
         messageId: localMessageId,
@@ -70,7 +67,7 @@ export async function POST(request: NextRequest) {
       });
 
       const savedMessage = await saveOrUpdateLocalAudioMessage({
-        ownerEmail: session.email,
+        ownerEmail: workspaceOwnerEmail,
         conversationId: conversation.id,
         recipientId: conversation.recipientId,
         messageId: localMessageId,
@@ -87,7 +84,7 @@ export async function POST(request: NextRequest) {
 
       await updateConversationMetadata(
         conversation.id,
-        session.email,
+        workspaceOwnerEmail,
         'You sent a voice message',
         getRelativeTime(savedMessage.timestamp || timestampIso),
         false,
@@ -140,6 +137,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[SendAttachment] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

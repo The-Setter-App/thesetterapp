@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { REQUIRED_INSTAGRAM_SCOPES } from '@/lib/instagramPermissions';
+import { getSession } from '@/lib/auth';
+import { getUser } from '@/lib/userRepository';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const session = await getSession();
+  if (!session?.email) {
+    return NextResponse.redirect(new URL('/login', request.nextUrl.origin));
+  }
+
+  const user = await getUser(session.email);
+  if (!user || user.role !== 'owner') {
+    return NextResponse.redirect(new URL('/settings/team', request.nextUrl.origin));
+  }
+
   const appId = process.env.FB_APP_ID;
   const baseUrl = process.env.APP_URL || request.nextUrl.origin;
   const redirectUri = `${baseUrl}/api/auth/instagram/callback`;

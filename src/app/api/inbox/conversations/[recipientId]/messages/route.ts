@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
 import { findConversationById, getMessagesPageFromDb, saveMessagesToDb } from '@/lib/inboxRepository';
 import { getConnectedInstagramAccounts, getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
 import { fetchMessages } from '@/lib/graphApi';
 import { mapGraphMessageToAppMessage } from '@/lib/mappers';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 const DEFAULT_INITIAL_LIMIT = 20;
 const MAX_PAGE_LIMIT = 20;
@@ -14,10 +14,7 @@ export async function GET(
   context: { params: Promise<{ recipientId: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const { recipientId: conversationId } = await context.params;
     const { searchParams } = new URL(request.url);
@@ -26,7 +23,7 @@ export async function GET(
     const parsedLimit = Number.isFinite(requestedLimit) ? requestedLimit : DEFAULT_INITIAL_LIMIT;
     const limit = Math.min(Math.max(parsedLimit, 1), MAX_PAGE_LIMIT);
 
-    const conversation = await findConversationById(conversationId, session.email);
+    const conversation = await findConversationById(conversationId, workspaceOwnerEmail);
     if (!conversation?.id) {
       return NextResponse.json({
         messages: [],
@@ -36,13 +33,13 @@ export async function GET(
       });
     }
 
-    let page = await getMessagesPageFromDb(conversation.id, session.email, limit, cursor);
+    let page = await getMessagesPageFromDb(conversation.id, workspaceOwnerEmail, limit, cursor);
 
     // Guardrail: if Mongo has no messages for this conversation, fetch latest 20 from Graph and persist.
     if (!cursor && page.messages.length === 0) {
-      let account = conversation.accountId ? await getInstagramAccountById(session.email, conversation.accountId) : null;
+      let account = conversation.accountId ? await getInstagramAccountById(workspaceOwnerEmail, conversation.accountId) : null;
       if (!account) {
-        const connectedAccounts = await getConnectedInstagramAccounts(session.email);
+        const connectedAccounts = await getConnectedInstagramAccounts(workspaceOwnerEmail);
         if (conversation.ownerInstagramUserId) {
           account =
             connectedAccounts.find((a) => a.instagramUserId === conversation.ownerInstagramUserId) || null;
@@ -55,8 +52,8 @@ export async function GET(
         const accessToken = decryptData(account.accessToken);
         const rawMessages = await fetchMessages(conversation.id, accessToken, 20, account.graphVersion);
         const mapped = rawMessages.map((msg) => mapGraphMessageToAppMessage(msg, account.instagramUserId));
-        await saveMessagesToDb(mapped, conversation.id, session.email);
-        page = await getMessagesPageFromDb(conversation.id, session.email, limit, cursor);
+        await saveMessagesToDb(mapped, conversation.id, workspaceOwnerEmail);
+        page = await getMessagesPageFromDb(conversation.id, workspaceOwnerEmail, limit, cursor);
       }
     }
 
@@ -67,6 +64,9 @@ export async function GET(
       source: 'mongo',
     });
   } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[InboxMessagesAPI] Failed to fetch messages page:', error);
     return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
   }

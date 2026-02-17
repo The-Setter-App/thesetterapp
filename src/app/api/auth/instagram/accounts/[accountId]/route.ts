@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { disconnectInstagramAccount, getInstagramAccountById } from '@/lib/userRepository';
+import { disconnectInstagramAccount, getInstagramAccountById, getUser } from '@/lib/userRepository';
 import { purgeInboxDataForInstagramAccount } from '@/lib/inboxRepository';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +12,10 @@ export async function DELETE(
   const session = await getSession();
   if (!session?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const user = await getUser(session.email);
+  if (!user || user.role !== 'owner') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { accountId } = await context.params;

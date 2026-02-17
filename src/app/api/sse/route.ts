@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { EventEmitter } from 'events';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 // Global event emitter for SSE broadcasts
 export const sseEmitter = new EventEmitter();
@@ -8,6 +9,15 @@ sseEmitter.setMaxListeners(100); // Support up to 100 concurrent connections
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireInboxWorkspaceContext();
+  } catch (error) {
+    if (error instanceof AccessError) {
+      return new Response(JSON.stringify({ error: error.message }), { status: error.status });
+    }
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

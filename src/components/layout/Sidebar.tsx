@@ -5,15 +5,16 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 // 1. Import the new icons from lucide-react
 import { LayoutDashboard, Inbox, Calendar as CalendarIconLucide, LogOut, type LucideIcon } from 'lucide-react';
-import Image from 'next/image';
 import { logout } from '@/app/actions/auth';
 import { resetCache } from '@/lib/clientCache';
+import type { UserRole } from '@/types/auth';
 
 // 2. CSS Filter for the remaining image-based icons (Leads, SetterAI, Settings)
 const PURPLE_FILTER = "brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(228deg) brightness(89%) contrast(93%)";
 
 // Helper type to allow both Image strings and Lucide Components
 type IconType = string | LucideIcon;
+type NavConfig = { to: string; icon: IconType; alt: string };
 
 const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: string }) => {
   const pathname = usePathname();
@@ -63,8 +64,40 @@ const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: str
   );
 };
 
-const Sidebar = () => {
+const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
+  owner: [
+    { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
+    { to: '/inbox', icon: Inbox, alt: 'Inbox' },
+    { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
+    { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
+    { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
+    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+  ],
+  setter: [
+    { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
+    { to: '/inbox', icon: Inbox, alt: 'Inbox' },
+    { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
+    { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
+    { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
+    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+  ],
+  closer: [
+    { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
+    { to: '/inbox', icon: Inbox, alt: 'Inbox' },
+    { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
+    { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
+    { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
+    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+  ],
+  viewer: [
+    { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
+    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+  ],
+};
+
+const Sidebar = ({ role }: { role: UserRole }) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const navItems = NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.viewer;
 
   return (
     <div className="w-16 bg-white h-screen flex flex-col items-center py-6 border-r border-gray-100 fixed left-0 top-0 z-50">
@@ -81,19 +114,9 @@ const Sidebar = () => {
 
       {/* Navigation Links */}
       <div className="flex flex-col w-full">
-        {/* Swapped these 3 to use the Lucide components */}
-        <NavItem to="/dashboard" icon={LayoutDashboard} alt="Dashboard" />
-        <NavItem to="/inbox" icon={Inbox} alt="Inbox" />
-        
-        {/* Kept these as images (LeadsIcon is a string path) */}
-        <NavItem to="/leads" icon="/icons/Leads.svg" alt="Leads" />
-        
-        {/* Swapped to Lucide */}
-        <NavItem to="/calendar" icon={CalendarIconLucide} alt="Calendar" />
-        
-        {/* Kept as images */}
-        <NavItem to="/setter-ai" icon="/icons/SetterAI.svg" alt="Setter AI" />
-        <NavItem to="/settings" icon="/icons/Settings.svg" alt="Settings" />
+        {navItems.map((item) => (
+          <NavItem key={item.to} to={item.to} icon={item.icon} alt={item.alt} />
+        ))}
       </div>
 
       {/* Logout Button */}

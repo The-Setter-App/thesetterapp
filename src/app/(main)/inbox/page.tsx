@@ -1,11 +1,18 @@
 import Link from 'next/link';
-import { getSession } from '@/lib/auth';
-import { getConnectedInstagramAccounts } from '@/lib/userRepository';
+import { redirect } from 'next/navigation';
+import { requireCurrentUser } from '@/lib/currentUser';
+import { canAccessInbox } from '@/lib/permissions';
+import { getConnectedInstagramAccounts, getWorkspaceOwnerEmail } from '@/lib/userRepository';
 
 export default async function InboxPage() {
-  const session = await getSession();
-  const hasConnectedAccounts = session?.email
-    ? (await getConnectedInstagramAccounts(session.email)).length > 0
+  const { user } = await requireCurrentUser();
+  if (!canAccessInbox(user.role)) {
+    redirect('/dashboard');
+  }
+
+  const workspaceOwnerEmail = await getWorkspaceOwnerEmail(user.email);
+  const hasConnectedAccounts = workspaceOwnerEmail
+    ? (await getConnectedInstagramAccounts(workspaceOwnerEmail)).length > 0
     : false;
 
   if (!hasConnectedAccounts) {

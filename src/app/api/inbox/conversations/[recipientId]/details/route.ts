@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
 import { getConversationDetails, updateConversationDetails } from '@/lib/inboxRepository';
 import type { ConversationDetails } from '@/types/inbox';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-() ]+$/;
@@ -16,13 +16,10 @@ export async function GET(
   context: { params: Promise<{ recipientId: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const { recipientId: conversationId } = await context.params;
-    const details = await getConversationDetails(conversationId, session.email);
+    const details = await getConversationDetails(conversationId, workspaceOwnerEmail);
 
     return NextResponse.json({
       details: details ?? {
@@ -44,6 +41,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[InboxDetailsAPI] Failed to get details:', error);
     return NextResponse.json({ error: 'Failed to fetch details' }, { status: 500 });
   }
@@ -54,10 +54,7 @@ export async function PATCH(
   context: { params: Promise<{ recipientId: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const { recipientId: conversationId } = await context.params;
     const body = (await request.json()) as Partial<ConversationDetails>;
@@ -94,10 +91,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Timeline events must be an array' }, { status: 400 });
     }
 
-    await updateConversationDetails(conversationId, session.email, body);
+    await updateConversationDetails(conversationId, workspaceOwnerEmail, body);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[InboxDetailsAPI] Failed to update details:', error);
     return NextResponse.json({ error: 'Failed to update details' }, { status: 500 });
   }

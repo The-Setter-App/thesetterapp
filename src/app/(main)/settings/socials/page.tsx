@@ -17,7 +17,9 @@ import DisconnectCacheCleanup from '@/components/settings/DisconnectCacheCleanup
 import DisconnectAccountButton from '@/components/settings/DisconnectAccountButton';
 import SettingsSectionCard from '@/components/settings/SettingsSectionCard';
 import { requireCurrentUser } from '@/lib/currentUser';
+import { getCachedConnectedInstagramAccounts } from '@/lib/settingsCache';
 import { getConnectedInstagramAccounts } from '@/lib/userRepository';
+import { redirect } from 'next/navigation';
 
 interface SocialsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -26,10 +28,10 @@ interface SocialsPageProps {
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsSocialsPage({ searchParams }: SocialsPageProps) {
-  const { session } = await requireCurrentUser();
-
-  const accounts = await getConnectedInstagramAccounts(session.email);
-  const isConnected = accounts.length > 0;
+  const { session, user } = await requireCurrentUser();
+  if (user.role !== 'owner') {
+    redirect(user.role === 'viewer' ? '/settings/profile' : '/settings/team');
+  }
 
   const params = await searchParams;
   const error = params.error;
@@ -40,6 +42,11 @@ export default async function SettingsSocialsPage({ searchParams }: SocialsPageP
   const missingScopes = typeof missingRaw === 'string' ? missingRaw.split(',').filter(Boolean) : [];
   const connectedCountRaw = params.connectedCount;
   const connectedCount = typeof connectedCountRaw === 'string' ? Number.parseInt(connectedCountRaw, 10) : undefined;
+  const shouldBypassCache = Boolean(error || success || warning || disconnectedAccountId);
+  const accounts = shouldBypassCache
+    ? await getConnectedInstagramAccounts(session.email)
+    : await getCachedConnectedInstagramAccounts(session.email);
+  const isConnected = accounts.length > 0;
 
   return (
     <div className="space-y-4">

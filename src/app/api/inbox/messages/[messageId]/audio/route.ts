@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'node:stream';
-import { getSession } from '@/lib/auth';
 import { getVoiceNoteStreamForMessage } from '@/lib/inboxRepository';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ messageId: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const { messageId } = await context.params;
-    const audio = await getVoiceNoteStreamForMessage(messageId, session.email);
+    const audio = await getVoiceNoteStreamForMessage(messageId, workspaceOwnerEmail);
     if (!audio) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
@@ -30,6 +27,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[AudioStreamAPI] Failed to stream voice note:', error);
     return NextResponse.json({ error: 'Failed to stream audio' }, { status: 500 });
   }

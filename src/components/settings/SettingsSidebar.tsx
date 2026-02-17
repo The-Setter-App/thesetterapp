@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type LucideIcon, Instagram, PlugZap, UserRound, Users2 } from 'lucide-react';
+import type { UserRole } from '@/types/auth';
 
 interface SettingsNavItem {
   href: string;
@@ -10,15 +11,29 @@ interface SettingsNavItem {
   icon: LucideIcon;
 }
 
-const settingsNavItems: SettingsNavItem[] = [
+const ownerSettingsNavItems: SettingsNavItem[] = [
   { href: '/settings/profile', label: 'Profile', icon: UserRound },
   { href: '/settings/team', label: 'Team', icon: Users2 },
   { href: '/settings/socials', label: 'Socials', icon: Instagram },
   { href: '/settings/integration', label: 'Integration', icon: PlugZap },
 ];
 
-export default function SettingsSidebar() {
+const teamMemberSettingsNavItems: SettingsNavItem[] = [
+  { href: '/settings/profile', label: 'Profile', icon: UserRound },
+  { href: '/settings/team', label: 'Team', icon: Users2 },
+];
+
+const viewerSettingsNavItems: SettingsNavItem[] = [{ href: '/settings/profile', label: 'Profile', icon: UserRound }];
+
+function getSettingsItems(role: UserRole): SettingsNavItem[] {
+  if (role === 'owner') return ownerSettingsNavItems;
+  if (role === 'setter' || role === 'closer') return teamMemberSettingsNavItems;
+  return viewerSettingsNavItems;
+}
+
+export default function SettingsSidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
+  const settingsNavItems = getSettingsItems(role);
 
   return (
     <aside className="h-screen border-r border-[#F0F2F6] bg-white">

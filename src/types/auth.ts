@@ -1,4 +1,12 @@
-export type UserRole = 'owner' | 'viewer';
+export type TeamMemberRole = 'setter' | 'closer';
+export type UserRole = 'owner' | TeamMemberRole | 'viewer';
+
+export interface TeamMember {
+  email: string;
+  role: TeamMemberRole;
+  addedAt: Date;
+  updatedAt: Date;
+}
 
 export interface InstagramConfig {
   accessToken: string; // Encrypted
@@ -27,6 +35,8 @@ export interface User {
   role: UserRole;
   createdAt: Date;
   lastLoginAt?: Date;
+  teamOwnerEmail?: string;
+  teamMembers?: TeamMember[];
   instagramAccounts?: InstagramAccountConnection[];
   // Legacy single-account shape kept for backward compatibility/migration.
   instagramConfig?: InstagramConfig;

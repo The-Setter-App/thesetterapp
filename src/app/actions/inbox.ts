@@ -4,7 +4,6 @@ import { fetchAllConversations, fetchMessages, fetchUserProfile, sendMessage } f
 import { mapConversationToUser, mapGraphMessageToAppMessage } from '@/lib/mappers';
 import { getConnectedInstagramAccounts, getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
-import { getSession } from '@/lib/auth';
 import {
   getConversationsFromDb,
   saveConversationsToDb,
@@ -19,13 +18,11 @@ import {
 import { sseEmitter } from '@/app/api/sse/route';
 import { isStatusType } from '@/lib/status/config';
 import type { User, Message, StatusType } from '@/types/inbox';
+import { requireInboxWorkspaceContext } from '@/lib/workspace';
 
 async function getOwnerEmail(): Promise<string> {
-  const session = await getSession();
-  if (!session?.email) {
-    throw new Error('Unauthorized: No active session');
-  }
-  return session.email;
+  const context = await requireInboxWorkspaceContext();
+  return context.workspaceOwnerEmail;
 }
 
 function excludeSelfConversations(users: User[], instagramUserId: string): User[] {

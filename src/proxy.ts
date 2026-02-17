@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
-import { getUser } from '@/lib/userRepository';
 
 // 1. Specify protected and public routes
 const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai'];
@@ -16,12 +15,7 @@ export async function proxy(request: NextRequest) {
   // 3. Decrypt the session from the cookie
   const cookie = request.cookies.get('session')?.value;
   const session = cookie ? await decrypt(cookie).catch(() => null) : null;
-  const hasActiveUser = session?.email
-    ? Boolean(
-        await getUser(session.email).catch(() => null)
-      )
-    : false;
-  const isAuthenticated = Boolean(session?.email && hasActiveUser);
+  const isAuthenticated = Boolean(session?.email);
 
   // 4. Redirect to /login if the user is not authenticated
   if (isProtectedRoute && !isAuthenticated) {
@@ -37,12 +31,6 @@ export async function proxy(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/dashboard')
   ) {
     return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
-  }
-
-  if (cookie && session?.email && !hasActiveUser) {
-    const response = NextResponse.next();
-    response.cookies.delete('session');
-    return response;
   }
 
   return NextResponse.next();

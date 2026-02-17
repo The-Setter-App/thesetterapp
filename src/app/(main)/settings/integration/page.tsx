@@ -1,13 +1,17 @@
 import { Activity, CheckCircle2, Radio, Webhook } from 'lucide-react';
 import SettingsSectionCard from '@/components/settings/SettingsSectionCard';
 import { requireCurrentUser } from '@/lib/currentUser';
-import { getConnectedInstagramAccounts } from '@/lib/userRepository';
+import { getCachedConnectedInstagramAccounts } from '@/lib/settingsCache';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsIntegrationPage() {
-  const { session } = await requireCurrentUser();
-  const accounts = await getConnectedInstagramAccounts(session.email);
+  const { session, user } = await requireCurrentUser();
+  if (user.role !== 'owner') {
+    redirect(user.role === 'viewer' ? '/settings/profile' : '/settings/team');
+  }
+  const accounts = await getCachedConnectedInstagramAccounts(session.email);
   const isConnected = accounts.length > 0;
 
   return (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSession } from '@/lib/auth';
-import { upsertInstagramAccounts } from '@/lib/userRepository';
+import { getUser, upsertInstagramAccounts } from '@/lib/userRepository';
 import { encryptData } from '@/lib/crypto';
 import { InstagramAccountConnection } from '@/types/auth';
 import { randomUUID } from 'crypto';
@@ -66,6 +66,10 @@ export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session || !session.email) {
     return NextResponse.redirect(new URL('/login?redirect=/settings', baseUrl));
+  }
+  const currentUser = await getUser(session.email);
+  if (!currentUser || currentUser.role !== 'owner') {
+    return NextResponse.redirect(new URL('/settings/team?error=owner_access_required', baseUrl));
   }
 
   try {

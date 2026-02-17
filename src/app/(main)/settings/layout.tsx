@@ -8,13 +8,13 @@ export default async function SettingsLayout({
 }: {
   children: ReactNode;
 }) {
-  await requireCurrentUser();
+  const { user } = await requireCurrentUser();
 
   return (
     <div className="min-h-screen bg-white text-[#101011]">
       <div className="grid min-h-screen grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
         <div className="md:sticky md:top-0 md:h-screen">
-          <SettingsSidebar />
+          <SettingsSidebar role={user.role} />
         </div>
 
         <section className="px-4 py-6 md:px-8 md:py-8 lg:px-10">
@@ -25,7 +25,13 @@ export default async function SettingsLayout({
               </div>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Settings</h1>
-                <p className="text-sm text-[#606266] md:text-base">Manage profile, team, socials, and integrations.</p>
+                <p className="text-sm text-[#606266] md:text-base">
+                  {user.role === 'owner'
+                    ? 'Manage profile, team, socials, and integrations.'
+                    : user.role === 'viewer'
+                      ? 'Manage your workspace profile.'
+                      : 'Manage your profile and team workspace details.'}
+                </p>
               </div>
             </div>
           </header>
