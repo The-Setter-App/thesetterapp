@@ -40,9 +40,11 @@ export default function StatusMultiSelect({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={`flex h-11 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors ${
-          open || selectedStatuses.length > 0
-            ? "border-[#8771FF] bg-[#8771FF] text-white"
-            : "border-[#F0F2F6] bg-white text-[#101011] hover:bg-[#F8F7FF]"
+          open
+            ? "border-[#DDD6FF] bg-[#F3F0FF] text-[#8771FF]"
+            : selectedStatuses.length > 0
+              ? "border-[#E6E1FF] bg-[#F8F7FF] text-[#8771FF]"
+              : "border-[#F0F2F6] bg-white text-[#101011] hover:bg-[#F8F7FF]"
         }`}
       >
         {selectedStatuses.length > 0

@@ -85,11 +85,13 @@ export default function LeadsFilterBar({
             value={dateRangeFilter}
             options={dateOptions}
             onChange={onDateRangeFilterChange}
+            active={dateRangeFilter !== "7d"}
           />
           <LeadsInlineSelect
             value={accountFilter}
             options={accountOptions}
             onChange={onAccountFilterChange}
+            active={accountFilter !== "all"}
           />
           <StatusMultiSelect
             selectedStatuses={selectedStatuses}
@@ -100,6 +102,7 @@ export default function LeadsFilterBar({
             value={paymentFilter}
             options={paymentOptions}
             onChange={onPaymentFilterChange}
+            active={paymentFilter !== "all"}
           />
         </div>
 

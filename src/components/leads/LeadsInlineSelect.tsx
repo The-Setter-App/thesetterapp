@@ -12,6 +12,7 @@ interface LeadsInlineSelectProps<T extends string> {
   value: T;
   options: readonly LeadsInlineSelectOption<T>[];
   onChange: (value: T) => void;
+  active?: boolean;
   triggerClassName?: string;
 }
 
@@ -19,6 +20,7 @@ export default function LeadsInlineSelect<T extends string>({
   value,
   options,
   onChange,
+  active = false,
   triggerClassName = "",
 }: LeadsInlineSelectProps<T>) {
   const [open, setOpen] = useState(false);
@@ -43,17 +45,25 @@ export default function LeadsInlineSelect<T extends string>({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm font-medium text-[#101011] transition-colors hover:bg-[#F8F7FF] ${triggerClassName}`}
+        className={`inline-flex h-11 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors ${
+          open
+            ? "border-[#DDD6FF] bg-[#F3F0FF] text-[#8771FF]"
+            : active
+              ? "border-[#E6E1FF] bg-[#F8F7FF] text-[#8771FF]"
+              : "border-[#F0F2F6] bg-white text-[#101011] hover:bg-[#F8F7FF]"
+        } ${triggerClassName}`}
       >
         {selectedOption?.label}
         <ChevronDown
           size={16}
-          className={`text-[#9A9CA2] transition-transform ${open ? "rotate-180" : ""}`}
+          className={`transition-transform ${
+            open || active ? "text-[#8771FF]" : "text-[#9A9CA2]"
+          } ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 min-w-full rounded-xl border border-[#F0F2F6] bg-white py-1 shadow-sm">
+        <div className="absolute left-0 top-full z-50 mt-2 min-w-full rounded-2xl border border-[#F0F2F6] bg-white py-1 shadow-sm">
           {options.map((option) => {
             const active = option.value === value;
             return (
