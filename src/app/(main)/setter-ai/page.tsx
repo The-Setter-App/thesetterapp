@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChatSession, Message, ModelType } from "@/types/ai";
+import { ChatSession, Message } from "@/types/ai";
 import ChatSidebar from "@/components/setter-ai/ChatSidebar";
 import ChatArea from "@/components/setter-ai/ChatArea";
 
@@ -11,44 +11,42 @@ export default function SetterAiPage() {
       id: 1,
       title: "New Conversation",
       createdAt: Date.now(),
-      messages: [
-        { 
-          id: 1, 
-          role: "ai", 
-          text: "Lead says they're interested but 'not sure if now is the right time.' What should I reply?" 
-        },
-        {
-          id: 2,
-          role: "ai",
-          text: "This is a classic timing objection. Your goal is not to convince them, but to diagnose what's really behind the hesitation.\n\nStep 1: Acknowledge without resistance\n'Totally understand—most people I speak to feel that way at first.'\n\nStep 2: Isolate the real objection\n'When you say not right now, is it more about budget, timing in your schedule, or just wanting a bit more clarity?'"
-        }
-      ]
+      messages: []
     }
   ]);
 
   const [activeSessionId, setActiveSessionId] = useState<number>(1);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeModel, setActiveModel] = useState<ModelType>("gemini-3");
   const [searchTerm, setSearchTerm] = useState("");
 
   const activeSession = chatSessions.find(s => s.id === activeSessionId) || chatSessions[0];
 
-  const handleSend = (overrideText?: string) => {
+  const handleSend = async (overrideText?: string) => {
     const textToSend = overrideText || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || isLoading) return;
+
+    const sessionId = activeSessionId;
+    const sessionSnapshot = chatSessions.find((session) => session.id === sessionId);
+    if (!sessionSnapshot) return;
 
     const newUserMessage: Message = { id: Date.now(), role: "user", text: textToSend };
-    
+    const assistantMessageId = Date.now() + 1;
+    const requestMessages = [...sessionSnapshot.messages, newUserMessage];
+
     setChatSessions(prev => prev.map(session => {
-      if (session.id === activeSessionId) {
-        const isFirstUserMsg = session.messages.length <= 1; 
+      if (session.id === sessionId) {
+        const isFirstUserMsg = session.messages.length <= 1;
         const newTitle = isFirstUserMsg ? textToSend.slice(0, 30) + (textToSend.length > 30 ? "..." : "") : session.title;
-        
+
         return {
           ...session,
           title: newTitle,
-          messages: [...session.messages, newUserMessage]
+          messages: [
+            ...session.messages,
+            newUserMessage,
+            { id: assistantMessageId, role: "ai", text: "" }
+          ]
         };
       }
       return session;
@@ -57,23 +55,81 @@ export default function SetterAiPage() {
     if (!overrideText) setInput("");
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const mockResponse: Message = {
-        id: Date.now() + 1,
-        role: "ai",
-        text: "AI integration has been removed. This is a UI-only demo response. To enable real AI responses, integrate your preferred AI service.",
-      };
-
-      setChatSessions(prev => prev.map(session => {
-        if (session.id === activeSessionId) {
-          return { ...session, messages: [...session.messages, mockResponse] };
-        }
-        return session;
+    try {
+      const payloadMessages = requestMessages.map((message) => ({
+        role: message.role === "user" ? "user" : "assistant",
+        content: message.text,
       }));
 
+      const response = await fetch("/api/setter-ai/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: payloadMessages }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to stream AI response.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const token = decoder.decode(value, { stream: true });
+        if (!token) continue;
+
+        assistantText += token;
+        setChatSessions((prev) =>
+          prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            return {
+              ...session,
+              messages: session.messages.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, text: assistantText }
+                  : message
+              ),
+            };
+          })
+        );
+      }
+
+      if (!assistantText.trim()) {
+        setChatSessions((prev) =>
+          prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            return {
+              ...session,
+              messages: session.messages.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, text: "No response returned from model." }
+                  : message
+              ),
+            };
+          })
+        );
+      }
+    } catch {
+      setChatSessions((prev) =>
+        prev.map((session) => {
+          if (session.id !== sessionId) return session;
+          return {
+            ...session,
+            messages: session.messages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, text: "Failed to generate AI response. Please try again." }
+                : message
+            ),
+          };
+        })
+      );
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleNewChat = () => {
@@ -90,27 +146,15 @@ export default function SetterAiPage() {
     }
   };
 
-  const handleRegenerate = () => {
-    const lastUserIndex = activeSession.messages.map(m => m.role).lastIndexOf("user");
-    if (lastUserIndex === -1) return;
-    const textToResend = activeSession.messages[lastUserIndex].text;
-    
-    setChatSessions(prev => prev.map(session => {
-      if (session.id === activeSessionId) {
-        return { ...session, messages: session.messages.slice(0, lastUserIndex + 1) };
-      }
-      return session;
-    }));
-    handleSend(textToResend);
-  };
-
   return (
-    <div className="flex h-screen w-full bg-white font-sans overflow-hidden text-gray-900">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-[#F8F7FF] text-[#101011] lg:flex-row">
       <ChatSidebar 
         sessions={chatSessions}
         activeSessionId={activeSessionId}
         onSelectSession={setActiveSessionId}
         onNewChat={handleNewChat}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
       />
 
       <ChatArea 
@@ -119,12 +163,8 @@ export default function SetterAiPage() {
         input={input}
         setInput={setInput}
         onSend={handleSend}
-        onRegenerate={handleRegenerate}
-        activeModel={activeModel}
-        setActiveModel={setActiveModel}
         searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
       />
-    </div>
+      </div>
   );
 }
