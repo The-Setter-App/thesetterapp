@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Inter } from 'next/font/google'; // Import Inter
 import { getInboxConnectionState, getInboxUsers, updateConversationPriorityAction, updateUserStatusAction } from '@/app/actions/inbox';
 import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clientCache';
-import { isStatusType, STATUS_OPTIONS } from '@/lib/status/config';
+import { INBOX_STATUS_COLOR_CLASS_MAP, isStatusType, STATUS_OPTIONS } from '@/lib/status/config';
 import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
 import ConversationList from '@/components/inbox/ConversationList';
 import { useSSE } from '@/hooks/useSSE';
@@ -13,6 +13,11 @@ import { useInboxSync } from '@/components/inbox/InboxSyncContext';
 import Image from 'next/image';
 import Link from 'next/link';
 import FilterModal from './FilterModal';
+import {
+  CONVERSATION_STATUS_SYNCED_EVENT,
+  emitConversationStatusSynced,
+  syncConversationStatusToClientCache,
+} from '@/lib/status/clientSync';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -42,17 +47,6 @@ const CheckIcon = ({ className }: { className?: string }) => (
 );
 
 const statusOptions: StatusType[] = STATUS_OPTIONS;
-
-const statusColorMap: Record<StatusType, string> = {
-  'Won': 'text-green-600 border-green-200 bg-white',
-  'Unqualified': 'text-red-500 border-red-200 bg-white',
-  'Booked': 'text-purple-600 border-purple-200 bg-white',
-  'New Lead': 'text-pink-500 border-pink-200 bg-white',
-  'Qualified': 'text-yellow-500 border-yellow-200 bg-white',
-  'No-Show': 'text-orange-500 border-orange-200 bg-white',
-  'In-Contact': 'text-green-500 border-green-200 bg-white',
-  'Retarget': 'text-blue-500 border-blue-200 bg-white',
-};
 
 function getTimestampMs(value?: string): number {
   if (!value) return 0;
@@ -164,7 +158,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       updated[idx] = {
         ...updated[idx],
         status,
-        statusColor: statusColorMap[status],
+        statusColor: INBOX_STATUS_COLOR_CLASS_MAP[status],
       };
       setCachedUsers(updated).catch(e => console.error(e));
       return updated;
@@ -262,6 +256,10 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       else if (message.type === 'user_status_updated') {
         if (isStatusType(message.data.status)) {
           applyUserStatusUpdate(message.data.conversationId, message.data.status);
+          syncConversationStatusToClientCache(message.data.conversationId, message.data.status).catch((error) =>
+            console.error('Failed to sync status cache:', error)
+          );
+          emitConversationStatusSynced({ conversationId: message.data.conversationId, status: message.data.status });
         }
       } else if (message.type === 'conversation_priority_updated') {
         applyUserPriorityUpdate(message.data.conversationId, Boolean(message.data.isPriority));
@@ -270,10 +268,15 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   });
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const legacyHandler = (e: Event) => {
       const customEvent = e as CustomEvent<{ userId?: string; status?: StatusType }>;
       if (!customEvent.detail?.userId || !isStatusType(customEvent.detail?.status)) return;
       applyUserStatusUpdate(customEvent.detail.userId, customEvent.detail.status);
+    };
+    const statusSyncedHandler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ conversationId?: string; status?: StatusType }>;
+      if (!customEvent.detail?.conversationId || !isStatusType(customEvent.detail?.status)) return;
+      applyUserStatusUpdate(customEvent.detail.conversationId, customEvent.detail.status);
     };
     const previewHydratedHandler = (e: Event) => {
       const customEvent = e as CustomEvent<{ userId?: string; lastMessage?: string; time?: string; updatedAt?: string }>;
@@ -296,10 +299,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       });
     };
 
-    window.addEventListener('userStatusUpdated', handler);
+    window.addEventListener('userStatusUpdated', legacyHandler);
+    window.addEventListener(CONVERSATION_STATUS_SYNCED_EVENT, statusSyncedHandler);
     window.addEventListener('conversationPreviewHydrated', previewHydratedHandler);
     return () => {
-      window.removeEventListener('userStatusUpdated', handler);
+      window.removeEventListener('userStatusUpdated', legacyHandler);
+      window.removeEventListener(CONVERSATION_STATUS_SYNCED_EVENT, statusSyncedHandler);
       window.removeEventListener('conversationPreviewHydrated', previewHydratedHandler);
     };
   }, [applyUserStatusUpdate]);
@@ -364,10 +369,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         const previousStatus = users.find((u) => u.id === userId)?.status;
 
         applyUserStatusUpdate(userId, nextStatus);
-        window.dispatchEvent(
-          new CustomEvent('userStatusUpdated', {
-            detail: { userId, status: nextStatus },
-          })
+        emitConversationStatusSynced({ conversationId: userId, status: nextStatus });
+        syncConversationStatusToClientCache(userId, nextStatus).catch((error) =>
+          console.error('Failed to sync status cache:', error)
         );
 
         try {
@@ -376,10 +380,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           console.error('Failed to update status from quick actions:', error);
           if (previousStatus) {
             applyUserStatusUpdate(userId, previousStatus);
-            window.dispatchEvent(
-              new CustomEvent('userStatusUpdated', {
-                detail: { userId, status: previousStatus },
-              })
+            emitConversationStatusSynced({ conversationId: userId, status: previousStatus });
+            syncConversationStatusToClientCache(userId, previousStatus).catch((cacheError) =>
+              console.error('Failed to sync status cache:', cacheError)
             );
           }
         }

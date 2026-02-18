@@ -6,6 +6,7 @@ import { getCachedLeads, getCachedLeadsTimestamp, setCachedLeads } from "@/lib/c
 import { useSSE } from "@/hooks/useSSE";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { isStatusType } from "@/lib/status/config";
+import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";
 import type { LeadRow, SortConfig } from "@/types/leads";
 import type { StatusType } from "@/types/status";
 
@@ -299,6 +300,25 @@ export function useLeadsController() {
       }
     },
   });
+
+  useEffect(() => {
+    const handleLocalStatusSync = (event: Event) => {
+      const customEvent = event as CustomEvent<{ conversationId?: string; status?: StatusType }>;
+      const conversationId = customEvent.detail?.conversationId;
+      const nextStatus = customEvent.detail?.status;
+      if (!conversationId || !isStatusType(nextStatus)) return;
+      updateRows((prev) =>
+        prev.map((row) =>
+          row.id === conversationId ? { ...row, status: nextStatus } : row
+        )
+      );
+    };
+
+    window.addEventListener(CONVERSATION_STATUS_SYNCED_EVENT, handleLocalStatusSync);
+    return () => {
+      window.removeEventListener(CONVERSATION_STATUS_SYNCED_EVENT, handleLocalStatusSync);
+    };
+  }, [updateRows]);
 
   useEffect(() => {
     return () => {

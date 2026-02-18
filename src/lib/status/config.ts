@@ -55,6 +55,17 @@ export const STATUS_TEXT_CLASS_MAP: Record<StatusType, string> = {
   "In-Contact": "text-[#22c55e]",
 };
 
+export const INBOX_STATUS_COLOR_CLASS_MAP: Record<StatusType, string> = {
+  Won: "text-green-600 border-green-200 bg-white",
+  Unqualified: "text-red-500 border-red-200 bg-white",
+  Booked: "text-purple-600 border-purple-200 bg-white",
+  "New Lead": "text-pink-500 border-pink-200 bg-white",
+  Qualified: "text-yellow-500 border-yellow-200 bg-white",
+  "No-Show": "text-orange-500 border-orange-200 bg-white",
+  "In-Contact": "text-green-500 border-green-200 bg-white",
+  Retarget: "text-blue-500 border-blue-200 bg-white",
+};
+
 export function isStatusType(value: unknown): value is StatusType {
   return typeof value === "string" && STATUS_OPTIONS.includes(value as StatusType);
 }

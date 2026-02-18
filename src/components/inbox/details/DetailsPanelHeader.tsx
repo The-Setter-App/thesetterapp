@@ -6,6 +6,10 @@ import { User, StatusType } from "@/types/inbox";
 import type { ConversationContactDetails } from "@/types/inbox";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { isStatusType, STATUS_COLOR_ICON_PATHS, STATUS_OPTIONS } from "@/lib/status/config";
+import {
+  emitConversationStatusSynced,
+  syncConversationStatusToClientCache,
+} from "@/lib/status/clientSync";
 
 const CopyIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -94,10 +98,9 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
     setShowStatusDropdown(false);
 
     // Optimistic local update so both sidebars reflect immediately.
-    window.dispatchEvent(
-      new CustomEvent('userStatusUpdated', {
-        detail: { userId, status: newStatus },
-      })
+    emitConversationStatusSynced({ conversationId: userId, status: newStatus });
+    syncConversationStatusToClientCache(userId, newStatus).catch((error) =>
+      console.error("Failed to sync status cache:", error)
     );
 
     try {
@@ -105,10 +108,9 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
     } catch (error) {
       console.error("Failed to update status:", error);
       setCurrentStatus(previousStatus);
-      window.dispatchEvent(
-        new CustomEvent('userStatusUpdated', {
-          detail: { userId, status: previousStatus },
-        })
+      emitConversationStatusSynced({ conversationId: userId, status: previousStatus });
+      syncConversationStatusToClientCache(userId, previousStatus).catch((cacheError) =>
+        console.error("Failed to sync status cache:", cacheError)
       );
     } finally {
       setIsUpdating(false);
