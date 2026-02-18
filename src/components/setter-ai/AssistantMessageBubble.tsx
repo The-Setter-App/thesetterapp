@@ -18,7 +18,7 @@ export default function AssistantMessageBubble({ text, isPending = false }: Assi
 
   return (
     <div className="flex items-start justify-start">
-      <div className="max-w-[92%] rounded-2xl border border-[#E6E1FF] bg-[#F3F0FF] px-4 py-3 text-sm leading-6 text-[#101011] md:max-w-[78%] md:text-[15px]">
+      <div className="max-w-[92%] px-4 text-sm leading-6 text-[#101011] md:max-w-[78%] md:text-[15px]">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
