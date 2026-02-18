@@ -1,49 +1,64 @@
 import React from 'react';
-import { Plus, MessageSquare } from 'lucide-react';
+import { MessageSquare, Plus, Search } from 'lucide-react';
 import { ChatSession } from '@/types/ai';
-import { Button } from '@/components/ui/Button';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
   activeSessionId: number;
   onSelectSession: (id: number) => void;
   onNewChat: () => void;
+  searchTerm: string;
+  setSearchTerm: (val: string) => void;
 }
 
-export default function ChatSidebar({ sessions, activeSessionId, onSelectSession, onNewChat }: ChatSidebarProps) {
+export default function ChatSidebar({
+  sessions,
+  activeSessionId,
+  onSelectSession,
+  onNewChat,
+  searchTerm,
+  setSearchTerm
+}: ChatSidebarProps) {
   return (
-    <aside className="w-[300px] bg-white border-r border-gray-100 flex flex-col p-6 pl-8 shrink-0 h-screen">
-      <div className="mb-10">
-        <h2 className="text-xl font-bold mb-2 text-gray-900 tracking-tight">Setter AI</h2>
-        <p className="text-[13px] text-gray-500 leading-relaxed">
-          Real-time AI coaching for every message, every lead, every deal.
-        </p>
+    <aside className="w-full border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 lg:h-full lg:w-[320px] lg:shrink-0 lg:border-b-0 lg:border-r">
+      <div className="mb-3">
+        <h2 className="text-base font-semibold text-[#101011] md:text-lg">Setter AI</h2>
+        <p className="mt-1 text-xs text-[#606266]">Real-time coaching for every lead conversation.</p>
       </div>
-      
-      <div className="flex flex-col gap-3 flex-1 overflow-hidden">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[13px] font-medium text-gray-400">Your chats</span>
+
+      <div className="flex flex-col gap-3 lg:h-[calc(100%-58px)]">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-[#606266]">Your chats</span>
         </div>
-        
-        <button 
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#606266]" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search messages"
+            className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white pl-10 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none focus:border-[#8771FF] focus:ring-0 focus-visible:outline-none"
+          />
+        </div>
+
+        <button
           onClick={onNewChat}
-          className="w-full py-3 px-4 bg-white border border-dashed border-gray-300 rounded-xl text-sm text-gray-600 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center justify-center gap-2 mb-2"
+          className="inline-flex h-11 w-full min-w-[44px] items-center justify-center gap-2 rounded-xl border border-[#F0F2F6] bg-[#F3F0FF] text-sm font-medium text-[#8771FF] transition-colors hover:bg-[#EBE5FF] outline-none focus-visible:outline-none"
         >
           <Plus size={16} /> New Conversation
         </button>
 
-        <div className="flex flex-col gap-1 overflow-y-auto flex-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
+        <div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1">
           {sessions.map((session) => (
             <button
               key={session.id}
               onClick={() => onSelectSession(session.id)}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm flex items-center gap-3 transition-all truncate
-                ${session.id === activeSessionId 
-                  ? 'bg-gray-50 text-gray-900 font-semibold shadow-sm' 
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              className={`flex h-12 w-full min-w-[44px] items-center gap-3 rounded-xl border px-3 text-left text-sm transition-colors outline-none focus-visible:outline-none
+                ${session.id === activeSessionId
+                  ? 'border-[#E6E1FF] bg-[#F8F7FF] font-semibold text-[#101011]'
+                  : 'border-[#F0F2F6] text-[#606266] hover:bg-[#F8F7FF]'
                 }`}
             >
-              <MessageSquare size={16} className={session.id === activeSessionId ? 'text-[#8771FF]' : 'text-gray-400'} />
+              <MessageSquare size={16} className={session.id === activeSessionId ? 'text-[#8771FF]' : 'text-[#9A9CA2]'} />
               <span className="truncate">{session.title}</span>
             </button>
           ))}

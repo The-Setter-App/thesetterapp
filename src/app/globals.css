@@ -67,3 +67,27 @@ body {
   box-sizing: border-box;
   display: block;
 }
+
+@keyframes thinking-shine-wave {
+  0% {
+    background-position: -180% 50%;
+  }
+  100% {
+    background-position: 180% 50%;
+  }
+}
+
+.thinking-shine {
+  color: #606266;
+  background-image: linear-gradient(
+    110deg,
+    #606266 35%,
+    #9a9ca2 50%,
+    #606266 65%
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-shine-wave 1.4s linear infinite;
+}
