@@ -79,16 +79,19 @@ export default function LeadsFilters({
       {/* Filters Row */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 px-4 md:px-10">
         <div className="flex flex-wrap items-center gap-2 w-full">
+          {/* Calendar Filter */}
           <Button variant="outline" size="sm" className="h-8 text-xs bg-white font-medium text-gray-900 px-3">
-             <img src="/icons/headers/Calendar.svg" alt="Calendar" className="w-3 h-3 text-gray-500 mr-2" />
-             Last 7 days <ChevronDown size={14} className="ml-1 text-gray-500" />
+            <img src="/icons/LeadsIcons/calendar.svg" alt="Calendar" className="w-4 h-4 mr-2" />
+            Last 7 days <ChevronDown size={14} className="ml-1 text-gray-500" />
           </Button>
 
+          {/* Accounts Filter */}
           <Button variant="outline" size="sm" className="h-8 text-xs bg-white font-medium text-gray-900 px-3">
-             <img src="/icons/headers/User.svg" alt="User" className="w-3 h-3 text-gray-500 mr-2" />
-             All Accounts <ChevronDown size={14} className="ml-1 text-gray-500" />
+            <img src="/icons/LeadsIcons/user.svg" alt="User" className="w-4 h-4 mr-2" />
+            All Accounts <ChevronDown size={14} className="ml-1 text-gray-500" />
           </Button>
-          
+
+          {/* Status Filter */}
           <div className="relative" ref={statusDropdownRef}>
             <button 
               onClick={() => setShowStatusDropdown(!showStatusDropdown)}
@@ -97,7 +100,7 @@ export default function LeadsFilters({
                   ? 'bg-white border-[#8B5CF6] ring-1 ring-[#8B5CF6] text-gray-900' 
                   : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'}`}
             >
-              <img src="/icons/headers/Updates.svg" alt="Updates" className={`w-4 h-4 ${showStatusDropdown || selectedStatuses.length > 0 ? 'text-[#8B5CF6]' : 'text-gray-500'}`} />
+              <img src="/icons/LeadsIcons/status.svg" alt="Status" className={`w-4 h-4 mr-2 ${showStatusDropdown || selectedStatuses.length > 0 ? 'text-[#8B5CF6]' : 'text-gray-500'}`} />
               {selectedStatuses.length > 0 ? `${selectedStatuses.length} Statuses` : 'Any Status'} 
               <ChevronDown size={14} className={`${showStatusDropdown || selectedStatuses.length > 0 ? 'text-[#8B5CF6]' : 'text-gray-500'} transition-transform ${showStatusDropdown ? 'rotate-180' : ''}`} />
             </button>
@@ -142,11 +145,13 @@ export default function LeadsFilters({
             )}
           </div>
 
+          {/* Payments Filter */}
           <Button variant="outline" size="sm" className="h-8 text-xs bg-white font-medium text-gray-900 px-3">
-             <img src="/icons/headers/Coin.svg" alt="Coin" className="w-3 h-3 text-gray-500 mr-2" />
-             All Payments <ChevronDown size={14} className="ml-1 text-gray-500" />
+            <img src="/icons/LeadsIcons/payment.png" alt="Payment" className="w-4 h-4 mr-2" />
+            All Payments <ChevronDown size={14} className="ml-1 text-gray-500" />
           </Button>
 
+          {/* Funnel Icon Button */}
           <button className="h-8 w-8 border border-gray-200 rounded-xl bg-white text-gray-500 hover:bg-gray-50 shadow-sm flex items-center justify-center">
             <img src="/icons/headers/Funnel.svg" alt="Funnel" className="w-3 h-4" />
           </button>
