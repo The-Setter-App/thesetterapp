@@ -82,7 +82,11 @@ export default function ChatArea({
               msg.role === 'user' ? (
                 <UserMessageBubble key={msg.id} text={msg.text} />
               ) : (
-                <AssistantMessageBubble key={msg.id} text={msg.text} />
+                <AssistantMessageBubble
+                  key={msg.id}
+                  text={msg.text}
+                  isPending={isLoading && msg.text.trim().length === 0}
+                />
               )
             ))}
           <div ref={messagesEndRef} />
