@@ -74,7 +74,7 @@ export default function LeadsInlineSelect<T extends string>({
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`flex h-9 w-full items-center px-3 text-left text-sm whitespace-nowrap ${
+                className={`mx-1 my-0.5 flex h-9 w-[calc(100%-0.5rem)] items-center rounded-lg px-3 text-left text-sm whitespace-nowrap ${
                   active
                     ? "bg-[#8771FF] text-white"
                     : "text-[#101011] hover:bg-[#F8F7FF]"
