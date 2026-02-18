@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   STATUS_COLOR_ICON_PATHS,
   STATUS_OPTIONS,
@@ -41,16 +41,21 @@ export default function StatusMultiSelect({
         onClick={() => setOpen((prev) => !prev)}
         className={`flex h-11 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors ${
           open || selectedStatuses.length > 0
-            ? "border-stone-900 bg-stone-900 text-white"
-            : "border-stone-200 bg-white text-stone-800 hover:bg-stone-50"
+            ? "border-[#8771FF] bg-[#8771FF] text-white"
+            : "border-[#F0F2F6] bg-white text-[#101011] hover:bg-[#F8F7FF]"
         }`}
       >
-        {selectedStatuses.length > 0 ? `${selectedStatuses.length} statuses` : "Any status"}
-        <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        {selectedStatuses.length > 0
+          ? `${selectedStatuses.length} statuses`
+          : "Any status"}
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-stone-200 bg-white p-2 shadow-md">
+        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-[#F0F2F6] bg-white p-2 shadow-sm">
           <div className="space-y-1">
             {STATUS_OPTIONS.map((status) => {
               const selected = selectedStatuses.includes(status);
@@ -60,20 +65,30 @@ export default function StatusMultiSelect({
                   type="button"
                   key={status}
                   onClick={() => onToggleStatus(status)}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-stone-50"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-[#F8F7FF]"
                 >
                   <span className="flex items-center gap-2">
-                    <img src={STATUS_COLOR_ICON_PATHS[status]} alt="" className="h-4 w-4" />
-                    <span className={`text-sm font-medium ${STATUS_TEXT_CLASS_MAP[status]}`}>{status}</span>
+                    <img
+                      src={STATUS_COLOR_ICON_PATHS[status]}
+                      alt=""
+                      className="h-4 w-4"
+                    />
+                    <span
+                      className={`text-sm font-medium ${STATUS_TEXT_CLASS_MAP[status]}`}
+                    >
+                      {status}
+                    </span>
                   </span>
 
                   <span className="flex items-center gap-2">
-                    <span className="text-xs text-stone-400">{getStatusCount(status)}</span>
+                    <span className="text-xs text-[#9A9CA2]">
+                      {getStatusCount(status)}
+                    </span>
                     <span
                       className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                         selected
-                          ? "border-stone-900 bg-stone-900 text-white"
-                          : "border-stone-300 bg-white text-transparent"
+                          ? "border-[#8771FF] bg-[#8771FF] text-white"
+                          : "border-[#D8DAE0] bg-white text-transparent"
                       }`}
                     >
                       •

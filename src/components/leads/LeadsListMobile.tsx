@@ -9,9 +9,13 @@ interface LeadsListMobileProps {
   onToggleSelect: (id: string) => void;
 }
 
-export default function LeadsListMobile({ rows, isSelected, onToggleSelect }: LeadsListMobileProps) {
+export default function LeadsListMobile({
+  rows,
+  isSelected,
+  onToggleSelect,
+}: LeadsListMobileProps) {
   return (
-    <div className="space-y-3 md:hidden">
+    <div className="min-h-0 flex-1 overflow-y-auto border-b border-[#F0F2F6] bg-white md:hidden">
       {rows.map((lead) => (
         <LeadMobileCard
           key={lead.id}
