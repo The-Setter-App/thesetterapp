@@ -1,14 +1,19 @@
 export interface Message {
-  id: number;
+  id: string;
   role: "user" | "ai";
   text: string;
+  createdAt?: string;
+  pending?: boolean;
+  clientTempId?: string;
 }
 
 export interface ChatSession {
-  id: number;
+  id: string;
   title: string;
   messages: Message[];
-  createdAt: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessagePreview?: string;
 }
 
 export type ModelType = "gemini-3" | "flash";

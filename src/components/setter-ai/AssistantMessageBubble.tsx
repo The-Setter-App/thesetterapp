@@ -11,7 +11,7 @@ export default function AssistantMessageBubble({ text, isPending = false }: Assi
   if (isPending) {
     return (
       <div className="flex items-start justify-start">
-        <span className="thinking-shine text-sm font-medium">Thinking</span>
+        <span className="thinking-shine px-4 text-sm font-medium">Thinking</span>
       </div>
     );
   }
