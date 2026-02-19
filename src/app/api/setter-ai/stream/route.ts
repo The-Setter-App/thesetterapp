@@ -1,26 +1,24 @@
 import { NextRequest } from 'next/server';
-
-type IncomingMessage = {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-};
-
-function isValidMessageArray(value: unknown): value is IncomingMessage[] {
-  if (!Array.isArray(value)) return false;
-  return value.every((item) => {
-    if (!item || typeof item !== 'object') return false;
-    const role = (item as IncomingMessage).role;
-    const content = (item as IncomingMessage).content;
-    return (
-      (role === 'user' || role === 'assistant' || role === 'system') &&
-      typeof content === 'string' &&
-      content.trim().length > 0
-    );
-  });
-}
+import { AccessError, requireWorkspaceContext } from '@/lib/workspace';
+import {
+  appendSetterAiExchangeAfterStream,
+  buildSetterAiModelContext,
+  getSetterAiSessionById,
+} from '@/lib/setterAiRepository';
 
 export async function POST(request: NextRequest) {
+  let sessionEmail = '';
   try {
+    try {
+      const context = await requireWorkspaceContext();
+      sessionEmail = context.sessionEmail;
+    } catch (error) {
+      if (error instanceof AccessError) {
+        return Response.json({ error: error.message }, { status: error.status });
+      }
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const baseUrl = process.env.NVIDIA_BASE_URL;
     const apiKey = process.env.NVIDIA_API_KEY;
     const model = process.env.NVIDIA_MODEL;
@@ -44,14 +42,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    if (!body || typeof body !== 'object' || !isValidMessageArray(body.messages)) {
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
+    const incomingMessage = typeof body?.message === 'string' ? body.message.trim() : '';
+    const requestId = typeof body?.requestId === 'string' ? body.requestId.trim() : '';
+
+    if (!sessionId || !incomingMessage) {
       return Response.json({ error: 'Invalid request payload.' }, { status: 400 });
     }
+    if (incomingMessage.length > 8000) {
+      return Response.json({ error: 'Message is too long.' }, { status: 400 });
+    }
 
-    const incomingMessages = body.messages as IncomingMessage[];
-    const messages = incomingMessages
-      .slice(-30)
-      .map((msg) => ({ role: msg.role, content: msg.content.trim().slice(0, 8000) }));
+    const session = await getSetterAiSessionById(sessionEmail, sessionId);
+    if (!session) {
+      return Response.json({ error: 'Session not found.' }, { status: 404 });
+    }
+
+    const messages = await buildSetterAiModelContext(sessionEmail, sessionId, incomingMessage, 30);
 
     const upstreamResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -83,11 +90,16 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         let buffer = '';
+        let assistantText = '';
+        let completed = false;
 
         try {
-          while (true) {
+          streamLoop: while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              completed = true;
+              break;
+            }
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
@@ -99,20 +111,36 @@ export async function POST(request: NextRequest) {
 
               const data = trimmed.replace(/^data:\s*/, '');
               if (data === '[DONE]') {
-                controller.close();
-                return;
+                completed = true;
+                break streamLoop;
               }
 
               try {
                 const json = JSON.parse(data);
                 const token = json?.choices?.[0]?.delta?.content;
                 if (typeof token === 'string' && token.length > 0) {
+                  assistantText += token;
                   controller.enqueue(encoder.encode(token));
                 }
               } catch {
                 continue;
               }
             }
+          }
+
+          if (completed) {
+            if (!assistantText.trim()) {
+              assistantText = 'No response returned from model.';
+              controller.enqueue(encoder.encode(assistantText));
+            }
+
+            await appendSetterAiExchangeAfterStream(
+              sessionEmail,
+              sessionId,
+              incomingMessage,
+              assistantText,
+              requestId
+            );
           }
 
           controller.close();
