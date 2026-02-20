@@ -9,11 +9,9 @@ export default async function MainLayout({
   const { user } = await requireCurrentUser();
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar role={user.role} />
-      <div className="flex-1 ml-16">
-        {children}
-      </div>
+      <div className="ml-16 flex-1 overflow-hidden">{children}</div>
     </div>
   );
 }

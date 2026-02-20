@@ -231,7 +231,7 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
       {/* Tab Content */}
       <div className="flex-1 bg-white overflow-hidden flex flex-col">
-        {activeTab === "Summary" && <SummaryTab />}
+        {activeTab === "Summary" && <SummaryTab conversationId={user.id} />}
         {activeTab === "Notes" && <NotesTab notes={notes} onChange={setNotes} />}
         {activeTab === "Timeline" && <TimelineTab events={timelineEvents} onClear={handleClearTimeline} />}
         {activeTab === "Payments" && <PaymentsTab value={paymentDetails} onChange={setPaymentDetails} />}

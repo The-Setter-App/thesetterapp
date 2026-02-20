@@ -7,13 +7,18 @@
  */
 
 import type { LeadRow } from '@/types/leads';
-import type { User, Message, ConversationDetails } from '@/types/inbox';
+import type { User, Message, ConversationDetails, ConversationSummary } from '@/types/inbox';
 
 const DB_NAME = 'inbox_cache_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'key_value_store';
 const LEADS_CACHE_KEY = "leads";
 const LEADS_CACHE_TIMESTAMP_KEY = "leads_cached_at";
+
+export interface ConversationSummaryCacheRecord {
+  summary: ConversationSummary | null;
+  fetchedAt: number;
+}
 
 class InboxCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -188,6 +193,22 @@ export async function setCachedConversationDetails(recipientId: string, details:
   return inboxCache.set(`conversation_details_${recipientId}`, details);
 }
 
+export async function getCachedConversationSummary(
+  recipientId: string
+): Promise<ConversationSummaryCacheRecord | null> {
+  return inboxCache.get<ConversationSummaryCacheRecord>(`conversation_summary_${recipientId}`);
+}
+
+export async function setCachedConversationSummary(
+  recipientId: string,
+  summary: ConversationSummary | null
+): Promise<void> {
+  return inboxCache.set(`conversation_summary_${recipientId}`, {
+    summary,
+    fetchedAt: Date.now(),
+  });
+}
+
 export async function getCachedLeads(): Promise<LeadRow[] | null> {
   return inboxCache.get<LeadRow[]>(LEADS_CACHE_KEY);
 }
@@ -228,6 +249,7 @@ export async function removeCachedConversationsByAccount(accountId: string): Pro
     removedConversationIds.flatMap((conversationId) => [
       inboxCache.delete(`messages_${conversationId}`),
       inboxCache.delete(`conversation_details_${conversationId}`),
+      inboxCache.delete(`conversation_summary_${conversationId}`),
     ])
   );
 }

@@ -14,6 +14,8 @@ export interface ChatSession {
   createdAt: string;
   updatedAt: string;
   lastMessagePreview?: string;
+  linkedInboxConversationId?: string | null;
+  linkedInboxConversationLabel?: string | null;
 }
 
 export type ModelType = "gemini-3" | "flash";

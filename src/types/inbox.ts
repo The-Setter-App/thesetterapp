@@ -151,6 +151,22 @@ export interface MessagePageResponse {
   source: 'mongo';
 }
 
+export interface ConversationSummarySection {
+  title: string;
+  points: string[];
+}
+
+export interface ConversationSummary {
+  clientSnapshot: ConversationSummarySection;
+  actionPlan: ConversationSummarySection;
+  generatedAt?: string;
+}
+
+export interface ConversationSummaryResponse {
+  summary: ConversationSummary | null;
+  source: 'cache' | 'generated' | 'none';
+}
+
 // ── SSE Event Types ─────────────────────────────────────────────────────────
 
 /** Attachment shape as sent by the webhook (raw from Facebook). */
