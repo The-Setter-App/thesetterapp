@@ -15,6 +15,8 @@ type SessionDoc = {
   createdAt: Date;
   updatedAt: Date;
   lastMessagePreview?: string;
+  linkedInboxConversationId?: string | null;
+  linkedInboxConversationLabel?: string | null;
 };
 
 type MessageDoc = {
@@ -55,6 +57,8 @@ function mapSessionDoc(doc: SessionDoc): ChatSession {
     updatedAt: doc.updatedAt.toISOString(),
     lastMessagePreview: doc.lastMessagePreview,
     messages: [],
+    linkedInboxConversationId: doc.linkedInboxConversationId ?? null,
+    linkedInboxConversationLabel: doc.linkedInboxConversationLabel ?? null,
   };
 }
 
@@ -157,6 +161,8 @@ export async function createSetterAiSession(
     title: safeTitle,
     createdAt: now,
     updatedAt: now,
+    linkedInboxConversationId: null,
+    linkedInboxConversationLabel: null,
   });
 
   invalidateSessionCache(normalizedEmail);
@@ -166,6 +172,8 @@ export async function createSetterAiSession(
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     messages: [],
+    linkedInboxConversationId: null,
+    linkedInboxConversationLabel: null,
   };
 }
 
@@ -186,6 +194,53 @@ export async function getSetterAiSessionById(
 
   if (!doc) return null;
   return mapSessionDoc(doc);
+}
+
+export async function updateSetterAiSessionLeadLink(
+  email: string,
+  sessionId: string,
+  link: {
+    linkedInboxConversationId: string | null;
+    linkedInboxConversationLabel: string | null;
+  },
+): Promise<ChatSession | null> {
+  await ensureIndexes();
+  const normalizedEmail = normalizeEmail(email);
+  if (!ObjectId.isValid(sessionId)) return null;
+
+  const linkedInboxConversationId =
+    typeof link.linkedInboxConversationId === "string" &&
+    link.linkedInboxConversationId.trim().length > 0
+      ? link.linkedInboxConversationId.trim().slice(0, 120)
+      : null;
+  const linkedInboxConversationLabel =
+    typeof link.linkedInboxConversationLabel === "string" &&
+    link.linkedInboxConversationLabel.trim().length > 0
+      ? link.linkedInboxConversationLabel.trim().slice(0, 120)
+      : null;
+
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  const now = new Date();
+  const doc = await db
+    .collection<SessionDoc>(SESSIONS_COLLECTION)
+    .findOneAndUpdate(
+      { _id: new ObjectId(sessionId), email: normalizedEmail },
+      {
+        $set: {
+          linkedInboxConversationId,
+          linkedInboxConversationLabel,
+          updatedAt: now,
+        },
+      },
+      { returnDocument: "after" },
+    );
+
+  if (!doc) return null;
+
+  invalidateSessionCache(normalizedEmail);
+  invalidateMessageCache(normalizedEmail, sessionId);
+  return mapSessionDoc(doc as SessionDoc);
 }
 
 export async function listSetterAiMessages(
@@ -220,20 +275,72 @@ export async function buildSetterAiModelContext(
   email: string,
   sessionId: string,
   incomingUserMessage: string,
-  maxHistory = 30,
-): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
+  params?: {
+    maxHistory?: number;
+    systemPrompt?: string;
+    leadContextBlock?: string | null;
+    maxTotalChars?: number;
+  },
+): Promise<Array<{ role: "system" | "user" | "assistant"; content: string }>> {
   const safeIncomingMessage = incomingUserMessage.trim().slice(0, 8000);
+  const maxHistory = params?.maxHistory ?? 30;
+  const maxTotalChars = params?.maxTotalChars ?? 24000;
   const previousMessages = await listSetterAiMessages(email, sessionId);
-  const context = previousMessages.slice(-maxHistory).map((message) => ({
-    role: (message.role === "user" ? "user" : "assistant") as
-      | "user"
-      | "assistant",
+  const context: Array<{ role: "system" | "user" | "assistant"; content: string }> =
+    [];
+
+  const systemPrompt =
+    typeof params?.systemPrompt === "string" && params.systemPrompt.trim()
+      ? params.systemPrompt.trim().slice(0, 8000)
+      : "";
+  if (systemPrompt) {
+    context.push({ role: "system", content: systemPrompt });
+  }
+
+  const leadContextBlock =
+    typeof params?.leadContextBlock === "string" && params.leadContextBlock.trim()
+      ? params.leadContextBlock.trim().slice(0, 8000)
+      : "";
+  const userMessageWithLeadContext = leadContextBlock
+    ? [
+        "this is the leads context:",
+        leadContextBlock,
+        "",
+        "this is my message:",
+        safeIncomingMessage,
+      ]
+        .join("\n")
+        .slice(0, 12000)
+    : safeIncomingMessage;
+
+  const history = previousMessages.slice(-maxHistory).map((message) => ({
+    role: (message.role === "user" ? "user" : "assistant") as "user" | "assistant",
     content: message.text.trim().slice(0, 8000),
   }));
 
+  const baseChars = context.reduce((sum, item) => sum + item.content.length, 0);
+  const incomingChars = userMessageWithLeadContext.length;
+  const remainingForHistory = Math.max(maxTotalChars - baseChars - incomingChars, 0);
+
+  if (remainingForHistory > 0) {
+    // Keep most recent history, but enforce a total budget to avoid upstream context length errors.
+    const selected: typeof history = [];
+    let used = 0;
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const candidate = history[i];
+      if (!candidate) continue;
+      const nextUsed = used + candidate.content.length;
+      if (nextUsed > remainingForHistory) break;
+      selected.push(candidate);
+      used = nextUsed;
+    }
+    selected.reverse();
+    context.push(...selected);
+  }
+
   context.push({
     role: "user",
-    content: safeIncomingMessage,
+    content: userMessageWithLeadContext,
   });
 
   return context;

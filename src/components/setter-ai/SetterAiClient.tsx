@@ -20,6 +20,7 @@ import {
   unmarkDeletedSetterAiSessionId,
 } from "@/lib/setterAiCache";
 import type { ChatSession, Message } from "@/types/ai";
+import type { LeadConversationSummary } from "@/types/setterAiLeadContext";
 
 const CACHE_TTL_MS = 60 * 1000;
 const FALLBACK_EMPTY_RESPONSE = "No response returned from model.";
@@ -55,6 +56,12 @@ function createLocalSessionId(): string {
 
 function isLocalSessionId(sessionId: string): boolean {
   return sessionId.startsWith("local_");
+}
+
+function isEmptyLocalDraft(
+  session: ClientChatSession | null | undefined,
+): boolean {
+  return Boolean(session?.localOnly && (session.messages?.length || 0) === 0);
 }
 
 function mergeSessionsWithLocalMessages(
@@ -100,6 +107,7 @@ export default function SetterAiClient({
   initialChatId = null,
 }: SetterAiClientProps) {
   const pathname = usePathname();
+  const prefersDraftStart = initialChatId === null;
   const [chatSessions, setChatSessions] = useState<ClientChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(
     initialChatId,
@@ -108,11 +116,14 @@ export default function SetterAiClient({
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isBootLoading, setIsBootLoading] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const currentEmailRef = useRef<string | null>(null);
   const activeMessageLoadRef = useRef(0);
   const bootstrapRanRef = useRef(false);
-  const creatingInitialSessionRef = useRef(false);
+  const ensuringDraftRef = useRef(false);
+  const streamAbortControllerRef = useRef<AbortController | null>(null);
   const chatSessionsRef = useRef<ClientChatSession[]>([]);
   const sessionSyncPromisesRef = useRef<Map<string, Promise<string | null>>>(
     new Map(),
@@ -121,11 +132,23 @@ export default function SetterAiClient({
 
   const activeSession = useMemo(
     () =>
-      chatSessions.find((session) => session.id === activeSessionId) ||
-      chatSessions[0] ||
-      null,
+      chatSessions.find((session) => session.id === activeSessionId) || null,
     [activeSessionId, chatSessions],
   );
+
+  const linkedLead = useMemo(() => {
+    if (!activeSession?.linkedInboxConversationId) return null;
+    const label =
+      activeSession.linkedInboxConversationLabel ||
+      activeSession.linkedInboxConversationId;
+    return {
+      conversationId: activeSession.linkedInboxConversationId,
+      label,
+    };
+  }, [
+    activeSession?.linkedInboxConversationId,
+    activeSession?.linkedInboxConversationLabel,
+  ]);
 
   useEffect(() => {
     chatSessionsRef.current = chatSessions;
@@ -134,6 +157,18 @@ export default function SetterAiClient({
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
+
+  useEffect(() => {
+    currentEmailRef.current = currentEmail;
+  }, [currentEmail]);
+
+  useEffect(
+    () => () => {
+      streamAbortControllerRef.current?.abort();
+      streamAbortControllerRef.current = null;
+    },
+    [],
+  );
 
   const hydrateDeletedSessionTombstones = useCallback(async (email: string) => {
     const deletedSessionIds = await getDeletedSetterAiSessionIds(email);
@@ -170,6 +205,150 @@ export default function SetterAiClient({
       window.history.pushState(window.history.state, "", nextPath);
     },
     [],
+  );
+
+  const createLocalDraftSession = useCallback((): ClientChatSession => {
+    const nowIso = new Date().toISOString();
+    return {
+      id: createLocalSessionId(),
+      title: "New Conversation",
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      messages: [],
+      localOnly: true,
+    };
+  }, []);
+
+  const persistSessionList = useCallback(
+    async (sessions: ClientChatSession[]) => {
+      if (!currentEmail) return;
+      await setCachedSetterAiSessions(
+        currentEmail,
+        sessions.map((session) => ({ ...session, messages: [] })),
+      );
+    },
+    [currentEmail],
+  );
+
+  const removeEmptyLocalDraft = useCallback(
+    async (sessionId: string) => {
+      const session = chatSessionsRef.current.find(
+        (item) => item.id === sessionId,
+      );
+      if (!session || !session.localOnly || session.messages.length > 0) return;
+
+      const nextSessions = chatSessionsRef.current.filter(
+        (item) => item.id !== sessionId,
+      );
+      chatSessionsRef.current = nextSessions;
+      setChatSessions(nextSessions);
+
+      if (!currentEmail) return;
+      await Promise.all([
+        persistSessionList(nextSessions),
+        clearCachedSetterAiMessages(currentEmail, sessionId),
+      ]);
+    },
+    [currentEmail, persistSessionList],
+  );
+
+  const createAndSelectLocalDraft = useCallback(
+    async (options?: {
+      mode?: "push" | "replace";
+      existingSessions?: ClientChatSession[];
+    }): Promise<string | null> => {
+      const localSession = createLocalDraftSession();
+      const baseSessions = options?.existingSessions ?? chatSessionsRef.current;
+      const nextSessions = [localSession, ...baseSessions];
+
+      chatSessionsRef.current = nextSessions;
+      setChatSessions(nextSessions);
+      setActiveSessionId(localSession.id);
+      setSearchTerm("");
+
+      if (currentEmail) {
+        await Promise.all([
+          persistSessionList(nextSessions),
+          setCachedSetterAiMessages(currentEmail, localSession.id, []),
+        ]);
+      }
+
+      if (options?.mode) {
+        updateChatUrl(localSession.id, options.mode);
+      }
+
+      return localSession.id;
+    },
+    [createLocalDraftSession, currentEmail, persistSessionList, updateChatUrl],
+  );
+
+  const ensureBasePageDraftSession = useCallback(
+    async (mode: "push" | "replace" = "replace"): Promise<string | null> => {
+      if (!prefersDraftStart) {
+        return null;
+      }
+
+      const currentActiveId = activeSessionIdRef.current;
+      const currentActive = currentActiveId
+        ? chatSessionsRef.current.find(
+            (session) => session.id === currentActiveId,
+          )
+        : null;
+
+      if (isEmptyLocalDraft(currentActive)) {
+        if (currentActiveId) {
+          updateChatUrl(currentActiveId, mode);
+        }
+        return currentActiveId;
+      }
+
+      const existingEmptyDraft = chatSessionsRef.current.find((session) =>
+        isEmptyLocalDraft(session),
+      );
+      if (existingEmptyDraft) {
+        setActiveSessionId(existingEmptyDraft.id);
+        updateChatUrl(existingEmptyDraft.id, mode);
+        return existingEmptyDraft.id;
+      }
+
+      if (ensuringDraftRef.current) {
+        return null;
+      }
+
+      ensuringDraftRef.current = true;
+      try {
+        return await createAndSelectLocalDraft({ mode });
+      } finally {
+        ensuringDraftRef.current = false;
+      }
+    },
+    [createAndSelectLocalDraft, prefersDraftStart, updateChatUrl],
+  );
+
+  const resolvePreferredSessionId = useCallback(
+    (sessions: ClientChatSession[]): string | null => {
+      const currentActiveId = activeSessionIdRef.current;
+      if (
+        currentActiveId &&
+        sessions.some((session) => session.id === currentActiveId)
+      ) {
+        return currentActiveId;
+      }
+
+      if (
+        initialChatId &&
+        sessions.some((session) => session.id === initialChatId)
+      ) {
+        return initialChatId;
+      }
+
+      if (prefersDraftStart && pathname === "/setter-ai") {
+        return null;
+      }
+
+      return sessions[0]?.id ?? null;
+    },
+    [initialChatId, pathname, prefersDraftStart],
   );
 
   const applySessionMessages = useCallback(
@@ -232,15 +411,7 @@ export default function SetterAiClient({
           setChatSessions((prev) =>
             mergeSessionsWithLocalMessages(filteredCachedSessions, prev),
           );
-          const currentActiveId = activeSessionIdRef.current;
-          if (
-            !currentActiveId ||
-            !filteredCachedSessions.some(
-              (session) => session.id === currentActiveId,
-            )
-          ) {
-            setActiveSessionId(filteredCachedSessions[0].id);
-          }
+          setActiveSessionId(resolvePreferredSessionId(filteredCachedSessions));
         }
 
         const cacheIsFresh = Boolean(
@@ -267,28 +438,7 @@ export default function SetterAiClient({
         return mergedSessions;
       });
 
-      const hasCurrentActiveSession = Boolean(
-        activeSessionIdRef.current &&
-          mergedSessions.some(
-            (session) => session.id === activeSessionIdRef.current,
-          ),
-      );
-
-      if (hasCurrentActiveSession) {
-        // Keep active session stable when local drafts are still syncing.
-      } else if (mergedSessions.length > 0) {
-        const fallbackId = mergedSessions[0].id;
-        setActiveSessionId(fallbackId);
-        if (
-          pathname === "/setter-ai" &&
-          typeof window !== "undefined" &&
-          window.location.pathname === "/setter-ai"
-        ) {
-          updateChatUrl(fallbackId, "replace");
-        }
-      } else {
-        setActiveSessionId(null);
-      }
+      setActiveSessionId(resolvePreferredSessionId(mergedSessions));
 
       await setCachedSetterAiSessions(
         safeEmail,
@@ -300,8 +450,7 @@ export default function SetterAiClient({
       currentEmail,
       fetchSessionsFromServer,
       hydrateDeletedSessionTombstones,
-      pathname,
-      updateChatUrl,
+      resolvePreferredSessionId,
     ],
   );
 
@@ -366,6 +515,14 @@ export default function SetterAiClient({
               ? localSession.title
               : created.title,
           messages: localSession.messages,
+          linkedInboxConversationId:
+            created.linkedInboxConversationId ||
+            localSession.linkedInboxConversationId ||
+            null,
+          linkedInboxConversationLabel:
+            created.linkedInboxConversationLabel ||
+            localSession.linkedInboxConversationLabel ||
+            null,
         };
 
         if (deletedSessionIdsRef.current.has(localSessionId)) {
@@ -427,34 +584,65 @@ export default function SetterAiClient({
       options?: { forceNetwork?: boolean; fromSelect?: boolean },
     ) => {
       if (!sessionId || !currentEmail) return;
-      if (isLocalSessionId(sessionId)) return;
       const forceNetwork = Boolean(options?.forceNetwork);
       const fromSelect = Boolean(options?.fromSelect);
       const loadToken = fromSelect
         ? ++activeMessageLoadRef.current
         : activeMessageLoadRef.current;
-
-      if (!forceNetwork) {
-        const [cachedMessages, cachedAt] = await Promise.all([
-          getCachedSetterAiMessages(currentEmail, sessionId),
-          getCachedSetterAiMessagesTimestamp(currentEmail, sessionId),
-        ]);
-        if (cachedMessages) {
-          applySessionMessages(sessionId, cachedMessages);
-          const isFresh = Boolean(
-            cachedAt && Date.now() - cachedAt < CACHE_TTL_MS,
-          );
-          if (isFresh) return;
-        }
+      if (fromSelect) {
+        setIsHistoryLoading(true);
       }
-
-      const serverMessages = await fetchMessagesFromServer(sessionId);
-      if (fromSelect && loadToken !== activeMessageLoadRef.current) {
+      if (isLocalSessionId(sessionId)) {
+        if (fromSelect && loadToken === activeMessageLoadRef.current) {
+          setIsHistoryLoading(false);
+        }
         return;
       }
 
-      applySessionMessages(sessionId, serverMessages);
-      await setCachedSetterAiMessages(currentEmail, sessionId, serverMessages);
+      try {
+        if (!forceNetwork) {
+          const [cachedMessages, cachedAt] = await Promise.all([
+            getCachedSetterAiMessages(currentEmail, sessionId),
+            getCachedSetterAiMessagesTimestamp(currentEmail, sessionId),
+          ]);
+          if (cachedMessages) {
+            applySessionMessages(sessionId, cachedMessages);
+            const isFresh = Boolean(
+              cachedAt && Date.now() - cachedAt < CACHE_TTL_MS,
+            );
+            if (isFresh) return;
+          }
+        }
+
+        const serverMessages = await fetchMessagesFromServer(sessionId);
+        if (fromSelect && loadToken !== activeMessageLoadRef.current) {
+          return;
+        }
+
+        const localSession = chatSessionsRef.current.find(
+          (session) => session.id === sessionId,
+        );
+        const localMessageCount = localSession?.messages.length || 0;
+        if (serverMessages.length < localMessageCount) {
+          await setCachedSetterAiMessages(
+            currentEmail,
+            sessionId,
+            localSession?.messages || [],
+          );
+          return;
+        }
+
+        applySessionMessages(sessionId, serverMessages);
+        await setCachedSetterAiMessages(
+          currentEmail,
+          sessionId,
+          serverMessages,
+        );
+      } finally {
+        if (fromSelect && loadToken === activeMessageLoadRef.current) {
+          setIsHistoryLoading(false);
+        }
+      }
     },
     [applySessionMessages, currentEmail, fetchMessagesFromServer],
   );
@@ -481,37 +669,15 @@ export default function SetterAiClient({
           if (filteredCachedSessions.length > 0) {
             hydratedFromCache = true;
             setChatSessions(filteredCachedSessions);
-            if (
-              initialChatId &&
-              filteredCachedSessions.some((s) => s.id === initialChatId)
-            ) {
-              setActiveSessionId(initialChatId);
-            } else {
-              setActiveSessionId(filteredCachedSessions[0].id);
-            }
+            setActiveSessionId(
+              resolvePreferredSessionId(filteredCachedSessions),
+            );
             setIsBootLoading(false);
           }
         }
       } finally {
         if (!cancelled) {
-          const refreshedSessions = await refreshSessions(false).catch(
-            () => null,
-          );
-          const hasSessions = Boolean(
-            refreshedSessions && refreshedSessions.length > 0,
-          );
-          if (!hasSessions && !creatingInitialSessionRef.current) {
-            creatingInitialSessionRef.current = true;
-            const created = await ensureSessionExists().catch(() => null);
-            creatingInitialSessionRef.current = false;
-            if (created) {
-              setChatSessions([{ ...created, messages: [] }]);
-              setActiveSessionId(created.id);
-              if (pathname === "/setter-ai") {
-                updateChatUrl(created.id, "replace");
-              }
-            }
-          }
+          await refreshSessions(false).catch(() => null);
 
           if (!hydratedFromCache) {
             setIsBootLoading(false);
@@ -525,13 +691,18 @@ export default function SetterAiClient({
       cancelled = true;
     };
   }, [
-    ensureSessionExists,
     hydrateDeletedSessionTombstones,
-    initialChatId,
-    pathname,
     refreshSessions,
-    updateChatUrl,
+    resolvePreferredSessionId,
   ]);
+
+  useEffect(() => {
+    if (pathname !== "/setter-ai") return;
+    if (!prefersDraftStart) return;
+    if (isBootLoading) return;
+
+    void ensureBasePageDraftSession("replace");
+  }, [ensureBasePageDraftSession, isBootLoading, pathname, prefersDraftStart]);
 
   useEffect(() => {
     if (!activeSessionId || !currentEmail) return;
@@ -540,25 +711,24 @@ export default function SetterAiClient({
     );
   }, [activeSessionId, currentEmail, loadSessionMessages]);
 
-  useEffect(() => {
-    if (!currentEmail) return;
-    for (const session of chatSessions) {
-      if (!session.localOnly) continue;
-      if (deletedSessionIdsRef.current.has(session.id)) continue;
-      void syncLocalSessionToServer(session.id);
-    }
-  }, [chatSessions, currentEmail, syncLocalSessionToServer]);
-
   const handleSend = useCallback(
     async (overrideText?: string) => {
       const textToSend = (overrideText || input).trim();
-      if (!textToSend || isStreaming || !activeSession || !currentEmail) return;
+      if (!textToSend || isStreaming) return;
 
-      const syncedSessionId = await syncLocalSessionToServer(activeSession.id);
-      if (!syncedSessionId) {
-        return;
+      let targetSession = activeSession;
+      if (!targetSession) {
+        await ensureBasePageDraftSession("replace");
+        targetSession =
+          chatSessionsRef.current.find(
+            (session) => session.id === activeSessionIdRef.current,
+          ) || null;
       }
-      const sessionId = syncedSessionId;
+
+      const email = currentEmailRef.current;
+      if (!targetSession || !email) return;
+
+      const targetSessionId = targetSession.id;
       const optimisticUserId = `tmp_user_${Date.now()}`;
       const optimisticAssistantId = `tmp_ai_${Date.now()}`;
       const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -582,55 +752,94 @@ export default function SetterAiClient({
       };
 
       const isFirstUserMessage =
-        activeSession.messages.filter((message) => message.role === "user")
+        targetSession.messages.filter((message) => message.role === "user")
           .length === 0;
       const optimisticTitle = isFirstUserMessage
         ? textToSend.slice(0, 30) + (textToSend.length > 30 ? "..." : "")
-        : activeSession.title;
+        : targetSession.title;
       const optimisticMessages = [
-        ...activeSession.messages,
+        ...targetSession.messages,
         optimisticUserMessage,
         optimisticAiMessage,
       ];
 
-      setChatSessions((prev) =>
-        prev.map((session) =>
-          session.id === sessionId
-            ? {
-                ...session,
-                title: optimisticTitle || session.title,
-                messages: optimisticMessages,
-              }
-            : session,
-        ),
+      const optimisticSessions = chatSessionsRef.current.map((session) =>
+        session.id === targetSessionId
+          ? {
+              ...session,
+              title: optimisticTitle || session.title,
+              messages: optimisticMessages,
+            }
+          : session,
       );
+      chatSessionsRef.current = optimisticSessions;
+      setChatSessions(optimisticSessions);
       await setCachedSetterAiMessages(
-        currentEmail,
-        sessionId,
+        email,
+        targetSessionId,
         optimisticMessages,
       );
 
       if (!overrideText) setInput("");
       setIsStreaming(true);
+      const streamController = new AbortController();
+      streamAbortControllerRef.current = streamController;
+      let assistantText = "";
+      let sessionId = targetSessionId;
 
       try {
+        const syncedSessionId = await syncLocalSessionToServer(targetSessionId);
+        if (!syncedSessionId) {
+          throw new Error("Failed to create chat session.");
+        }
+        sessionId = syncedSessionId;
+        const syncedSession =
+          chatSessionsRef.current.find((session) => session.id === sessionId) ||
+          null;
+        const leadConversationId =
+          syncedSession?.linkedInboxConversationId ||
+          targetSession.linkedInboxConversationId ||
+          null;
+
         const response = await fetch("/api/setter-ai/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: streamController.signal,
           body: JSON.stringify({
             sessionId,
             message: textToSend,
             requestId,
+            ...(leadConversationId ? { leadConversationId } : {}),
           }),
         });
 
         if (!response.ok || !response.body) {
-          throw new Error("Failed to stream AI response.");
+          const raw = await response.text().catch(() => "");
+          let message = STREAM_FAILURE_MESSAGE;
+          try {
+            const parsed = JSON.parse(raw) as {
+              error?: string;
+              details?: string;
+            };
+            const core =
+              typeof parsed.error === "string" ? parsed.error.trim() : "";
+            const details =
+              typeof parsed.details === "string" ? parsed.details.trim() : "";
+            message = core || STREAM_FAILURE_MESSAGE;
+            if (details) {
+              message = `${message} (${details.slice(0, 160)})`;
+            }
+          } catch {
+            const fallback = raw.trim();
+            if (fallback) {
+              message = `${STREAM_FAILURE_MESSAGE} (${fallback.slice(0, 160)})`;
+            }
+          }
+          throw new Error(message);
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let assistantText = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -674,9 +883,19 @@ export default function SetterAiClient({
           }),
         );
 
-        await loadSessionMessages(sessionId, { forceNetwork: true });
-        await refreshSessions(true);
-      } catch {
+        void loadSessionMessages(sessionId, { forceNetwork: true });
+        void refreshSessions(true);
+      } catch (error) {
+        const aborted =
+          (error instanceof DOMException && error.name === "AbortError") ||
+          (error instanceof Error && error.name === "AbortError");
+        const abortedMessage = assistantText.trim()
+          ? assistantText
+          : "Generation stopped.";
+        const errorMessage =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : STREAM_FAILURE_MESSAGE;
         setChatSessions((prev) =>
           prev.map((session) => {
             if (session.id !== sessionId) return session;
@@ -688,7 +907,7 @@ export default function SetterAiClient({
                 if (message.id === optimisticAssistantId) {
                   return {
                     ...message,
-                    text: STREAM_FAILURE_MESSAGE,
+                    text: aborted ? abortedMessage : errorMessage,
                     pending: false,
                   };
                 }
@@ -701,22 +920,25 @@ export default function SetterAiClient({
           if (message.id === optimisticUserId)
             return { ...message, pending: false };
           if (message.id === optimisticAssistantId) {
-            return { ...message, text: STREAM_FAILURE_MESSAGE, pending: false };
+            return {
+              ...message,
+              text: aborted ? abortedMessage : errorMessage,
+              pending: false,
+            };
           }
           return message;
         });
-        await setCachedSetterAiMessages(
-          currentEmail,
-          sessionId,
-          failedMessages,
-        );
+        await setCachedSetterAiMessages(email, sessionId, failedMessages);
       } finally {
+        if (streamAbortControllerRef.current === streamController) {
+          streamAbortControllerRef.current = null;
+        }
         setIsStreaming(false);
       }
     },
     [
       activeSession,
-      currentEmail,
+      ensureBasePageDraftSession,
       input,
       isStreaming,
       loadSessionMessages,
@@ -725,50 +947,129 @@ export default function SetterAiClient({
     ],
   );
 
-  const handleSelectSession = useCallback(
-    (sessionId: string) => {
-      if (sessionId === activeSessionId) return;
-      setActiveSessionId(sessionId);
-      updateChatUrl(sessionId, "push");
+  const handleLinkLead = useCallback(
+    async (lead: LeadConversationSummary) => {
+      if (!currentEmail || !activeSession || isStreaming) return;
+
+      const sessionId = activeSession.id;
+      const label = lead.name.replace(/^@/, "") || lead.conversationId;
+
+      setChatSessions((prev) => {
+        const next = prev.map((session) =>
+          session.id === sessionId
+            ? {
+                ...session,
+                linkedInboxConversationId: lead.conversationId,
+                linkedInboxConversationLabel: label,
+              }
+            : session,
+        );
+        void setCachedSetterAiSessions(
+          currentEmail,
+          next.map((session) => ({ ...session, messages: [] })),
+        );
+        return next;
+      });
+
+      if (isLocalSessionId(sessionId)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/setter-ai/sessions/${encodeURIComponent(sessionId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              linkedInboxConversationId: lead.conversationId,
+              linkedInboxConversationLabel: label,
+            }),
+          },
+        );
+        if (!res.ok) {
+          throw new Error("Failed to persist linked lead.");
+        }
+      } catch {
+        // Keep optimistic local state even if persistence fails.
+      }
     },
-    [activeSessionId, updateChatUrl],
+    [activeSession, currentEmail, isStreaming],
   );
 
-  const handleNewChat = useCallback(async () => {
-    if (isStreaming || !currentEmail) return;
-    if (activeSession && activeSession.messages.length === 0) return;
+  const handleClearLead = useCallback(async () => {
+    if (!currentEmail || !activeSession || isStreaming) return;
 
-    const nowIso = new Date().toISOString();
-    const localSessionId = createLocalSessionId();
-    const localSession: ClientChatSession = {
-      id: localSessionId,
-      title: "New Conversation",
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      messages: [],
-      localOnly: true,
-    };
+    const sessionId = activeSession.id;
 
     setChatSessions((prev) => {
-      const next = [localSession, ...prev];
+      const next = prev.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              linkedInboxConversationId: null,
+              linkedInboxConversationLabel: null,
+            }
+          : session,
+      );
       void setCachedSetterAiSessions(
         currentEmail,
-        next.map((item) => ({ ...item, messages: [] })),
+        next.map((session) => ({ ...session, messages: [] })),
       );
       return next;
     });
-    setActiveSessionId(localSession.id);
-    setSearchTerm("");
-    updateChatUrl(localSession.id, "push");
 
-    await setCachedSetterAiMessages(currentEmail, localSession.id, []);
-    void syncLocalSessionToServer(localSession.id);
+    if (isLocalSessionId(sessionId)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/setter-ai/sessions/${encodeURIComponent(sessionId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            linkedInboxConversationId: null,
+            linkedInboxConversationLabel: null,
+          }),
+        },
+      );
+      if (!res.ok) {
+        throw new Error("Failed to clear linked lead.");
+      }
+    } catch {
+      // Keep optimistic local state even if persistence fails.
+    }
+  }, [activeSession, currentEmail, isStreaming]);
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      if (sessionId === activeSessionId) return;
+      const previousActiveId = activeSessionIdRef.current;
+      setActiveSessionId(sessionId);
+      updateChatUrl(sessionId, "push");
+      if (previousActiveId) {
+        void removeEmptyLocalDraft(previousActiveId);
+      }
+    },
+    [activeSessionId, removeEmptyLocalDraft, updateChatUrl],
+  );
+
+  const handleNewChat = useCallback(async () => {
+    if (isStreaming) return;
+    if (isEmptyLocalDraft(activeSession)) return;
+    if (prefersDraftStart) {
+      await ensureBasePageDraftSession("push");
+      return;
+    }
+    await createAndSelectLocalDraft({ mode: "push" });
   }, [
     activeSession,
-    currentEmail,
+    createAndSelectLocalDraft,
+    ensureBasePageDraftSession,
     isStreaming,
-    syncLocalSessionToServer,
-    updateChatUrl,
+    prefersDraftStart,
   ]);
 
   const handleDeleteSession = useCallback(
@@ -827,47 +1128,34 @@ export default function SetterAiClient({
         return;
       }
 
-      const nowIso = new Date().toISOString();
-      const localSessionId = createLocalSessionId();
-      const localSession: ClientChatSession = {
-        id: localSessionId,
-        title: "New Conversation",
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        messages: [],
-        localOnly: true,
-      };
-      const sessionsWithNew = [localSession, ...nextSessions];
-      setChatSessions(sessionsWithNew);
-      setActiveSessionId(localSession.id);
-      setSearchTerm("");
-      await Promise.all([
-        setCachedSetterAiSessions(
-          currentEmail,
-          sessionsWithNew.map((session) => ({ ...session, messages: [] })),
-        ),
-        setCachedSetterAiMessages(currentEmail, localSession.id, []),
-      ]);
-      updateChatUrl(localSession.id, "replace");
-      void syncLocalSessionToServer(localSession.id);
+      await createAndSelectLocalDraft({
+        mode: "replace",
+        existingSessions: nextSessions,
+      });
     },
     [
       activeSessionId,
       chatSessions,
+      createAndSelectLocalDraft,
       currentEmail,
       isStreaming,
       markSessionAsDeleted,
-      syncLocalSessionToServer,
       unmarkSessionAsDeleted,
-      updateChatUrl,
     ],
   );
+
+  const handleStopStreaming = useCallback(() => {
+    streamAbortControllerRef.current?.abort();
+  }, []);
 
   const displayedMessages = activeSession?.messages || [];
   const isActiveSessionNewEmpty = Boolean(
     activeSession && activeSession.messages.length === 0,
   );
   const isLoading = isBootLoading || isStreaming;
+  const isSessionListLoading = isBootLoading && chatSessions.length === 0;
+  const isChatHistoryLoading =
+    (isBootLoading || isHistoryLoading) && displayedMessages.length === 0;
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-[#F8F7FF] text-[#101011] lg:flex-row">
@@ -878,6 +1166,7 @@ export default function SetterAiClient({
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
         disableNewChat={isActiveSessionNewEmpty}
+        isLoading={isSessionListLoading}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
       />
@@ -885,10 +1174,16 @@ export default function SetterAiClient({
       <ChatArea
         messages={displayedMessages}
         isLoading={isLoading}
+        isStreaming={isStreaming}
+        isHistoryLoading={isChatHistoryLoading}
         input={input}
         setInput={setInput}
         onSend={handleSend}
         searchTerm={searchTerm}
+        linkedLead={linkedLead}
+        onLinkLead={handleLinkLead}
+        onClearLead={handleClearLead}
+        onStopStreaming={handleStopStreaming}
       />
     </div>
   );

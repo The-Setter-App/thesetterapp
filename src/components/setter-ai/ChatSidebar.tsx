@@ -15,6 +15,7 @@ interface ChatSidebarProps {
   onNewChat: () => void;
   onDeleteSession: (id: string) => void;
   disableNewChat?: boolean;
+  isLoading?: boolean;
   searchTerm: string;
   setSearchTerm: (val: string) => void;
 }
@@ -26,6 +27,7 @@ export default function ChatSidebar({
   onNewChat,
   onDeleteSession,
   disableNewChat = false,
+  isLoading = false,
   searchTerm,
   setSearchTerm,
 }: ChatSidebarProps) {
@@ -102,7 +104,18 @@ export default function ChatSidebar({
         </button>
 
         <div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1">
-          {sessions.map((session) => (
+          {isLoading &&
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`session-skeleton-${index}`}
+                className="flex h-12 w-full animate-pulse items-center gap-3 rounded-xl border border-[#F0F2F6] bg-white px-3"
+              >
+                <div className="h-4 w-4 rounded bg-[#EEEAFD]" />
+                <div className="h-3 w-40 rounded bg-[#F0F2F6]" />
+              </div>
+            ))}
+          {!isLoading &&
+            sessions.map((session) => (
             <div
               key={session.id}
               className={`group relative flex h-12 w-full min-w-[44px] items-center rounded-xl border px-1.5 text-left text-sm transition-colors
