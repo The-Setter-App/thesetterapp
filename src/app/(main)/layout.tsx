@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import InboxCacheWarmupWorker from "@/components/inbox/InboxCacheWarmupWorker";
+import InboxRealtimeCacheWorker from "@/components/inbox/InboxRealtimeCacheWorker";
 import Sidebar from "@/components/layout/Sidebar";
 import { requireCurrentUser } from "@/lib/currentUser";
+import { canAccessInbox } from "@/lib/permissions";
 import { getUserDisplayName, isOnboardingRequired } from "@/lib/userRepository";
 
 export default async function MainLayout({
@@ -17,6 +19,7 @@ export default async function MainLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <InboxCacheWarmupWorker />
+      <InboxRealtimeCacheWorker enabled={canAccessInbox(user.role)} />
       <Sidebar
         role={user.role}
         displayName={getUserDisplayName(user)}

@@ -5,8 +5,12 @@ import { useRouter, useParams } from 'next/navigation';
 import { Inter } from 'next/font/google'; // Import Inter
 import { getInboxConnectionState, getInboxUsers, updateConversationPriorityAction, updateUserStatusAction } from '@/app/actions/inbox';
 import { getCachedUsers, setCachedUsers, updateCachedMessages } from '@/lib/clientCache';
+import {
+  fetchLatestConversationMessages,
+  findConversationForRealtimeMessage,
+} from '@/lib/inbox/clientConversationSync';
 import { INBOX_STATUS_COLOR_CLASS_MAP, isStatusType, STATUS_OPTIONS } from '@/lib/status/config';
-import type { User, SSEMessageData, Message, StatusType } from '@/types/inbox';
+import type { Message, User, SSEMessageData, StatusType } from '@/types/inbox';
 import ConversationList from '@/components/inbox/ConversationList';
 import { useSSE } from '@/hooks/useSSE';
 import { useInboxSync } from '@/components/inbox/InboxSyncContext';
@@ -18,6 +22,7 @@ import {
   emitConversationStatusSynced,
   syncConversationStatusToClientCache,
 } from '@/lib/status/clientSync';
+import { emitInboxRealtimeMessage } from '@/lib/inbox/clientRealtimeEvents';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -97,6 +102,128 @@ function sortUsersByRecency(list: User[]): User[] {
   });
 }
 
+function mergeUsersWithLocalRecency(previous: User[], incoming: User[]): User[] {
+  const previousById = new Map(previous.map((user) => [user.id, user]));
+  const merged = incoming.map((incomingUser) => {
+    const previousUser = previousById.get(incomingUser.id);
+    if (!previousUser) return incomingUser;
+    return getTimestampMs(previousUser.updatedAt) > getTimestampMs(incomingUser.updatedAt)
+      ? previousUser
+      : incomingUser;
+  });
+
+  const incomingIds = new Set(incoming.map((user) => user.id));
+  for (const previousUser of previous) {
+    if (!incomingIds.has(previousUser.id)) {
+      merged.push(previousUser);
+    }
+  }
+
+  return sortUsersByRecency(merged);
+}
+
+function mapRealtimePayloadToMessage(eventType: 'new_message' | 'message_echo', data: SSEMessageData): Message {
+  const attachment = data.attachments?.[0];
+  const payloadUrl = attachment?.payload?.url;
+  const fileUrl = attachment?.file_url || payloadUrl;
+  const isAudio =
+    attachment?.type === 'audio' ||
+    Boolean(fileUrl && (
+      fileUrl.includes('audio') ||
+      fileUrl.endsWith('.mp3') ||
+      fileUrl.endsWith('.m4a') ||
+      fileUrl.endsWith('.ogg') ||
+      fileUrl.endsWith('.webm') ||
+      fileUrl.endsWith('.mp4')
+    ));
+  const isImage =
+    attachment?.type === 'image' ||
+    Boolean(attachment?.image_data?.url);
+  const isVideo =
+    attachment?.type === 'video' ||
+    Boolean(attachment?.video_data?.url);
+
+  let type: Message['type'] = 'text';
+  let attachmentUrl: string | undefined;
+
+  if (isImage) {
+    type = 'image';
+    attachmentUrl = attachment?.image_data?.url || fileUrl;
+  } else if (isVideo) {
+    type = 'video';
+    attachmentUrl = attachment?.video_data?.url || fileUrl;
+  } else if (isAudio) {
+    type = 'audio';
+    attachmentUrl = fileUrl;
+  } else if (attachment) {
+    type = 'file';
+    attachmentUrl = fileUrl;
+  }
+
+  return {
+    id: data.messageId,
+    fromMe: eventType === 'message_echo' || Boolean(data.fromMe),
+    type,
+    text: data.text || '',
+    duration: data.duration,
+    timestamp: new Date(data.timestamp).toISOString(),
+    attachmentUrl,
+  };
+}
+
+function buildRealtimePreviewText(eventType: 'new_message' | 'message_echo', data: SSEMessageData): string {
+  const text = (data.text || '').trim();
+  if (text) return text;
+
+  const attachment = data.attachments?.[0];
+  const payloadUrl = attachment?.payload?.url;
+  const fileUrl = attachment?.file_url || payloadUrl;
+  const outgoing = eventType === 'message_echo' || Boolean(data.fromMe);
+  const isAudio =
+    attachment?.type === 'audio' ||
+    Boolean(fileUrl && (
+      fileUrl.includes('audio') ||
+      fileUrl.endsWith('.mp3') ||
+      fileUrl.endsWith('.m4a') ||
+      fileUrl.endsWith('.ogg') ||
+      fileUrl.endsWith('.webm') ||
+      fileUrl.endsWith('.mp4')
+    ));
+  const isImage =
+    attachment?.type === 'image' ||
+    Boolean(attachment?.image_data?.url);
+  const isVideo =
+    attachment?.type === 'video' ||
+    Boolean(attachment?.video_data?.url);
+  const hasAttachment = Boolean(attachment);
+
+  if (isAudio) return outgoing ? 'You sent a voice message' : 'Sent a voice message';
+  if (isImage) return outgoing ? 'You sent an image' : 'Sent an image';
+  if (isVideo) return outgoing ? 'You sent a video' : 'Sent a video';
+  if (hasAttachment) return outgoing ? 'You sent an attachment' : 'Sent an attachment';
+  return outgoing ? 'You sent a message' : 'Sent a message';
+}
+
+function mergeMessageCacheSnapshots(existing: Message[] | null, incoming: Message[]): Message[] {
+  const byId = new Map<string, Message>();
+  for (const message of existing ?? []) {
+    byId.set(message.id, message);
+  }
+  for (const message of incoming) {
+    const current = byId.get(message.id);
+    byId.set(message.id, current ? { ...current, ...message } : message);
+  }
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const aTs = Date.parse(a.timestamp || '');
+    const bTs = Date.parse(b.timestamp || '');
+    if (Number.isFinite(aTs) && Number.isFinite(bTs) && aTs !== bTs) {
+      return aTs - bTs;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
 
 interface InboxSidebarProps {
   width?: number;
@@ -116,9 +243,10 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
- 
+
 
   const refetchInFlightRef = useRef(false);
+  const realtimeSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   // Filter persistence
   useEffect(() => {
@@ -229,80 +357,102 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     });
   }, []);
 
-  const handleSidebarMessageEvent = useCallback((data: SSEMessageData, isEcho: boolean, fromMe = false) => {
-    const { text, timestamp, attachments } = data;
-    setUsers((prev) => {
-      const idx = prev.findIndex((u) => {
-        if (u.id === data.conversationId) return true;
-        if (!u.recipientId) return false;
-        const sameParticipant = u.recipientId === data.senderId || u.recipientId === data.recipientId;
-        const sameAccount = !u.accountId || !data.accountId || u.accountId === data.accountId;
-        return sameParticipant && sameAccount;
-      });
-      if (idx === -1) { refetchConversations(); return prev; }
-      const updated = [...prev];
-      const conv = { ...updated[idx] };
-      const firstAttachment = attachments?.[0];
-      const isAudioAttachment =
-        firstAttachment?.type === 'audio' ||
-        Boolean(firstAttachment?.file_url && (
-          firstAttachment.file_url.includes('audio') ||
-          firstAttachment.file_url.endsWith('.mp3') ||
-          firstAttachment.file_url.endsWith('.m4a') ||
-          firstAttachment.file_url.endsWith('.ogg') ||
-          firstAttachment.file_url.endsWith('.webm') ||
-          firstAttachment.file_url.endsWith('.mp4')
-        ));
-      const isImageAttachment =
-        firstAttachment?.type === 'image' ||
-        Boolean(firstAttachment?.image_data?.url) ||
-        Boolean(firstAttachment?.file_url && (
-          firstAttachment.file_url.endsWith('.jpg') ||
-          firstAttachment.file_url.endsWith('.jpeg') ||
-          firstAttachment.file_url.endsWith('.png') ||
-          firstAttachment.file_url.endsWith('.webp') ||
-          firstAttachment.file_url.endsWith('.gif')
-        ));
-      const isVideoAttachment =
-        firstAttachment?.type === 'video' ||
-        Boolean(firstAttachment?.video_data?.url) ||
-        Boolean(firstAttachment?.file_url && (
-          firstAttachment.file_url.endsWith('.mov') ||
-          firstAttachment.file_url.endsWith('.mp4') ||
-          firstAttachment.file_url.endsWith('.m4v') ||
-          firstAttachment.file_url.endsWith('.webm')
-        ));
-      const hasAnyAttachment = Boolean(firstAttachment);
+  const applyOptimisticRealtimePreview = useCallback(
+    (eventType: 'new_message' | 'message_echo', data: SSEMessageData) => {
+      setUsers((prev) => {
+        const matchedConversation = findConversationForRealtimeMessage(prev, data);
+        if (!matchedConversation) return prev;
 
-      const outgoing = isEcho || fromMe;
-      if (text && text.trim().length > 0) {
-        conv.lastMessage = text;
-      } else if (isAudioAttachment) {
-        conv.lastMessage = outgoing ? 'You sent a voice message' : 'Sent a voice message';
-      } else if (isImageAttachment) {
-        conv.lastMessage = outgoing ? 'You sent an image' : 'Sent an image';
-      } else if (isVideoAttachment) {
-        conv.lastMessage = outgoing ? 'You sent a video' : 'Sent a video';
-      } else if (hasAnyAttachment) {
-        conv.lastMessage = outgoing ? 'You sent an attachment' : 'Sent an attachment';
-      } else {
-        conv.lastMessage = outgoing ? 'You sent a message' : 'Sent a message';
+        const idx = prev.findIndex((user) => user.id === matchedConversation.id);
+        if (idx === -1) return prev;
+
+        const previewText = buildRealtimePreviewText(eventType, data);
+        const updatedAt = new Date(data.timestamp).toISOString();
+        const next = [...prev];
+        const current = next[idx];
+        const outgoing = eventType === 'message_echo' || Boolean(data.fromMe);
+        next[idx] = {
+          ...current,
+          lastMessage: previewText,
+          time: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          updatedAt,
+          unread: outgoing ? 0 : (current.unread ?? 0) + 1,
+        };
+
+        const optimisticMessage = mapRealtimePayloadToMessage(eventType, data);
+        updateCachedMessages(matchedConversation.id, (existing) => {
+          const messages = existing ?? [];
+          if (messages.some((message) => message.id === optimisticMessage.id)) {
+            return messages;
+          }
+          return [...messages, optimisticMessage].sort((a, b) => {
+            const aTs = Date.parse(a.timestamp || '');
+            const bTs = Date.parse(b.timestamp || '');
+            if (Number.isFinite(aTs) && Number.isFinite(bTs) && aTs !== bTs) {
+              return aTs - bTs;
+            }
+            return a.id.localeCompare(b.id);
+          });
+        }).catch((error) => console.error('Failed optimistic message cache update:', error));
+
+        const sorted = sortUsersByRecency(next);
+        setCachedUsers(sorted).catch((error) => console.error(error));
+        return sorted;
+      });
+    },
+    []
+  );
+
+  const syncRealtimeConversationFromMongo = useCallback(
+    async (eventType: 'new_message' | 'message_echo', data: SSEMessageData) => {
+      const freshUsers = sortUsersByRecency(normalizeUsersFromBackend(await getInboxUsers()));
+      const matchedConversation = findConversationForRealtimeMessage(freshUsers, data);
+      const targetConversationId = matchedConversation?.id || data.conversationId || null;
+      if (targetConversationId) {
+        const latestMessages = await fetchLatestConversationMessages(targetConversationId);
+        await updateCachedMessages(targetConversationId, (existing) =>
+          mergeMessageCacheSnapshots(existing, latestMessages)
+        );
       }
-      conv.time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      conv.updatedAt = new Date(timestamp).toISOString();
-      if (outgoing) conv.unread = 0;
-      else conv.unread = (conv.unread ?? 0) + 1;
-      updated[idx] = conv;
-      const sorted = sortUsersByRecency(updated);
-      setCachedUsers(sorted).catch(e => console.error(e));
-      return sorted;
-    });
-  }, [refetchConversations]);
+
+      setUsers((previousUsers) => {
+        const mergedUsers = mergeUsersWithLocalRecency(previousUsers, freshUsers);
+        setCachedUsers(mergedUsers).catch((error) => console.error(error));
+        return mergedUsers;
+      });
+      if (!targetConversationId) return;
+
+      emitInboxRealtimeMessage({
+        type: eventType,
+        data: {
+          ...data,
+          conversationId: targetConversationId,
+        },
+      });
+    },
+    []
+  );
+
+  const handleSidebarMessageEvent = useCallback(
+    (eventType: 'new_message' | 'message_echo', data: SSEMessageData) => {
+      applyOptimisticRealtimePreview(eventType, data);
+      realtimeSyncQueueRef.current = realtimeSyncQueueRef.current
+        .catch(() => undefined)
+        .then(() => syncRealtimeConversationFromMongo(eventType, data))
+        .catch((error) => {
+          console.error('Failed to synchronize realtime conversation snapshot:', error);
+        });
+    },
+    [applyOptimisticRealtimePreview, syncRealtimeConversationFromMongo]
+  );
 
   useSSE('/api/sse', {
     onMessage: (message: any) => {
-      if (message.type === 'new_message') handleSidebarMessageEvent(message.data, false, Boolean(message.data?.fromMe));
-      else if (message.type === 'message_echo') handleSidebarMessageEvent(message.data, true, true);
+      if (message.type === 'new_message') {
+        handleSidebarMessageEvent('new_message', message.data);
+      } else if (message.type === 'message_echo') {
+        handleSidebarMessageEvent('message_echo', message.data);
+      }
       else if (message.type === 'user_status_updated') {
         if (isStatusType(message.data.status)) {
           applyUserStatusUpdate(message.data.conversationId, message.data.status);

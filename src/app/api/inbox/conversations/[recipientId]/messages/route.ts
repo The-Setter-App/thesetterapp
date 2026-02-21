@@ -6,6 +6,8 @@ import { fetchMessages } from '@/lib/graphApi';
 import { mapGraphMessageToAppMessage } from '@/lib/mappers';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
+export const dynamic = 'force-dynamic';
+
 const DEFAULT_INITIAL_LIMIT = 20;
 const MAX_PAGE_LIMIT = 20;
 
@@ -30,6 +32,8 @@ export async function GET(
         nextCursor: null,
         hasMore: false,
         source: 'mongo',
+      }, {
+        headers: { 'Cache-Control': 'no-store' },
       });
     }
 
@@ -62,12 +66,14 @@ export async function GET(
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
       source: 'mongo',
+    }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
     }
     console.error('[InboxMessagesAPI] Failed to fetch messages page:', error);
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }

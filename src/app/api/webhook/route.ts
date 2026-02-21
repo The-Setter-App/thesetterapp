@@ -315,6 +315,31 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
     const { normalized: sseAttachments, messageType, attachmentUrl } = normalizeWebhookAttachments(attachments);
 
+    const ssePayload: SSEEvent = {
+      type: isEcho ? 'message_echo' : 'new_message',
+      timestamp: new Date().toISOString(),
+      data: {
+        senderId,
+        recipientId,
+        conversationId: conversationId || '',
+        accountId: creds.accountId,
+        messageId,
+        text: messageText,
+        attachments: sseAttachments,
+        timestamp,
+        fromMe: isEcho ? true : fromMe,
+      },
+    };
+
+    if (isEcho) {
+      webhookDebug(`[Webhook] Message echo (sent): ${messageText || '[attachment]'}`);
+    } else {
+      webhookDebug(`[Webhook] Message received: ${messageText || '[attachment]'}`);
+    }
+
+    // Emit first so frontend can render instantly, then persist to MongoDB.
+    sseEmitter.emit('message', ssePayload);
+
     // Persist to MongoDB if conversation is known
     if (conversationId) {
       const newMessage: Message = {
@@ -380,30 +405,6 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     } else {
       console.warn('[Webhook] Could not persist message: Conversation ID not found');
     }
-
-    const ssePayload: SSEEvent = {
-      type: isEcho ? 'message_echo' : 'new_message',
-      timestamp: new Date().toISOString(),
-      data: {
-        senderId,
-        recipientId,
-        conversationId: conversationId || '',
-        accountId: creds.accountId,
-        messageId,
-        text: messageText,
-        attachments: sseAttachments,
-        timestamp,
-        fromMe: isEcho ? true : fromMe,
-      },
-    };
-
-    if (isEcho) {
-      webhookDebug(`[Webhook] Message echo (sent): ${messageText || '[attachment]'}`);
-    } else {
-      webhookDebug(`[Webhook] Message received: ${messageText || '[attachment]'}`);
-    }
-
-    sseEmitter.emit('message', ssePayload);
   }
 
   // Handle message seen (read receipts)

@@ -3,6 +3,8 @@ import { getConversationDetails, updateConversationDetails } from '@/lib/inboxRe
 import type { ConversationDetails } from '@/types/inbox';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
+export const dynamic = 'force-dynamic';
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-() ]+$/;
 
@@ -39,13 +41,15 @@ export async function GET(
           email: '',
         },
       },
+    }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
     }
     console.error('[InboxDetailsAPI] Failed to get details:', error);
-    return NextResponse.json({ error: 'Failed to fetch details' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch details' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
