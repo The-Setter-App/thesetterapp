@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
 
 // 1. Specify protected and public routes
-const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai'];
+const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai', '/onboarding'];
 const publicRoutes = ['/login', '/signup', '/'];
 
 export async function proxy(request: NextRequest) {

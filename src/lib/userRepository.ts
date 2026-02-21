@@ -1,4 +1,5 @@
 import clientPromise from '@/lib/mongodb';
+import { normalizeDisplayName } from '@/lib/profileValidation';
 import { randomUUID } from 'crypto';
 import {
   type InstagramAccountConnection,
@@ -25,6 +26,12 @@ function toDate(value: unknown, fallback: Date): Date {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function normalizeOptionalDisplayName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = normalizeDisplayName(value);
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function isTeamMemberRole(value: unknown): value is TeamMemberRole {
@@ -113,6 +120,11 @@ function sanitizeUser(raw: User | null): User | null {
 
   const user = { ...raw };
   user.email = normalizeEmail(user.email);
+  user.displayName = normalizeOptionalDisplayName(user.displayName);
+  user.profileImageBase64 = typeof user.profileImageBase64 === 'string' ? user.profileImageBase64 : undefined;
+  if (typeof user.hasCompletedOnboarding !== 'boolean') {
+    user.hasCompletedOnboarding = undefined;
+  }
 
   if (user.teamOwnerEmail) {
     user.teamOwnerEmail = normalizeEmail(user.teamOwnerEmail);
@@ -130,6 +142,20 @@ function sanitizeUser(raw: User | null): User | null {
   }
 
   return user;
+}
+
+function getDisplayNameFallback(email: string): string {
+  const localPart = email.split('@')[0]?.trim();
+  return localPart && localPart.length > 0 ? localPart : email;
+}
+
+export function getUserDisplayName(user: Pick<User, 'email' | 'displayName'>): string {
+  const normalized = normalizeOptionalDisplayName(user.displayName);
+  return normalized ?? getDisplayNameFallback(user.email);
+}
+
+export function isOnboardingRequired(user: Pick<User, 'hasCompletedOnboarding'>): boolean {
+  return user.hasCompletedOnboarding === false;
 }
 
 async function ensureUserIndexes(db: any): Promise<void> {
@@ -248,6 +274,7 @@ export async function upsertUser(email: string): Promise<User> {
     role: 'viewer',
     createdAt: now,
     lastLoginAt: now,
+    hasCompletedOnboarding: false,
   };
 
   await db.collection(USERS_COLLECTION).insertOne(newUser as any);
@@ -307,6 +334,94 @@ export async function getUser(email: string): Promise<User | null> {
 
   if (!user) return null;
   return sanitizeUser(user);
+}
+
+interface UpdateUserProfileInput {
+  displayName: string;
+  profileImageBase64?: string | null;
+  markOnboardingComplete?: boolean;
+}
+
+export async function updateUserProfileImage(email: string, profileImageBase64: string | null): Promise<User> {
+  const normalizedEmail = normalizeEmail(email);
+
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureUserIndexes(db);
+
+  const now = new Date();
+  await db.collection(USERS_COLLECTION).updateOne(
+    { email: normalizedEmail },
+    {
+      ...(profileImageBase64
+        ? {
+            $set: {
+              profileImageBase64,
+              updatedAt: now,
+            },
+          }
+        : {
+            $set: { updatedAt: now },
+            $unset: { profileImageBase64: '' },
+          }),
+    }
+  );
+
+  const updatedUser = (await db.collection<User>(USERS_COLLECTION).findOne({ email: normalizedEmail })) as User | null;
+  if (!updatedUser) {
+    throw new Error('Failed to load updated user');
+  }
+
+  return sanitizeUser(updatedUser) as User;
+}
+
+export async function updateUserProfile(email: string, input: UpdateUserProfileInput): Promise<User> {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedName = normalizeDisplayName(input.displayName);
+  if (!normalizedName) {
+    throw new Error('Display name is required');
+  }
+
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  await ensureUserIndexes(db);
+
+  const now = new Date();
+  const updateSet: {
+    displayName: string;
+    updatedAt: Date;
+    hasCompletedOnboarding?: boolean;
+    profileImageBase64?: string;
+  } = {
+    displayName: normalizedName,
+    updatedAt: now,
+  };
+  const updateUnset: { profileImageBase64?: '' } = {};
+
+  if (input.markOnboardingComplete) {
+    updateSet.hasCompletedOnboarding = true;
+  }
+
+  if (typeof input.profileImageBase64 === 'string' && input.profileImageBase64.length > 0) {
+    updateSet.profileImageBase64 = input.profileImageBase64;
+  } else if (input.profileImageBase64 === null) {
+    updateUnset.profileImageBase64 = '';
+  }
+
+  await db.collection(USERS_COLLECTION).updateOne(
+    { email: normalizedEmail },
+    {
+      $set: updateSet,
+      ...(Object.keys(updateUnset).length > 0 ? { $unset: updateUnset } : {}),
+    }
+  );
+
+  const updatedUser = (await db.collection<User>(USERS_COLLECTION).findOne({ email: normalizedEmail })) as User | null;
+  if (!updatedUser) {
+    throw new Error('Failed to load updated user');
+  }
+
+  return sanitizeUser(updatedUser) as User;
 }
 
 export async function upsertInstagramAccounts(email: string, accounts: InstagramAccountConnection[]): Promise<void> {
@@ -564,6 +679,7 @@ export async function addTeamMemberByOwner(
           email: normalizedMemberEmail,
           createdAt: now,
           lastLoginAt: now,
+          hasCompletedOnboarding: false,
         },
       },
       { upsert: true }

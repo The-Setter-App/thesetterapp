@@ -12,6 +12,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    return "Something went wrong";
+  };
+
   useEffect(() => {
     // Clear cache on mount to ensure clean state
     resetCache().catch(console.error);
@@ -35,8 +40,8 @@ export default function LoginPage() {
       }
 
       setStep('otp');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -54,8 +59,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email, otp }),
       });
 
+      const data = (await res.json()) as { error?: string; requiresOnboarding?: boolean };
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || 'Invalid OTP');
       }
 
@@ -65,11 +70,11 @@ export default function LoginPage() {
       } catch (e) {
         console.error("Failed to reset cache on login:", e);
       }
-      
-      router.push('/dashboard');
+
+      router.push(data.requiresOnboarding ? '/onboarding' : '/dashboard');
       router.refresh(); // Refresh to update server components with new session
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
