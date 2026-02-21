@@ -194,28 +194,42 @@ export async function syncLatestMessages(
 
     const accessToken = decryptData(account.accessToken);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const freshRawMessages = await fetchMessages(conversationId, accessToken, 5, account.graphVersion);
-    const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, account.instagramUserId));
-    await saveMessagesToDb(messages, conversationId, ownerEmail);
+    const retryDelaysMs = [600, 900, 1200, 1500, 2000];
+    let matchedOutgoingMessage: Message | undefined;
 
-    let latestMessage = messages[0];
-    if (matchCriteria) {
-      latestMessage =
-        messages.find(
-          (m) =>
-            m.fromMe &&
-            (matchCriteria.type ? m.type === matchCriteria.type : true) &&
-            (matchCriteria.text !== undefined ? m.text === matchCriteria.text : true)
-        ) || messages[0];
+    for (const delayMs of retryDelaysMs) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      const freshRawMessages = await fetchMessages(conversationId, accessToken, 10, account.graphVersion);
+      const messages = freshRawMessages.map((msg) => mapGraphMessageToAppMessage(msg, account.instagramUserId));
+      await saveMessagesToDb(messages, conversationId, ownerEmail);
+
+      const outgoingMessages = messages.filter((message) => message.fromMe);
+      if (outgoingMessages.length === 0) {
+        continue;
+      }
+
+      if (matchCriteria) {
+        matchedOutgoingMessage = outgoingMessages.find(
+          (message) =>
+            (matchCriteria.type ? message.type === matchCriteria.type : true) &&
+            (matchCriteria.text !== undefined ? message.text === matchCriteria.text : true)
+        );
+      } else {
+        matchedOutgoingMessage = outgoingMessages[0];
+      }
+
+      if (matchedOutgoingMessage) {
+        break;
+      }
     }
 
-    if (latestMessage && latestMessage.fromMe) {
+    if (matchedOutgoingMessage) {
       const attachments = [];
-      if (latestMessage.type === 'image' && latestMessage.attachmentUrl) {
-        attachments.push({ image_data: { url: latestMessage.attachmentUrl } });
-      } else if (latestMessage.type === 'video' && latestMessage.attachmentUrl) {
-        attachments.push({ video_data: { url: latestMessage.attachmentUrl } });
+      if (matchedOutgoingMessage.type === 'image' && matchedOutgoingMessage.attachmentUrl) {
+        attachments.push({ image_data: { url: matchedOutgoingMessage.attachmentUrl } });
+      } else if (matchedOutgoingMessage.type === 'video' && matchedOutgoingMessage.attachmentUrl) {
+        attachments.push({ video_data: { url: matchedOutgoingMessage.attachmentUrl } });
       }
 
       sseEmitter.emit('message', {
@@ -226,11 +240,11 @@ export async function syncLatestMessages(
           recipientId: conversation.recipientId,
           conversationId,
           accountId: conversation.accountId,
-          messageId: latestMessage.id,
-          text: latestMessage.text,
+          messageId: matchedOutgoingMessage.id,
+          text: matchedOutgoingMessage.text,
           attachments,
-          timestamp: latestMessage.timestamp ? new Date(latestMessage.timestamp).getTime() : Date.now(),
-          fromMe: latestMessage.fromMe,
+          timestamp: matchedOutgoingMessage.timestamp ? new Date(matchedOutgoingMessage.timestamp).getTime() : Date.now(),
+          fromMe: matchedOutgoingMessage.fromMe,
         },
       });
     }

@@ -150,6 +150,56 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     }
   }, []);
 
+  useEffect(() => {
+    const REFRESH_INTERVAL_MS = 45000;
+    let intervalId: number | null = null;
+
+    const startInterval = () => {
+      if (intervalId !== null) return;
+      intervalId = window.setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        refetchConversations().catch((error) => {
+          console.error('Failed to refresh conversations:', error);
+        });
+      }, REFRESH_INTERVAL_MS);
+    };
+
+    const stopInterval = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchConversations().catch((error) => {
+          console.error('Failed to refresh conversations:', error);
+        });
+        startInterval();
+        return;
+      }
+      stopInterval();
+    };
+
+    const onFocus = () => {
+      refetchConversations().catch((error) => {
+        console.error('Failed to refresh conversations:', error);
+      });
+    };
+
+    if (document.visibilityState === 'visible') {
+      startInterval();
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      stopInterval();
+    };
+  }, [refetchConversations]);
+
   const applyUserStatusUpdate = useCallback((userId: string, status: StatusType) => {
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.id === userId);

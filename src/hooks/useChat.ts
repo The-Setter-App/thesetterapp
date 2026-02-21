@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
-import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages, setCachedUsers } from '@/lib/clientCache';
+import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages } from '@/lib/clientCache';
+import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
 import type { User, Message, MessagePageResponse, ConversationDetails } from '@/types/inbox';
 import { useSSE } from '@/hooks/useSSE';
 
@@ -123,29 +124,12 @@ export function useChat(selectedUserId: string) {
 
     if (currentPreview && !NO_MESSAGES_PLACEHOLDER_REGEX.test(currentPreview)) return;
 
-    if (cachedUsers?.length) {
-      const updated = cachedUsers.map((u) => {
-        if (u.id !== selectedUserId) return u;
-        return {
-          ...u,
-          lastMessage: previewText,
-          time: previewTime,
-          updatedAt: previewUpdatedAt,
-        };
-      });
-      setCachedUsers(updated).catch((e) => console.error('Cache update failed:', e));
-    }
-
-    window.dispatchEvent(
-      new CustomEvent('conversationPreviewHydrated', {
-        detail: {
-          userId: selectedUserId,
-          lastMessage: previewText,
-          time: previewTime,
-          updatedAt: previewUpdatedAt,
-        },
-      })
-    );
+    applyConversationPreviewUpdate({
+      conversationId: selectedUserId,
+      lastMessage: previewText,
+      time: previewTime,
+      updatedAt: previewUpdatedAt,
+    }).catch((e) => console.error('Preview sync failed:', e));
 
     updateConversationPreview(selectedUserId, previewText, previewTime, false, false).catch((err) =>
       console.error('Failed to hydrate conversation preview:', err)
@@ -427,6 +411,13 @@ export function useChat(selectedUserId: string) {
 
     const previewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const previewText = messageText || (hasAttachment ? 'Image' : 'Message');
+    const previewUpdatedAt = new Date().toISOString();
+    applyConversationPreviewUpdate({
+      conversationId: selectedUserId,
+      lastMessage: previewText,
+      time: previewTime,
+      updatedAt: previewUpdatedAt,
+    }).catch((err) => console.error('Failed to sync preview locally:', err));
     updateConversationPreview(selectedUserId, previewText, previewTime, false, true).catch(err => console.error('Failed to update preview:', err));
 
     try {
@@ -536,7 +527,14 @@ export function useChat(selectedUserId: string) {
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
-    updateConversationPreview(selectedUserId, 'You sent a voice message', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false, true)
+    const audioPreviewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    applyConversationPreviewUpdate({
+      conversationId: selectedUserId,
+      lastMessage: 'You sent a voice message',
+      time: audioPreviewTime,
+      updatedAt: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to sync preview locally:', err));
+    updateConversationPreview(selectedUserId, 'You sent a voice message', audioPreviewTime, false, true)
       .catch(err => console.error('Failed to update preview:', err));
 
     try {
