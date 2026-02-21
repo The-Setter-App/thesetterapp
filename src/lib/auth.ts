@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { JWTPayload } from '@/types/auth';
 import { cookies } from 'next/headers';
-import { getCachedUser } from '@/lib/settingsCache';
+import { getUser } from '@/lib/userRepository';
 
 const SECRET_KEY = process.env.JWT_SECRET || 'default-secret-key-change-me';
 const key = new TextEncoder().encode(SECRET_KEY);
@@ -29,7 +29,7 @@ export async function getSession(): Promise<JWTPayload | null> {
     const payload = await decrypt(session);
     if (!payload.email) return null;
 
-    const user = await getCachedUser(payload.email);
+    const user = await getUser(payload.email);
     if (!user) return null;
 
     return {

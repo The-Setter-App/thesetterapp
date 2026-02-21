@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     // OTP valid - create/update user and session
     const user = await upsertUser(email);
     await createSession({ email: user.email, role: user.role });
-    
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ success: true, requiresOnboarding: user.hasCompletedOnboarding === false });
   } catch (error) {
     console.error('Error verifying OTP:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

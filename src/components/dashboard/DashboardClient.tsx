@@ -50,7 +50,7 @@ const MetricCard = ({ value, label, icon }: MetricCardProps) => (
   </div>
 );
 
-export default function Dashboard() {
+export default function Dashboard({ displayName }: { displayName: string }) {
   // --- Funnel Data Logic ---
   // In a real app, fetch conversations from DB/API. Here, use leads as mock for demo.
   // Number of conversations: count of all leads (or replace with real conversations count)
@@ -170,7 +170,7 @@ export default function Dashboard() {
                 lineHeight: '28px',
                 fontFamily: 'Inter, sans-serif'
               }}>
-                Hi, Kelvin!
+                Hi, {displayName}!
               </div>
               <div style={{
                 color: '#606266',

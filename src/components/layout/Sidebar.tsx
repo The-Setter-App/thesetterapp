@@ -71,7 +71,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
     { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
     { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
-    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+    { to: '/settings/profile', icon: '/icons/Settings.svg', alt: 'Settings' },
   ],
   setter: [
     { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
@@ -79,7 +79,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
     { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
     { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
-    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+    { to: '/settings/profile', icon: '/icons/Settings.svg', alt: 'Settings' },
   ],
   closer: [
     { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
@@ -87,15 +87,22 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { to: '/leads', icon: '/icons/Leads.svg', alt: 'Leads' },
     { to: '/calendar', icon: CalendarIconLucide, alt: 'Calendar' },
     { to: '/setter-ai', icon: '/icons/SetterAI.svg', alt: 'Setter AI' },
-    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+    { to: '/settings/profile', icon: '/icons/Settings.svg', alt: 'Settings' },
   ],
   viewer: [
     { to: '/dashboard', icon: LayoutDashboard, alt: 'Dashboard' },
-    { to: '/settings', icon: '/icons/Settings.svg', alt: 'Settings' },
+    { to: '/settings/profile', icon: '/icons/Settings.svg', alt: 'Settings' },
   ],
 };
 
-const Sidebar = ({ role }: { role: UserRole }) => {
+interface SidebarProps {
+  role: UserRole;
+  displayName: string;
+  email: string;
+  profileImageBase64?: string;
+}
+
+const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const navItems = NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.viewer;
 
@@ -105,8 +112,9 @@ const Sidebar = ({ role }: { role: UserRole }) => {
       <div className="mb-8">
         <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-100 relative">
            <img 
-             src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" 
-             alt="User" 
+             src={profileImageBase64 || "/images/no_profile.jpg"}
+             alt={`${displayName} avatar`}
+             title={`${displayName} (${email})`}
              className="w-full h-full object-cover"
            />
         </div>

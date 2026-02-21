@@ -35,6 +35,9 @@ export interface User {
   role: UserRole;
   createdAt: Date;
   lastLoginAt?: Date;
+  displayName?: string;
+  profileImageBase64?: string;
+  hasCompletedOnboarding?: boolean;
   teamOwnerEmail?: string;
   teamMembers?: TeamMember[];
   instagramAccounts?: InstagramAccountConnection[];
