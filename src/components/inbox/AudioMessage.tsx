@@ -2,17 +2,33 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+function formatDurationDisplay(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
 interface AudioMessageProps {
+  messageId: string;
   src: string;
   duration?: string; // "0:05"
   isOwn: boolean;
+  onDurationResolved?: (messageId: string, duration: string) => void;
 }
 
-export default function AudioMessage({ src, duration, isOwn }: AudioMessageProps) {
+export default function AudioMessage({
+  messageId,
+  src,
+  duration,
+  isOwn,
+  onDurationResolved,
+}: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [loadedDuration, setLoadedDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const lastReportedDurationRef = useRef<string>('');
 
   // Waveform heights from design spec
   const waveformHeights = [2, 8, 14, 4, 16, 14, 10, 10, 10, 14, 10, 16, 10, 4, 2];
@@ -28,35 +44,6 @@ export default function AudioMessage({ src, duration, isOwn }: AudioMessageProps
     setIsPlaying(!isPlaying);
   };
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onLoadedMetadata = () => setLoadedDuration(audio.duration);
-    const onEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('loadedmetadata', onLoadedMetadata);
-    audio.addEventListener('ended', onEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, []);
-
-  const formatTime = (seconds: number): string => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
   const parseDuration = (value?: string): number | null => {
     if (!value) return null;
     const [minutes, seconds] = value.split(':');
@@ -66,17 +53,56 @@ export default function AudioMessage({ src, duration, isOwn }: AudioMessageProps
     return (m * 60) + s;
   };
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const syncDuration = () => {
+      const nextDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (nextDuration > 0) {
+        setLoadedDuration(nextDuration);
+        const resolvedDuration = formatDurationDisplay(nextDuration);
+        if (
+          onDurationResolved &&
+          resolvedDuration !== lastReportedDurationRef.current &&
+          resolvedDuration !== duration
+        ) {
+          lastReportedDurationRef.current = resolvedDuration;
+          onDurationResolved(messageId, resolvedDuration);
+        }
+      }
+    };
+    const onLoadedMetadata = () => syncDuration();
+    const onDurationChange = () => syncDuration();
+    const onEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    // Ensure metadata fetch starts immediately for newly mounted/updated audio.
+    audio.load();
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('durationchange', onDurationChange);
+    audio.addEventListener('ended', onEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('durationchange', onDurationChange);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [duration, messageId, onDurationResolved, src]);
+
   const providedDurationSeconds = parseDuration(duration);
   const hasLoadedDuration = Number.isFinite(loadedDuration) && loadedDuration > 0;
-  const durationMismatch =
-    hasLoadedDuration &&
-    providedDurationSeconds !== null &&
-    Math.abs(loadedDuration - providedDurationSeconds) >= 1;
-
-  // Prefer true media metadata if it disagrees with a stale/wrong saved duration.
-  const displayDuration = durationMismatch
-    ? formatTime(loadedDuration)
-    : (duration || formatTime(loadedDuration));
+  const hasProvidedDuration = providedDurationSeconds !== null && providedDurationSeconds > 0;
+  const displayDuration = hasLoadedDuration
+    ? formatDurationDisplay(loadedDuration)
+    : hasProvidedDuration
+      ? duration || formatDurationDisplay(providedDurationSeconds || 0)
+      : '0:00';
 
   return (
     <div 
@@ -118,7 +144,7 @@ export default function AudioMessage({ src, duration, isOwn }: AudioMessageProps
 
       {/* Timestamp: z-index: 4 */}
       <div className={`relative z-[4] font-medium text-[12px] leading-[16px] whitespace-nowrap ${isOwn ? 'text-white' : 'text-gray-600'}`} style={{ opacity: 0.8 }}>
-        {isPlaying ? formatTime(currentTime) : displayDuration}
+        {isPlaying ? formatDurationDisplay(currentTime) : displayDuration}
       </div>
 
       {/* Volume Icon: z-index: 5 */}

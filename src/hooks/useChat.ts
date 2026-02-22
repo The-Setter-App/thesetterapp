@@ -44,9 +44,20 @@ export function useChat(selectedUserId: string) {
       messageById.set(message.id, message);
     }
     for (const message of incoming) {
-      if (!messageById.has(message.id)) {
+      const existing = messageById.get(message.id);
+      if (!existing) {
         messageById.set(message.id, message);
+        continue;
       }
+
+      messageById.set(message.id, {
+        ...existing,
+        ...message,
+        text: message.text || existing.text,
+        duration: message.duration || existing.duration,
+        attachmentUrl: message.attachmentUrl || existing.attachmentUrl,
+        type: message.type !== 'text' ? message.type : existing.type,
+      });
     }
 
     return Array.from(messageById.values()).sort((a, b) => {
@@ -204,6 +215,25 @@ export function useChat(selectedUserId: string) {
     if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
     setAttachmentFile(null);
     setAttachmentPreview('');
+  };
+
+  const handleAudioDurationResolved = (messageId: string, duration: string) => {
+    setChatHistory((prev) => {
+      let changed = false;
+      const updated = prev.map((message) => {
+        if (message.id !== messageId || message.type !== 'audio') return message;
+        if (message.duration === duration) return message;
+        changed = true;
+        return { ...message, duration };
+      });
+
+      if (!changed) return prev;
+
+      setCachedMessages(selectedUserId, updated).catch((e) =>
+        console.error('Cache update failed:', e),
+      );
+      return updated;
+    });
   };
 
   // Load User
@@ -378,7 +408,21 @@ export function useChat(selectedUserId: string) {
         return updated;
       }
 
-      if (prev.some((msg) => msg.id === messageId)) return prev;
+      if (prev.some((msg) => msg.id === messageId)) {
+        const updated = prev.map((msg) => {
+          if (msg.id !== messageId) return msg;
+          return {
+            ...msg,
+            ...newMessage,
+            text: newMessage.text || msg.text,
+            duration: newMessage.duration || msg.duration,
+            attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
+            type: newMessage.type !== 'text' ? newMessage.type : msg.type,
+          };
+        });
+        setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
+        return updated;
+      }
 
       const updated = [...prev, newMessage];
       setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
@@ -772,6 +816,7 @@ export function useChat(selectedUserId: string) {
     handleSendAudio,
     statusUpdate,
     loadOlderMessages,
+    handleAudioDurationResolved,
     conversationDetails,
     conversationDetailsSyncedAt,
     initialLoadSettled,

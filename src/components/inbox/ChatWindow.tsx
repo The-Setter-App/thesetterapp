@@ -10,6 +10,7 @@ interface ChatWindowProps {
   loadingOlder?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
+  onAudioDurationResolved?: (messageId: string, duration: string) => void;
   statusUpdate?: {
     status: string;
     timestamp: Date | string;
@@ -22,6 +23,7 @@ export default function ChatWindow({
   loadingOlder,
   hasMore,
   onLoadMore,
+  onAudioDurationResolved,
   statusUpdate: _statusUpdate
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -281,9 +283,11 @@ export default function ChatWindow({
                 
                 {msg.type === 'audio' && (
                   <AudioMessage 
+                    messageId={msg.id}
                     src={msg.attachmentUrl || ''} 
                     duration={msg.duration} 
                     isOwn={msg.fromMe} 
+                    onDurationResolved={onAudioDurationResolved}
                   />
                 )}
                 

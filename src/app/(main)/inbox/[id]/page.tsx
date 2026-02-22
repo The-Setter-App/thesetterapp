@@ -30,6 +30,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     clearAttachment,
     handleSendMessage,
     handleSendAudio,
+    handleAudioDurationResolved,
     statusUpdate,
     loadOlderMessages,
     conversationDetails,
@@ -97,6 +98,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           loadingOlder={loadingOlder}
           hasMore={hasMoreMessages}
           onLoadMore={loadOlderMessages}
+          onAudioDurationResolved={handleAudioDurationResolved}
           statusUpdate={statusUpdate}
         />
 

@@ -152,6 +152,67 @@ export async function saveOrUpdateLocalAudioMessage(params: {
   return baseMessage;
 }
 
+export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
+  ownerEmail: string;
+  conversationId: string;
+  timestamp: string;
+  text?: string;
+}): Promise<Message | null> {
+  const db = await getInboxDb();
+  const tenMinutesAgoIso = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+  const candidates = await db
+    .collection<MessageDoc>(MESSAGES_COLLECTION)
+    .find(
+      {
+        ownerEmail: params.ownerEmail,
+        conversationId: params.conversationId,
+        fromMe: true,
+        type: "audio",
+        source: "local_audio_fallback",
+        timestamp: { $gte: tenMinutesAgoIso },
+      },
+      { sort: { timestamp: -1 }, limit: 5 },
+    )
+    .toArray();
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const targetTimestampMs = Date.parse(params.timestamp);
+  const fallback = candidates.reduce((best, candidate) => {
+    if (!best) return candidate;
+    if (!Number.isFinite(targetTimestampMs)) return best;
+
+    const bestDiff = Math.abs(Date.parse(best.timestamp || "") - targetTimestampMs);
+    const candidateDiff = Math.abs(
+      Date.parse(candidate.timestamp || "") - targetTimestampMs,
+    );
+    return candidateDiff < bestDiff ? candidate : best;
+  }, candidates[0]);
+
+  const merged: Message = {
+    ...(fallback as Message),
+    text: params.text || fallback.text || "",
+    timestamp: params.timestamp || fallback.timestamp,
+  };
+
+  await db.collection(MESSAGES_COLLECTION).updateOne(
+    { id: fallback.id, ownerEmail: params.ownerEmail },
+    {
+      $set: {
+        ...merged,
+        conversationId: params.conversationId,
+        ownerEmail: params.ownerEmail,
+      },
+    },
+    { upsert: true },
+  );
+
+  return merged;
+}
+
 export async function getVoiceNoteStreamForMessage(
   messageId: string,
   ownerEmail: string,
