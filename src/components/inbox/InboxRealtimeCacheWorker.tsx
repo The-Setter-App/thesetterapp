@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { getInboxUsers } from "@/app/actions/inbox";
 import {
   getCachedUsers,
+  getCachedMessages,
   setCachedUsers,
   updateCachedMessages,
 } from "@/lib/clientCache";
@@ -145,11 +146,47 @@ function mergeMessageCacheSnapshots(
   });
 }
 
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
+}
+
+function resolveAudioDurationFromUrl(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+
+    const cleanup = () => {
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("error", onError);
+    };
+
+    const onLoadedMetadata = () => {
+      const duration = formatDuration(audio.duration);
+      cleanup();
+      resolve(duration === "0:00" ? null : duration);
+    };
+
+    const onError = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    audio.preload = "metadata";
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("error", onError);
+    audio.src = url;
+    audio.load();
+  });
+}
+
 export default function InboxRealtimeCacheWorker({
   enabled,
 }: InboxRealtimeCacheWorkerProps) {
   const pathname = usePathname();
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const resolvingDurationKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled) return;
@@ -198,20 +235,72 @@ export default function InboxRealtimeCacheWorker({
       }
 
       const optimisticMessage = mapRealtimePayloadToMessage(eventType, data);
+      if (
+        optimisticMessage.type === "audio" &&
+        !optimisticMessage.duration &&
+        optimisticMessage.attachmentUrl
+      ) {
+        const resolvedDuration = await resolveAudioDurationFromUrl(
+          optimisticMessage.attachmentUrl,
+        );
+        if (resolvedDuration) {
+          optimisticMessage.duration = resolvedDuration;
+        }
+      }
       await updateCachedMessages(targetConversationId, (existing) =>
         mergeMessageCacheSnapshots(existing, [optimisticMessage]),
       );
+
+      const hydrateMissingAudioDurations = async () => {
+        const cachedMessages = await getCachedMessages(targetConversationId);
+        if (!cachedMessages?.length) return;
+
+        const candidates = cachedMessages.filter(
+          (message) =>
+            message.type === "audio" &&
+            !message.duration &&
+            Boolean(message.attachmentUrl),
+        );
+        if (candidates.length === 0) return;
+
+        for (const message of candidates) {
+          const key = `${targetConversationId}:${message.id}`;
+          if (resolvingDurationKeysRef.current.has(key)) continue;
+          resolvingDurationKeysRef.current.add(key);
+
+          try {
+            const attachmentUrl = message.attachmentUrl;
+            if (!attachmentUrl) continue;
+
+            const resolvedDuration = await resolveAudioDurationFromUrl(attachmentUrl);
+            if (!resolvedDuration) continue;
+
+            await updateCachedMessages(targetConversationId, (existing) => {
+              if (!existing) return [];
+              return existing.map((entry) => {
+                if (entry.id !== message.id || entry.type !== "audio") return entry;
+                if (entry.duration === resolvedDuration) return entry;
+                return { ...entry, duration: resolvedDuration };
+              });
+            });
+          } finally {
+            resolvingDurationKeysRef.current.delete(key);
+          }
+        }
+      };
 
       try {
         const latestMessages = await fetchLatestConversationMessages(targetConversationId);
         await updateCachedMessages(targetConversationId, (existing) =>
           mergeMessageCacheSnapshots(existing, latestMessages),
         );
+        await hydrateMissingAudioDurations();
       } catch (error) {
         console.error(
           "[InboxRealtimeCacheWorker] Failed to reconcile conversation messages:",
           error,
         );
+        await hydrateMissingAudioDurations();
       }
     };
 

@@ -1,5 +1,6 @@
 export {
   getVoiceNoteStreamForMessage,
+  reconcileOutgoingAudioEchoWithLocalFallback,
   saveOrUpdateLocalAudioMessage,
   saveVoiceNoteBlobToGridFs,
 } from "@/lib/inbox/repository/audioStore";
