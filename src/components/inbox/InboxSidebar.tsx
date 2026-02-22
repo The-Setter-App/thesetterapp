@@ -1,8 +1,6 @@
 "use client";
 
 import { Inter } from "next/font/google"; // Import Inter
-import Image from "next/image";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -42,278 +40,29 @@ import {
   isStatusType,
   STATUS_OPTIONS,
 } from "@/lib/status/config";
-import type {
-  Message,
-  SSEEvent,
-  SSEMessageData,
-  StatusType,
-  User,
-} from "@/types/inbox";
+import type { SSEEvent, SSEMessageData, StatusType, User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 import FilterModal from "./FilterModal";
+import {
+  SidebarEmptyState,
+  SidebarLoadingState,
+  SidebarNoConnectedAccountsState,
+} from "./sidebar/SidebarContentState";
+import SidebarHeader from "./sidebar/SidebarHeader";
+import SidebarSearchBar from "./sidebar/SidebarSearchBar";
+import SidebarTabs, { type SidebarTab } from "./sidebar/SidebarTabs";
+import {
+  buildRealtimePreviewText,
+  mapRealtimePayloadToMessage,
+  mergeMessageCacheSnapshots,
+  mergeUsersWithLocalRecency,
+  normalizeUsersFromBackend,
+  sortUsersByRecency,
+} from "./sidebar/utils";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// --- Icons ---
-const SearchIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-    />
-  </svg>
-);
-
-const FilterIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-    />
-  </svg>
-);
-
-const ChevronDownIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-    />
-  </svg>
-);
-
-const CheckIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <path
-      d="M5 13l4 4L19 7"
-      stroke="white"
-      strokeWidth="4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 const statusOptions: StatusType[] = STATUS_OPTIONS;
-
-function getTimestampMs(value?: string): number {
-  if (!value) return 0;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function isRelativeTimeLabel(value?: string): boolean {
-  if (!value) return true;
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return true;
-  return (
-    normalized === "just now" ||
-    normalized === "yesterday" ||
-    normalized.endsWith(" min") ||
-    normalized.endsWith(" mins") ||
-    normalized.endsWith(" hour") ||
-    normalized.endsWith(" hours") ||
-    normalized.endsWith(" day") ||
-    normalized.endsWith(" days")
-  );
-}
-
-function getStableDisplayTime(
-  updatedAt?: string,
-  currentLabel?: string,
-): string {
-  if (!updatedAt) return currentLabel || "";
-  const ms = Date.parse(updatedAt);
-  if (!Number.isFinite(ms)) return currentLabel || "";
-  if (!isRelativeTimeLabel(currentLabel)) return currentLabel || "";
-  return new Date(ms).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function normalizeUsersFromBackend(list: User[]): User[] {
-  return list.map((user) => ({
-    ...user,
-    time: getStableDisplayTime(user.updatedAt, user.time),
-  }));
-}
-
-function sortUsersByRecency(list: User[]): User[] {
-  return [...list].sort((a, b) => {
-    const timeDiff = getTimestampMs(b.updatedAt) - getTimestampMs(a.updatedAt);
-    if (timeDiff !== 0) return timeDiff;
-
-    const unreadDiff = (b.unread ?? 0) - (a.unread ?? 0);
-    if (unreadDiff !== 0) return unreadDiff;
-
-    return b.id.localeCompare(a.id);
-  });
-}
-
-function mergeUsersWithLocalRecency(
-  previous: User[],
-  incoming: User[],
-): User[] {
-  const previousById = new Map(previous.map((user) => [user.id, user]));
-  const merged = incoming.map((incomingUser) => {
-    const previousUser = previousById.get(incomingUser.id);
-    if (!previousUser) return incomingUser;
-    return getTimestampMs(previousUser.updatedAt) >
-      getTimestampMs(incomingUser.updatedAt)
-      ? previousUser
-      : incomingUser;
-  });
-
-  const incomingIds = new Set(incoming.map((user) => user.id));
-  for (const previousUser of previous) {
-    if (!incomingIds.has(previousUser.id)) {
-      merged.push(previousUser);
-    }
-  }
-
-  return sortUsersByRecency(merged);
-}
-
-function mapRealtimePayloadToMessage(
-  eventType: "new_message" | "message_echo",
-  data: SSEMessageData,
-): Message {
-  const attachment = data.attachments?.[0];
-  const payloadUrl = attachment?.payload?.url;
-  const fileUrl = attachment?.file_url || payloadUrl;
-  const isAudio =
-    attachment?.type === "audio" ||
-    Boolean(
-      fileUrl &&
-        (fileUrl.includes("audio") ||
-          fileUrl.endsWith(".mp3") ||
-          fileUrl.endsWith(".m4a") ||
-          fileUrl.endsWith(".ogg") ||
-          fileUrl.endsWith(".webm") ||
-          fileUrl.endsWith(".mp4")),
-    );
-  const isImage =
-    attachment?.type === "image" || Boolean(attachment?.image_data?.url);
-  const isVideo =
-    attachment?.type === "video" || Boolean(attachment?.video_data?.url);
-
-  let type: Message["type"] = "text";
-  let attachmentUrl: string | undefined;
-
-  if (isImage) {
-    type = "image";
-    attachmentUrl = attachment?.image_data?.url || fileUrl;
-  } else if (isVideo) {
-    type = "video";
-    attachmentUrl = attachment?.video_data?.url || fileUrl;
-  } else if (isAudio) {
-    type = "audio";
-    attachmentUrl = fileUrl;
-  } else if (attachment) {
-    type = "file";
-    attachmentUrl = fileUrl;
-  }
-
-  return {
-    id: data.messageId,
-    fromMe: eventType === "message_echo" || Boolean(data.fromMe),
-    type,
-    text: data.text || "",
-    duration: data.duration,
-    timestamp: new Date(data.timestamp).toISOString(),
-    attachmentUrl,
-  };
-}
-
-function buildRealtimePreviewText(
-  eventType: "new_message" | "message_echo",
-  data: SSEMessageData,
-): string {
-  const text = (data.text || "").trim();
-  if (text) return text;
-
-  const attachment = data.attachments?.[0];
-  const payloadUrl = attachment?.payload?.url;
-  const fileUrl = attachment?.file_url || payloadUrl;
-  const outgoing = eventType === "message_echo" || Boolean(data.fromMe);
-  const isAudio =
-    attachment?.type === "audio" ||
-    Boolean(
-      fileUrl &&
-        (fileUrl.includes("audio") ||
-          fileUrl.endsWith(".mp3") ||
-          fileUrl.endsWith(".m4a") ||
-          fileUrl.endsWith(".ogg") ||
-          fileUrl.endsWith(".webm") ||
-          fileUrl.endsWith(".mp4")),
-    );
-  const isImage =
-    attachment?.type === "image" || Boolean(attachment?.image_data?.url);
-  const isVideo =
-    attachment?.type === "video" || Boolean(attachment?.video_data?.url);
-  const hasAttachment = Boolean(attachment);
-
-  if (isAudio)
-    return outgoing ? "You sent a voice message" : "Sent a voice message";
-  if (isImage) return outgoing ? "You sent an image" : "Sent an image";
-  if (isVideo) return outgoing ? "You sent a video" : "Sent a video";
-  if (hasAttachment)
-    return outgoing ? "You sent an attachment" : "Sent an attachment";
-  return outgoing ? "You sent a message" : "Sent a message";
-}
-
-function mergeMessageCacheSnapshots(
-  existing: Message[] | null,
-  incoming: Message[],
-): Message[] {
-  const byId = new Map<string, Message>();
-  for (const message of existing ?? []) {
-    byId.set(message.id, message);
-  }
-  for (const message of incoming) {
-    const current = byId.get(message.id);
-    byId.set(message.id, current ? { ...current, ...message } : message);
-  }
-
-  return Array.from(byId.values()).sort((a, b) => {
-    const aTs = Date.parse(a.timestamp || "");
-    const bTs = Date.parse(b.timestamp || "");
-    if (Number.isFinite(aTs) && Number.isFinite(bTs) && aTs !== bTs) {
-      return aTs - bTs;
-    }
-    return a.id.localeCompare(b.id);
-  });
-}
 
 interface InboxSidebarProps {
   width?: number;
@@ -327,9 +76,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | "priority" | "unread">(
-    "all",
-  );
+  const [activeTab, setActiveTab] = useState<SidebarTab>("all");
   const [loading, setLoading] = useState(true);
   const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -864,91 +611,28 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       className={`${inter.className} bg-white flex flex-col flex-shrink-0 h-full antialiased`}
       style={width ? { width: `${width}px` } : undefined}
     >
-      {/* Sidebar Header */}
-      <div className="p-4 pb-3 border-b border-gray-200">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-xl font-bold tracking-tight text-gray-800">
-            Inbox
-          </h2>
-        </div>
-        <p className="text-xs font-medium text-gray-400">
-          Your unified chat workspace.
-        </p>
-      </div>
+      <SidebarHeader />
 
-      {/* Search & Filter */}
       {hasConnectedAccounts && (
-        <div className="p-4 pb-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <SearchIcon className="h-4 w-4 text-gray-400" />
-              </span>
-              <input
-                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white pl-9 pr-3 text-sm font-medium text-[#101011] placeholder:text-[#9A9CA2] outline-none transition-colors hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
-                placeholder="Search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={() => setShowFilterModal(true)}
-              className="px-3 py-2 bg-white border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 flex items-center"
-            >
-              <FilterIcon className="w-4 h-4 mr-1.5" />
-              Filter
-              {selectedStatuses.length > 0 && (
-                <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#8771FF] text-[10px] text-white">
-                  {selectedStatuses.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
+        <SidebarSearchBar
+          search={search}
+          onSearchChange={setSearch}
+          selectedStatusesCount={selectedStatuses.length}
+          onOpenFilters={() => setShowFilterModal(true)}
+        />
       )}
 
-      {/* Tabs */}
       {hasConnectedAccounts && (
-        <div className="border-t border-b border-gray-200 px-4 py-3">
-          <div className="flex gap-2 text-xs font-bold">
-            {["all", "priority", "unread"].map((tab) => (
-              <button
-                key={tab}
-                className={`flex-1 py-1.5 rounded-full capitalize transition-colors ${activeTab === tab ? "bg-[#8771FF] text-white" : "text-gray-500 hover:bg-gray-100"}`}
-                onClick={() => setActiveTab(tab as any)}
-              >
-                {tab} [
-                {tab === "all"
-                  ? users.length
-                  : tab === "priority"
-                    ? users.filter((u) => u.isPriority).length
-                    : users.filter((u) => (u.unread ?? 0) > 0).length}
-                ]
-              </button>
-            ))}
-          </div>
-        </div>
+        <SidebarTabs
+          activeTab={activeTab}
+          users={users}
+          onTabChange={setActiveTab}
+        />
       )}
 
       <div className="flex-1 overflow-y-auto">
         {!hasConnectedAccounts ? (
-          <div className="h-full flex items-center justify-center p-6">
-            <div className="text-center">
-              <p className="text-sm font-semibold text-gray-800">
-                No connected accounts yet
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Connect an Instagram account in Settings to start syncing.
-              </p>
-              <Link
-                href="/settings"
-                className="inline-flex mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800"
-              >
-                Go to Settings
-              </Link>
-            </div>
-          </div>
+          <SidebarNoConnectedAccountsState />
         ) : filteredUsers.length > 0 ? (
           <ConversationList
             users={filteredUsers}
@@ -958,22 +642,16 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             tagLookup={tagLookup}
           />
         ) : loading ? (
-          <div className="flex h-full items-center justify-center p-6 text-center">
-            <p className="text-sm font-medium text-stone-500">
-              Loading conversations...
-            </p>
-          </div>
+          <SidebarLoadingState />
         ) : (
-          <div className="flex h-full items-center justify-center p-6 text-center">
-            <p className="text-sm font-medium text-stone-500">
-              {search ||
+          <SidebarEmptyState
+            hasActiveFilters={
+              Boolean(search) ||
               selectedStatuses.length > 0 ||
               selectedAccountIds.length > 0 ||
               activeTab !== "all"
-                ? "No conversations match your filters."
-                : "No conversations yet."}
-            </p>
-          </div>
+            }
+          />
         )}
       </div>
 
