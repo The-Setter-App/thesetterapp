@@ -8,6 +8,7 @@ import {
   getCachedLeadsTimestamp,
   setCachedLeads,
 } from "@/lib/clientCache";
+import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";
 import { isStatusType } from "@/lib/status/config";
@@ -15,7 +16,6 @@ import type { LeadRow, SortConfig } from "@/types/leads";
 import type { StatusType } from "@/types/status";
 
 const SELECTED_IDS_STORAGE_KEY = "leads-selected-ids";
-const LEADS_CACHE_TTL_MS = 2 * 60 * 1000;
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -1,13 +1,74 @@
 'use client';
 
+import Link from 'next/link';
 import React from 'react';
 import Head from 'next/head';
-import { initialLeadsData } from '@/data/mockLeadsData';
+import { buildFunnelGeometry } from '@/lib/dashboard/funnelGeometry';
+import type { DashboardSnapshot } from '@/types/dashboard';
 
 interface MetricCardProps {
   value: string;
   label: string;
   icon: React.ReactNode;
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatReplyTime(replyTimeMs: number | null): string {
+  if (replyTimeMs === null) return 'N/A';
+
+  const totalSeconds = Math.round(replyTimeMs / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds} sec`;
+  }
+
+  const totalMinutes = replyTimeMs / (60 * 1000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes.toFixed(1)} min`;
+  }
+
+  const totalHours = totalMinutes / 60;
+  if (totalHours < 24) {
+    return `${totalHours.toFixed(1)} hr`;
+  }
+
+  const totalDays = totalHours / 24;
+  return `${totalDays.toFixed(1)} day`;
+}
+
+function formatRate(rate: number | null): string {
+  return rate === null ? 'N/A' : `${rate}%`;
+}
+
+function NoConnectedAccountsState({ displayName }: { displayName: string }) {
+  return (
+    <div className="min-h-[100dvh] bg-[#F8F7FF] px-4 py-8 md:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-2xl items-center justify-center">
+        <div className="w-full rounded-2xl border border-[#F0F2F6] bg-white p-6 text-center shadow-sm md:p-8">
+          <h2 className="text-xl font-semibold text-[#101011]">
+            Hi, {displayName}
+          </h2>
+          <p className="mt-2 text-sm text-[#606266] md:text-base">
+            Connect your Instagram account in Settings to load live dashboard
+            metrics.
+          </p>
+          <Link
+            href="/settings"
+            className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#8771FF] px-5 text-sm font-medium text-white transition-colors hover:bg-[#6d5ed6] md:w-auto"
+          >
+            Go to Settings
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const MetricCard = ({ value, label, icon }: MetricCardProps) => (
@@ -50,84 +111,30 @@ const MetricCard = ({ value, label, icon }: MetricCardProps) => (
   </div>
 );
 
-export default function Dashboard({ displayName }: { displayName: string }) {
-  // --- Funnel Data Logic ---
-  // In a real app, fetch conversations from DB/API. Here, use leads as mock for demo.
-  // Number of conversations: count of all leads (or replace with real conversations count)
-  const conversationsCount = initialLeadsData.length;
-  // Number of qualified leads
-  const qualifiedCount = initialLeadsData.filter(l => l.status === 'Qualified').length;
-  // Number of booked leads
-  const bookedCount = initialLeadsData.filter(l => l.status === 'Booked').length;
-  // Number of closed leads (status 'Won')
-  const closedCount = initialLeadsData.filter(l => l.status === 'Won').length;
+export default function Dashboard({
+  displayName,
+  snapshot,
+}: {
+  displayName: string;
+  snapshot: DashboardSnapshot;
+}) {
+  if (!snapshot.hasConnectedAccounts) {
+    return <NoConnectedAccountsState displayName={displayName} />;
+  }
 
-  // --- Metric Card Calculations ---
-  // Total revenue: sum of all leads with a cash value (strip $ and commas)
-  const totalRevenue = initialLeadsData.reduce((sum, l) => {
-    if (l.cash && l.cash.startsWith('$')) {
-      const num = Number(l.cash.replace(/[^\d.]/g, ''));
-      return sum + (isNaN(num) ? 0 : num);
-    }
-    return sum;
-  }, 0);
+  const totalRevenue = formatCurrency(snapshot.metrics.totalRevenue);
+  const avgReplyTime = formatReplyTime(snapshot.metrics.avgReplyTimeMs);
+  const revenuePerCall = formatCurrency(snapshot.metrics.revenuePerCall);
+  const conversationRate = `${snapshot.metrics.conversationRate}%`;
+  const avgReplyRate = formatRate(snapshot.metrics.avgReplyRate);
 
-  // Revenue per call: average of all leads with a cash value
-  const revenueLeads = initialLeadsData.filter(l => l.cash && l.cash.startsWith('$'));
-  const revenuePerCall = revenueLeads.length > 0 ? totalRevenue / revenueLeads.length : 0;
-
-
-
-  // --- Average Reply Time Calculation (Formula-based) ---
-  let totalReplyGap = 0;
-  let totalReplies = 0;
-  initialLeadsData.forEach(l => {
-    if (typeof l.messageCount === 'number' && l.messageCount > 0 && l.interacted) {
-      // Parse interacted to minutes (as last gap)
-      const interacted = l.interacted.toLowerCase();
-      let gap = 0;
-      if (interacted.includes('second')) {
-        const n = parseFloat(interacted);
-        gap = isNaN(n) ? 0 : n / 60;
-      } else if (interacted.includes('min')) {
-        const n = parseFloat(interacted);
-        gap = isNaN(n) ? 0 : n;
-      } else if (interacted.includes('hour')) {
-        const n = parseFloat(interacted);
-        gap = isNaN(n) ? 0 : n * 60;
-      } else if (interacted.includes('day')) {
-        const n = parseFloat(interacted);
-        gap = isNaN(n) ? 0 : n * 60 * 24;
-      } else if (interacted.includes('month')) {
-        const n = parseFloat(interacted);
-        gap = isNaN(n) ? 0 : n * 60 * 24 * 30;
-      }
-      // Assume each reply has similar gap (mock)
-      totalReplyGap += gap * l.messageCount;
-      totalReplies += l.messageCount;
-    }
-  });
-  const avgReplyTimeNum = totalReplies > 0 ? totalReplyGap / totalReplies : null;
-  const avgReplyTime = avgReplyTimeNum !== null ? `${avgReplyTimeNum < 1 ? Math.round(avgReplyTimeNum * 60) + ' sec' : avgReplyTimeNum.toFixed(1) + ' min'}` : 'N/A';
-
-  // --- Average Reply Rate Calculation (Formula-based) ---
-  // Conversations with a Setter reply = leads with messageCount >= 1
-  // Total incoming conversations = all leads
-  const conversationsWithSetterReply = initialLeadsData.filter(l => typeof l.messageCount === 'number' && l.messageCount > 0).length;
-  const totalIncomingConversations = initialLeadsData.length;
-  const avgReplyRate = totalIncomingConversations > 0 ? `${Math.round((conversationsWithSetterReply / totalIncomingConversations) * 100)}%` : 'N/A';
-
-  // Conversation rate: percent of leads that are qualified/booked/won out of all leads
-  const conversionCount = initialLeadsData.filter(l => ['Qualified', 'Booked', 'Won'].includes(l.status)).length;
-  const conversationRate = initialLeadsData.length > 0 ? Math.round((conversionCount / initialLeadsData.length) * 100) : 0;
-  const funnelClipPath = 'polygon(0% 33%, 20% 49%, 40% 55%, 60% 58%, 80% 59.5%, 100% 60%, 100% 62%, 80% 62.5%, 60% 63%, 40% 66%, 20% 72%, 0% 88%)';
-  const funnelSegments = [
-    { start: 0, end: 20, upperStart: 33, upperEnd: 49, lowerStart: 88, lowerEnd: 72, opacity: 1 },
-    { start: 20, end: 40, upperStart: 49, upperEnd: 55, lowerStart: 72, lowerEnd: 66, opacity: 0.8 },
-    { start: 40, end: 60, upperStart: 55, upperEnd: 58, lowerStart: 66, lowerEnd: 63, opacity: 0.6 },
-    { start: 60, end: 80, upperStart: 58, upperEnd: 59.5, lowerStart: 63, lowerEnd: 62.5, opacity: 0.4 },
-    { start: 80, end: 100, upperStart: 59.5, upperEnd: 60, lowerStart: 62.5, lowerEnd: 62, opacity: 0.2 },
-  ];
+  const funnelGeometry = buildFunnelGeometry([
+    snapshot.funnel.conversations,
+    snapshot.funnel.qualified,
+    snapshot.funnel.linksSent,
+    snapshot.funnel.booked,
+    snapshot.funnel.closed,
+  ]);
 
   // SVG icon components
   const DollarIcon = (
@@ -228,17 +235,17 @@ export default function Dashboard({ displayName }: { displayName: string }) {
           <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
             {/* Metrics Grid */}
             <div className="px-3 md:px-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 md:gap-4">
-              <MetricCard value={`$${totalRevenue.toLocaleString()}`} label="Total revenue" icon={DollarIcon} />
+              <MetricCard value={totalRevenue} label="Total revenue" icon={DollarIcon} />
               <MetricCard value={avgReplyTime} label="Avg reply time" icon={HourglassIcon} />
-              <MetricCard value={`$${revenuePerCall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} label="Revenue per call" icon={DollarIcon} />
-              <MetricCard value={`${conversationRate}%`} label="Conversation rate" icon={ConversionRateIcon} />
+              <MetricCard value={revenuePerCall} label="Revenue per call" icon={DollarIcon} />
+              <MetricCard value={conversationRate} label="Conversation rate" icon={ConversionRateIcon} />
               <MetricCard value={avgReplyRate} label="Avg reply rate" icon={ReplyIcon} />
             </div>
 
             {/* Funnel Visualizer */}
             <div className="mx-3 md:mx-5 relative h-[357px] bg-white border border-[rgba(135,113,255,0.2)] rounded-[20px] overflow-hidden">
               <div className="pointer-events-none absolute inset-0 z-0">
-                {funnelSegments.map((segment) => (
+                {funnelGeometry.segments.map((segment) => (
                   <div
                     key={`${segment.start}-${segment.end}`}
                     className="absolute inset-0 bg-[#8771FF]"
@@ -248,20 +255,20 @@ export default function Dashboard({ displayName }: { displayName: string }) {
                     }}
                   />
                 ))}
-                <div className="absolute inset-0 z-20" style={{ clipPath: funnelClipPath }}>
+                <div className="absolute inset-0 z-20" style={{ clipPath: funnelGeometry.clipPath }}>
                   <div
                     className="absolute left-0 right-0 h-px bg-[rgba(86,90,104,0.55)]"
-                    style={{ top: "60.9%" }}
+                    style={{ top: `${funnelGeometry.centerLineY}%` }}
                   />
                 </div>
               </div>
               <div className="relative z-10 grid h-full grid-cols-5">
                 {[
-                  { label: 'Conversations', value: conversationsCount.toLocaleString() },
-                  { label: 'Qualified', value: qualifiedCount.toLocaleString() },
-                  { label: 'Links Sent', value: '861' },
-                  { label: 'Booked', value: bookedCount.toLocaleString() },
-                  { label: 'Closed', value: closedCount.toLocaleString() }
+                  { label: 'Conversations', value: snapshot.funnel.conversations.toLocaleString() },
+                  { label: 'Qualified', value: snapshot.funnel.qualified.toLocaleString() },
+                  { label: 'Links Sent', value: snapshot.funnel.linksSent.toLocaleString() },
+                  { label: 'Booked', value: snapshot.funnel.booked.toLocaleString() },
+                  { label: 'Closed', value: snapshot.funnel.closed.toLocaleString() }
                 ].map((step, i, arr) => (
                   <div key={step.label} className={`p-4 flex flex-col gap-3 ${i !== arr.length - 1 ? 'border-r border-[rgba(135,113,255,0.2)]' : ''}`}>
                     <div
