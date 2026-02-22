@@ -1,37 +1,38 @@
-import clientPromise from '@/lib/mongodb';
-import { GridFSBucket, ObjectId } from 'mongodb';
-import {
-  User,
-  Message,
-  ConversationDetails,
-  PaymentDetails,
-  ConversationTimelineEvent,
-  StatusType,
+import { GridFSBucket, ObjectId } from "mongodb";
+import { normalizeConversationTagIds } from "@/lib/inbox/tagValidation";
+import clientPromise from "@/lib/mongodb";
+import type {
   ConversationContactDetails,
+  ConversationDetails,
   ConversationSummary,
-} from '@/types/inbox';
+  ConversationTimelineEvent,
+  Message,
+  PaymentDetails,
+  StatusType,
+  User,
+} from "@/types/inbox";
 
-const DB_NAME = 'thesetterapp';
-const CONVERSATIONS_COLLECTION = 'conversations';
-const MESSAGES_COLLECTION = 'messages';
-const SYNC_COLLECTION = 'inbox_sync_jobs';
-const AUDIO_BUCKET = 'voice_notes';
+const DB_NAME = "thesetterapp";
+const CONVERSATIONS_COLLECTION = "conversations";
+const MESSAGES_COLLECTION = "messages";
+const SYNC_COLLECTION = "inbox_sync_jobs";
+const AUDIO_BUCKET = "voice_notes";
 
 const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
-  amount: '',
-  paymentMethod: 'Fanbasis',
-  payOption: 'One Time',
-  paymentFrequency: 'One Time',
-  setterPaid: 'No',
-  closerPaid: 'No',
-  paymentNotes: '',
+  amount: "",
+  paymentMethod: "Fanbasis",
+  payOption: "One Time",
+  paymentFrequency: "One Time",
+  setterPaid: "No",
+  closerPaid: "No",
+  paymentNotes: "",
 };
 
 const DEFAULT_CONTACT_DETAILS: ConversationContactDetails = {
-  phoneNumber: '',
-  email: '',
+  phoneNumber: "",
+  email: "",
 };
-const EMPTY_PREVIEW = 'No messages yet';
+const EMPTY_PREVIEW = "No messages yet";
 
 let indexesReady = false;
 
@@ -39,22 +40,32 @@ async function ensureInboxIndexes(db: any) {
   if (indexesReady) return;
 
   const results = await Promise.allSettled([
-    db.collection(MESSAGES_COLLECTION).createIndex(
-      { ownerEmail: 1, id: 1 },
-      { unique: true }
-    ),
-    db.collection(MESSAGES_COLLECTION).createIndex({ ownerEmail: 1, conversationId: 1, timestamp: -1, id: -1 }),
-    db.collection(CONVERSATIONS_COLLECTION).createIndex({ ownerEmail: 1, recipientId: 1 }),
-    db.collection(CONVERSATIONS_COLLECTION).createIndex({ ownerEmail: 1, id: 1 }),
-    db.collection(SYNC_COLLECTION).createIndex({ ownerEmail: 1 }, { unique: true }),
+    db
+      .collection(MESSAGES_COLLECTION)
+      .createIndex({ ownerEmail: 1, id: 1 }, { unique: true }),
+    db
+      .collection(MESSAGES_COLLECTION)
+      .createIndex({ ownerEmail: 1, conversationId: 1, timestamp: -1, id: -1 }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .createIndex({ ownerEmail: 1, recipientId: 1 }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .createIndex({ ownerEmail: 1, id: 1 }),
+    db
+      .collection(SYNC_COLLECTION)
+      .createIndex({ ownerEmail: 1 }, { unique: true }),
   ]);
 
   for (const result of results) {
-    if (result.status === 'rejected') {
+    if (result.status === "rejected") {
       const mongoCode = (result.reason as { code?: number } | undefined)?.code;
       // Safe to ignore existing-index naming conflicts from older deployments.
       if (mongoCode === 85) continue;
-      console.warn('[InboxRepo] Failed to create one or more indexes:', result.reason);
+      console.warn(
+        "[InboxRepo] Failed to create one or more indexes:",
+        result.reason,
+      );
     }
   }
 
@@ -64,7 +75,9 @@ async function ensureInboxIndexes(db: any) {
 /**
  * Get all conversations from MongoDB for a specific owner
  */
-export async function getConversationsFromDb(ownerEmail: string): Promise<User[]> {
+export async function getConversationsFromDb(
+  ownerEmail: string,
+): Promise<User[]> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -78,7 +91,7 @@ export async function getConversationsFromDb(ownerEmail: string): Promise<User[]
     // Sanitize _id for Client Components
     return docs.map(({ _id, ...rest }: any) => rest as User);
   } catch (error) {
-    console.error('[InboxRepo] Error fetching conversations:', error);
+    console.error("[InboxRepo] Error fetching conversations:", error);
     return [];
   }
 }
@@ -86,12 +99,17 @@ export async function getConversationsFromDb(ownerEmail: string): Promise<User[]
 /**
  * Save or update a single conversation in MongoDB
  */
-export async function saveConversationToDb(conversation: User, ownerEmail: string): Promise<void> {
+export async function saveConversationToDb(
+  conversation: User,
+  ownerEmail: string,
+): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conversation.id, ownerEmail });
-  
+  const existing = await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .findOne({ id: conversation.id, ownerEmail });
+
   // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
   // Also exclude avatar if it is null to prevent overwriting existing avatars with null
   const { unread, avatar, ...rest } = conversation;
@@ -103,94 +121,125 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
   if (existing?.updatedAt && rest.updatedAt) {
     const existingMs = Date.parse(existing.updatedAt);
     const incomingMs = Date.parse(rest.updatedAt);
-    if (Number.isFinite(existingMs) && Number.isFinite(incomingMs) && existingMs > incomingMs) {
+    if (
+      Number.isFinite(existingMs) &&
+      Number.isFinite(incomingMs) &&
+      existingMs > incomingMs
+    ) {
       setPayload.updatedAt = existing.updatedAt;
     }
   } else if (existing?.updatedAt && !rest.updatedAt) {
     setPayload.updatedAt = existing.updatedAt;
   }
-  const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
-  const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
-  if ((incomingPreview === '' || incomingPreview === EMPTY_PREVIEW) && existingPreview && existingPreview !== EMPTY_PREVIEW) {
+  const incomingPreview =
+    typeof rest.lastMessage === "string" ? rest.lastMessage.trim() : "";
+  const existingPreview =
+    typeof existing?.lastMessage === "string"
+      ? existing.lastMessage.trim()
+      : "";
+  if (
+    (incomingPreview === "" || incomingPreview === EMPTY_PREVIEW) &&
+    existingPreview &&
+    existingPreview !== EMPTY_PREVIEW
+  ) {
     setPayload.lastMessage = existingPreview;
-    if (typeof existing?.time === 'string' && existing.time.trim()) {
+    if (typeof existing?.time === "string" && existing.time.trim()) {
       setPayload.time = existing.time;
     }
   }
-  if (existing && typeof existing.status === 'string') {
+  if (existing && typeof existing.status === "string") {
     setPayload.status = existing.status;
   }
-  if (existing && typeof existing.isPriority === 'boolean') {
+  if (existing && typeof existing.isPriority === "boolean") {
     setPayload.isPriority = existing.isPriority;
   }
 
   await db.collection(CONVERSATIONS_COLLECTION).updateOne(
     { id: conversation.id, ownerEmail },
-    { 
+    {
       $set: setPayload,
-      $setOnInsert: { unread: 0 }
+      $setOnInsert: { unread: 0 },
     },
-    { upsert: true }
+    { upsert: true },
   );
 }
 
 /**
  * Bulk save conversations to MongoDB
  */
-export async function saveConversationsToDb(conversations: User[], ownerEmail: string): Promise<void> {
+export async function saveConversationsToDb(
+  conversations: User[],
+  ownerEmail: string,
+): Promise<void> {
   if (conversations.length === 0) return;
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const operations = await Promise.all(conversations.map(async conv => {
-    // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
-    // Also exclude avatar if it is null
-    const { unread, avatar, ...rest } = conv;
-    
-    // Preserve custom status if already set in DB
-    const existing = await db.collection(CONVERSATIONS_COLLECTION).findOne({ id: conv.id, ownerEmail });
-    
-    const setPayload: any = { ...rest, ownerEmail };
-    if (avatar) {
-      setPayload.avatar = avatar;
-    }
-    if (existing?.updatedAt && rest.updatedAt) {
-      const existingMs = Date.parse(existing.updatedAt);
-      const incomingMs = Date.parse(rest.updatedAt);
-      if (Number.isFinite(existingMs) && Number.isFinite(incomingMs) && existingMs > incomingMs) {
+  const operations = await Promise.all(
+    conversations.map(async (conv) => {
+      // Exclude unread from $set so we don't overwrite local unread counts with 0 from API
+      // Also exclude avatar if it is null
+      const { unread, avatar, ...rest } = conv;
+
+      // Preserve custom status if already set in DB
+      const existing = await db
+        .collection(CONVERSATIONS_COLLECTION)
+        .findOne({ id: conv.id, ownerEmail });
+
+      const setPayload: any = { ...rest, ownerEmail };
+      if (avatar) {
+        setPayload.avatar = avatar;
+      }
+      if (existing?.updatedAt && rest.updatedAt) {
+        const existingMs = Date.parse(existing.updatedAt);
+        const incomingMs = Date.parse(rest.updatedAt);
+        if (
+          Number.isFinite(existingMs) &&
+          Number.isFinite(incomingMs) &&
+          existingMs > incomingMs
+        ) {
+          setPayload.updatedAt = existing.updatedAt;
+        }
+      } else if (existing?.updatedAt && !rest.updatedAt) {
         setPayload.updatedAt = existing.updatedAt;
       }
-    } else if (existing?.updatedAt && !rest.updatedAt) {
-      setPayload.updatedAt = existing.updatedAt;
-    }
 
-    if (existing && existing.status) {
-      setPayload.status = existing.status;
-    }
-    if (existing && typeof existing.isPriority === 'boolean') {
-      setPayload.isPriority = existing.isPriority;
-    }
-    const incomingPreview = typeof rest.lastMessage === 'string' ? rest.lastMessage.trim() : '';
-    const existingPreview = typeof existing?.lastMessage === 'string' ? existing.lastMessage.trim() : '';
-    if ((incomingPreview === '' || incomingPreview === EMPTY_PREVIEW) && existingPreview && existingPreview !== EMPTY_PREVIEW) {
-      setPayload.lastMessage = existingPreview;
-      if (typeof existing?.time === 'string' && existing.time.trim()) {
-        setPayload.time = existing.time;
+      if (existing && existing.status) {
+        setPayload.status = existing.status;
       }
-    }
-    
-    return {
-      updateOne: {
-        filter: { id: conv.id, ownerEmail },
-        update: {
-          $set: setPayload,
-          $setOnInsert: { unread: 0 }
+      if (existing && typeof existing.isPriority === "boolean") {
+        setPayload.isPriority = existing.isPriority;
+      }
+      const incomingPreview =
+        typeof rest.lastMessage === "string" ? rest.lastMessage.trim() : "";
+      const existingPreview =
+        typeof existing?.lastMessage === "string"
+          ? existing.lastMessage.trim()
+          : "";
+      if (
+        (incomingPreview === "" || incomingPreview === EMPTY_PREVIEW) &&
+        existingPreview &&
+        existingPreview !== EMPTY_PREVIEW
+      ) {
+        setPayload.lastMessage = existingPreview;
+        if (typeof existing?.time === "string" && existing.time.trim()) {
+          setPayload.time = existing.time;
+        }
+      }
+
+      return {
+        updateOne: {
+          filter: { id: conv.id, ownerEmail },
+          update: {
+            $set: setPayload,
+            $setOnInsert: { unread: 0 },
+          },
+          upsert: true,
         },
-        upsert: true
-      }
-    };
-  }));
+      };
+    }),
+  );
 
   await db.collection(CONVERSATIONS_COLLECTION).bulkWrite(operations);
 }
@@ -199,11 +248,16 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
  * Find a conversation by the other participant's user ID (recipientId).
  * Returns the full User object, or null if not found.
  */
-export async function findConversationByRecipientId(recipientId: string, ownerEmail: string): Promise<User | null> {
+export async function findConversationByRecipientId(
+  recipientId: string,
+  ownerEmail: string,
+): Promise<User | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ recipientId, ownerEmail });
+  const user = await db
+    .collection<User>(CONVERSATIONS_COLLECTION)
+    .findOne({ recipientId, ownerEmail });
 
   if (!user) return null;
 
@@ -212,11 +266,16 @@ export async function findConversationByRecipientId(recipientId: string, ownerEm
   return rest as User;
 }
 
-export async function findConversationById(conversationId: string, ownerEmail: string): Promise<User | null> {
+export async function findConversationById(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<User | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  const user = await db.collection<User>(CONVERSATIONS_COLLECTION).findOne({ id: conversationId, ownerEmail });
+  const user = await db
+    .collection<User>(CONVERSATIONS_COLLECTION)
+    .findOne({ id: conversationId, ownerEmail });
 
   if (!user) return null;
   const { _id, ...rest } = user as any;
@@ -226,7 +285,10 @@ export async function findConversationById(conversationId: string, ownerEmail: s
 /**
  * Find a conversation ID by the other participant's ID
  */
-export async function findConversationIdByParticipant(participantId: string, ownerEmail: string): Promise<string | undefined> {
+export async function findConversationIdByParticipant(
+  participantId: string,
+  ownerEmail: string,
+): Promise<string | undefined> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
@@ -241,7 +303,7 @@ export async function findConversationIdByParticipant(participantId: string, own
 export async function findConversationIdByParticipantAndAccount(
   participantId: string,
   ownerEmail: string,
-  ownerInstagramUserId: string
+  ownerInstagramUserId: string,
 ): Promise<string | undefined> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -256,7 +318,7 @@ export async function findConversationIdByParticipantAndAccount(
 
 export async function findConversationIdByParticipantUnique(
   participantId: string,
-  ownerEmail: string
+  ownerEmail: string,
 ): Promise<string | undefined> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -276,21 +338,28 @@ export async function findConversationIdByParticipantUnique(
 /**
  * Get messages for a conversation from MongoDB
  */
-export async function getMessagesFromDb(conversationId: string, ownerEmail: string): Promise<Message[]> {
+export async function getMessagesFromDb(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<Message[]> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     await ensureInboxIndexes(db);
     // Filter by conversationId AND ownerEmail for isolation
-    const docs = await db.collection<Message>(MESSAGES_COLLECTION)
-      .find({ conversationId, ownerEmail } as any) 
+    const docs = await db
+      .collection<Message>(MESSAGES_COLLECTION)
+      .find({ conversationId, ownerEmail } as any)
       .sort({ timestamp: 1 })
       .toArray();
 
     // Sanitize _id for Client Components
     return docs.map(({ _id, ...rest }: any) => rest as Message);
   } catch (error) {
-    console.error(`[InboxRepo] Error fetching messages for ${conversationId}:`, error);
+    console.error(
+      `[InboxRepo] Error fetching messages for ${conversationId}:`,
+      error,
+    );
     return [];
   }
 }
@@ -298,32 +367,42 @@ export async function getMessagesFromDb(conversationId: string, ownerEmail: stri
 /**
  * Save a single message to MongoDB
  */
-export async function saveMessageToDb(message: Message, conversationId: string, ownerEmail: string): Promise<void> {
+export async function saveMessageToDb(
+  message: Message,
+  conversationId: string,
+  ownerEmail: string,
+): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  await db.collection(MESSAGES_COLLECTION).updateOne(
-    { id: message.id, ownerEmail },
-    { $set: { ...message, conversationId, ownerEmail } },
-    { upsert: true }
-  );
+  await db
+    .collection(MESSAGES_COLLECTION)
+    .updateOne(
+      { id: message.id, ownerEmail },
+      { $set: { ...message, conversationId, ownerEmail } },
+      { upsert: true },
+    );
 }
 
 /**
  * Bulk save messages to MongoDB
  */
-export async function saveMessagesToDb(messages: Message[], conversationId: string, ownerEmail: string): Promise<void> {
+export async function saveMessagesToDb(
+  messages: Message[],
+  conversationId: string,
+  ownerEmail: string,
+): Promise<void> {
   if (messages.length === 0) return;
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const operations = messages.map(msg => ({
+  const operations = messages.map((msg) => ({
     updateOne: {
       filter: { id: msg.id, ownerEmail },
       update: { $set: { ...msg, conversationId, ownerEmail } },
-      upsert: true
-    }
+      upsert: true,
+    },
   }));
 
   await db.collection(MESSAGES_COLLECTION).bulkWrite(operations);
@@ -358,8 +437,8 @@ export async function saveVoiceNoteBlobToGridFs(params: {
   });
 
   await new Promise<void>((resolve, reject) => {
-    uploadStream.on('error', reject);
-    uploadStream.on('finish', () => resolve());
+    uploadStream.on("error", reject);
+    uploadStream.on("finish", () => resolve());
     uploadStream.end(params.bytes);
   });
 
@@ -379,7 +458,7 @@ export async function saveOrUpdateLocalAudioMessage(params: {
   timestamp: string;
   duration?: string;
   audioStorage: {
-    kind: 'gridfs';
+    kind: "gridfs";
     fileId: string;
     mimeType: string;
     size: number;
@@ -394,12 +473,12 @@ export async function saveOrUpdateLocalAudioMessage(params: {
     id: params.messageId,
     clientTempId: params.clientTempId,
     fromMe: true,
-    type: 'audio',
-    text: '',
+    type: "audio",
+    text: "",
     timestamp: params.timestamp,
     duration: params.duration,
     attachmentUrl: baseAttachmentUrl,
-    source: 'local_audio_fallback',
+    source: "local_audio_fallback",
     audioStorage: params.audioStorage,
   };
 
@@ -413,15 +492,20 @@ export async function saveOrUpdateLocalAudioMessage(params: {
   }
 
   if (!existing) {
-    const fiveMinutesAgoIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    existing = await db.collection<Message>(MESSAGES_COLLECTION).findOne({
-      ownerEmail: params.ownerEmail,
-      conversationId: params.conversationId,
-      fromMe: true,
-      type: 'audio',
-      source: { $ne: 'local_audio_fallback' },
-      timestamp: { $gte: fiveMinutesAgoIso },
-    } as any, { sort: { timestamp: -1 } });
+    const fiveMinutesAgoIso = new Date(
+      Date.now() - 5 * 60 * 1000,
+    ).toISOString();
+    existing = await db.collection<Message>(MESSAGES_COLLECTION).findOne(
+      {
+        ownerEmail: params.ownerEmail,
+        conversationId: params.conversationId,
+        fromMe: true,
+        type: "audio",
+        source: { $ne: "local_audio_fallback" },
+        timestamp: { $gte: fiveMinutesAgoIso },
+      } as any,
+      { sort: { timestamp: -1 } },
+    );
   }
 
   if (existing?.id) {
@@ -433,11 +517,19 @@ export async function saveOrUpdateLocalAudioMessage(params: {
       timestamp: existing.timestamp || params.timestamp,
       attachmentUrl: mergedAttachmentUrl,
     };
-    await db.collection(MESSAGES_COLLECTION).updateOne(
-      { id: existing.id, ownerEmail: params.ownerEmail },
-      { $set: { ...merged, conversationId: params.conversationId, ownerEmail: params.ownerEmail } },
-      { upsert: true }
-    );
+    await db
+      .collection(MESSAGES_COLLECTION)
+      .updateOne(
+        { id: existing.id, ownerEmail: params.ownerEmail },
+        {
+          $set: {
+            ...merged,
+            conversationId: params.conversationId,
+            ownerEmail: params.ownerEmail,
+          },
+        },
+        { upsert: true },
+      );
     return merged;
   }
 
@@ -447,13 +539,19 @@ export async function saveOrUpdateLocalAudioMessage(params: {
 
 export async function getVoiceNoteStreamForMessage(
   messageId: string,
-  ownerEmail: string
-): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; size: number } | null> {
+  ownerEmail: string,
+): Promise<{
+  stream: NodeJS.ReadableStream;
+  mimeType: string;
+  size: number;
+} | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const message = await db.collection<Message>(MESSAGES_COLLECTION).findOne({ id: messageId, ownerEmail } as any);
+  const message = await db
+    .collection<Message>(MESSAGES_COLLECTION)
+    .findOne({ id: messageId, ownerEmail } as any);
   const fileId = message?.audioStorage?.fileId;
   if (!fileId) return null;
 
@@ -465,16 +563,22 @@ export async function getVoiceNoteStreamForMessage(
   }
 
   const bucket = getAudioBucket(db);
-  const files = await bucket.find({ _id: objectId, 'metadata.ownerEmail': ownerEmail }).toArray();
+  const files = await bucket
+    .find({ _id: objectId, "metadata.ownerEmail": ownerEmail })
+    .toArray();
   const file = files[0];
   if (!file) return null;
 
-  const fileMime = (file.metadata as { mimeType?: string } | undefined)?.mimeType;
+  const fileMime = (file.metadata as { mimeType?: string } | undefined)
+    ?.mimeType;
 
   return {
     stream: bucket.openDownloadStream(objectId),
-    mimeType: fileMime || message.audioStorage?.mimeType || 'audio/webm',
-    size: typeof file.length === 'number' ? file.length : message.audioStorage?.size || 0,
+    mimeType: fileMime || message.audioStorage?.mimeType || "audio/webm",
+    size:
+      typeof file.length === "number"
+        ? file.length
+        : message.audioStorage?.size || 0,
   };
 }
 
@@ -485,12 +589,12 @@ type MessageCursor = {
 
 export function encodeMessagesCursor(cursor: MessageCursor): string {
   const raw = JSON.stringify(cursor);
-  return Buffer.from(raw, 'utf8').toString('base64url');
+  return Buffer.from(raw, "utf8").toString("base64url");
 }
 
 export function decodeMessagesCursor(cursor: string): MessageCursor | null {
   try {
-    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
+    const raw = Buffer.from(cursor, "base64url").toString("utf8");
     const parsed = JSON.parse(raw) as MessageCursor;
     if (!parsed?.timestamp || !parsed?.id) return null;
     return parsed;
@@ -512,8 +616,12 @@ export async function getMessagesPageFromDb(
   conversationId: string,
   ownerEmail: string,
   limit: number,
-  cursor?: string
-): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
+  cursor?: string,
+): Promise<{
+  messages: Message[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
@@ -523,7 +631,7 @@ export async function getMessagesPageFromDb(
     conversationId,
     ownerEmail,
     isEmpty: { $ne: true },
-    timestamp: { $exists: true, $type: 'string' },
+    timestamp: { $exists: true, $type: "string" },
   };
 
   const filter = parsedCursor
@@ -550,13 +658,18 @@ export async function getMessagesPageFromDb(
     };
   }
 
-  const nextCursor = encodeMessagesCursor({ timestamp: last.timestamp, id: last.id });
+  const nextCursor = encodeMessagesCursor({
+    timestamp: last.timestamp,
+    id: last.id,
+  });
 
   const hasMoreFilter = {
     ...baseFilter,
     ...buildCursorFilter({ timestamp: last.timestamp, id: last.id }),
   };
-  const nextOne = await db.collection(MESSAGES_COLLECTION).findOne(hasMoreFilter);
+  const nextOne = await db
+    .collection(MESSAGES_COLLECTION)
+    .findOne(hasMoreFilter);
 
   return {
     messages: oldestToNewest,
@@ -575,7 +688,7 @@ export async function updateConversationMetadata(
   time: string,
   incrementUnread: boolean,
   clearUnread = false,
-  eventTimestampIso?: string
+  eventTimestampIso?: string,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -597,10 +710,9 @@ export async function updateConversationMetadata(
     update.$set.unread = 0;
   }
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    update
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne({ id: conversationId, ownerEmail }, update);
 }
 
 /**
@@ -609,31 +721,32 @@ export async function updateConversationMetadata(
 export async function updateUserStatus(
   conversationId: string,
   ownerEmail: string,
-  newStatus: string
+  newStatus: string,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: { status: newStatus } }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne(
+      { id: conversationId, ownerEmail },
+      { $set: { status: newStatus } },
+    );
 }
 
 export async function updateConversationPriority(
   conversationId: string,
   ownerEmail: string,
-  isPriority: boolean
+  isPriority: boolean,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: { isPriority } }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne({ id: conversationId, ownerEmail }, { $set: { isPriority } });
 }
 
 /**
@@ -642,32 +755,35 @@ export async function updateConversationPriority(
 export async function updateUserAvatar(
   conversationId: string,
   ownerEmail: string,
-  avatarUrl: string
+  avatarUrl: string,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: { avatar: avatarUrl } }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne(
+      { id: conversationId, ownerEmail },
+      { $set: { avatar: avatarUrl } },
+    );
 }
 
 function normalizeSummarySection(
   value: unknown,
-  fallbackTitle: string
+  fallbackTitle: string,
 ): { title: string; points: string[] } {
-  const section = typeof value === 'object' && value !== null
-    ? (value as { title?: unknown; points?: unknown })
-    : null;
+  const section =
+    typeof value === "object" && value !== null
+      ? (value as { title?: unknown; points?: unknown })
+      : null;
   const title =
-    typeof section?.title === 'string' && section.title.trim().length > 0
+    typeof section?.title === "string" && section.title.trim().length > 0
       ? section.title.trim()
       : fallbackTitle;
   const points = Array.isArray(section?.points)
     ? section.points
-        .filter((point): point is string => typeof point === 'string')
+        .filter((point): point is string => typeof point === "string")
         .map((point) => point.trim())
         .filter((point) => point.length > 0)
         .slice(0, 8)
@@ -681,22 +797,24 @@ function normalizeSummarySection(
 
 export async function getConversationSummary(
   conversationId: string,
-  ownerEmail: string
+  ownerEmail: string,
 ): Promise<ConversationSummary | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { id: conversationId, ownerEmail },
-    { projection: { summary: 1 } }
-  );
+  const doc = await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .findOne(
+      { id: conversationId, ownerEmail },
+      { projection: { summary: 1 } },
+    );
 
   const summaryValue =
-    typeof doc === 'object' && doc !== null
+    typeof doc === "object" && doc !== null
       ? (doc as { summary?: unknown }).summary
       : undefined;
-  if (!summaryValue || typeof summaryValue !== 'object') {
+  if (!summaryValue || typeof summaryValue !== "object") {
     return null;
   }
 
@@ -706,8 +824,14 @@ export async function getConversationSummary(
     generatedAt?: unknown;
   };
 
-  const clientSnapshot = normalizeSummarySection(summaryObject.clientSnapshot, 'Client Snapshot');
-  const actionPlan = normalizeSummarySection(summaryObject.actionPlan, 'Action Plan');
+  const clientSnapshot = normalizeSummarySection(
+    summaryObject.clientSnapshot,
+    "Client Snapshot",
+  );
+  const actionPlan = normalizeSummarySection(
+    summaryObject.actionPlan,
+    "Action Plan",
+  );
   if (clientSnapshot.points.length === 0 && actionPlan.points.length === 0) {
     return null;
   }
@@ -716,7 +840,8 @@ export async function getConversationSummary(
     clientSnapshot,
     actionPlan,
     generatedAt:
-      typeof summaryObject.generatedAt === 'string' && summaryObject.generatedAt.trim().length > 0
+      typeof summaryObject.generatedAt === "string" &&
+      summaryObject.generatedAt.trim().length > 0
         ? summaryObject.generatedAt
         : undefined,
   };
@@ -725,7 +850,7 @@ export async function getConversationSummary(
 export async function updateConversationSummary(
   conversationId: string,
   ownerEmail: string,
-  summary: ConversationSummary
+  summary: ConversationSummary,
 ): Promise<ConversationSummary> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -733,51 +858,74 @@ export async function updateConversationSummary(
 
   const generatedAt = new Date().toISOString();
   const normalizedSummary: ConversationSummary = {
-    clientSnapshot: normalizeSummarySection(summary.clientSnapshot, 'Client Snapshot'),
-    actionPlan: normalizeSummarySection(summary.actionPlan, 'Action Plan'),
+    clientSnapshot: normalizeSummarySection(
+      summary.clientSnapshot,
+      "Client Snapshot",
+    ),
+    actionPlan: normalizeSummarySection(summary.actionPlan, "Action Plan"),
     generatedAt,
   };
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: { summary: normalizedSummary } }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne(
+      { id: conversationId, ownerEmail },
+      { $set: { summary: normalizedSummary } },
+    );
 
   return normalizedSummary;
 }
 
 export async function getConversationDetails(
   conversationId: string,
-  ownerEmail: string
+  ownerEmail: string,
 ): Promise<ConversationDetails | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { id: conversationId, ownerEmail },
-    { projection: { notes: 1, paymentDetails: 1, timelineEvents: 1, contactDetails: 1 } }
-  );
+  const doc = await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .findOne(
+      { id: conversationId, ownerEmail },
+      {
+        projection: {
+          notes: 1,
+          paymentDetails: 1,
+          timelineEvents: 1,
+          contactDetails: 1,
+          tagIds: 1,
+        },
+      },
+    );
 
   if (!doc) return null;
 
-  const notes = typeof (doc as { notes?: unknown }).notes === 'string'
-    ? (doc as { notes?: string }).notes || ''
-    : '';
-  const payment = (doc as { paymentDetails?: Partial<PaymentDetails> }).paymentDetails || {};
+  const notes =
+    typeof (doc as { notes?: unknown }).notes === "string"
+      ? (doc as { notes?: string }).notes || ""
+      : "";
+  const payment =
+    (doc as { paymentDetails?: Partial<PaymentDetails> }).paymentDetails || {};
   const rawTimeline = (doc as { timelineEvents?: unknown }).timelineEvents;
-  const contact = (doc as { contactDetails?: Partial<ConversationContactDetails> }).contactDetails || {};
+  const contact =
+    (doc as { contactDetails?: Partial<ConversationContactDetails> })
+      .contactDetails || {};
+  const tagIdsValue = (doc as { tagIds?: string[] }).tagIds;
+  const tagIds = Array.isArray(tagIdsValue)
+    ? normalizeConversationTagIds(tagIdsValue)
+    : [];
   const timelineEvents: ConversationTimelineEvent[] = Array.isArray(rawTimeline)
     ? rawTimeline
         .map((event) => {
           const e = event as Partial<ConversationTimelineEvent>;
           if (
-            typeof e.id !== 'string' ||
-            e.type !== 'status_update' ||
-            typeof e.status !== 'string' ||
-            typeof e.title !== 'string' ||
-            typeof e.sub !== 'string' ||
-            typeof e.timestamp !== 'string'
+            typeof e.id !== "string" ||
+            e.type !== "status_update" ||
+            typeof e.status !== "string" ||
+            typeof e.title !== "string" ||
+            typeof e.sub !== "string" ||
+            typeof e.timestamp !== "string"
           ) {
             return null;
           }
@@ -789,26 +937,54 @@ export async function getConversationDetails(
   return {
     notes,
     paymentDetails: {
-      amount: typeof payment.amount === 'string' ? payment.amount : DEFAULT_PAYMENT_DETAILS.amount,
-      paymentMethod: typeof payment.paymentMethod === 'string' ? payment.paymentMethod : DEFAULT_PAYMENT_DETAILS.paymentMethod,
-      payOption: typeof payment.payOption === 'string' ? payment.payOption : DEFAULT_PAYMENT_DETAILS.payOption,
-      paymentFrequency: typeof payment.paymentFrequency === 'string' ? payment.paymentFrequency : DEFAULT_PAYMENT_DETAILS.paymentFrequency,
-      setterPaid: payment.setterPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.setterPaid,
-      closerPaid: payment.closerPaid === 'Yes' ? 'Yes' : DEFAULT_PAYMENT_DETAILS.closerPaid,
-      paymentNotes: typeof payment.paymentNotes === 'string' ? payment.paymentNotes : DEFAULT_PAYMENT_DETAILS.paymentNotes,
+      amount:
+        typeof payment.amount === "string"
+          ? payment.amount
+          : DEFAULT_PAYMENT_DETAILS.amount,
+      paymentMethod:
+        typeof payment.paymentMethod === "string"
+          ? payment.paymentMethod
+          : DEFAULT_PAYMENT_DETAILS.paymentMethod,
+      payOption:
+        typeof payment.payOption === "string"
+          ? payment.payOption
+          : DEFAULT_PAYMENT_DETAILS.payOption,
+      paymentFrequency:
+        typeof payment.paymentFrequency === "string"
+          ? payment.paymentFrequency
+          : DEFAULT_PAYMENT_DETAILS.paymentFrequency,
+      setterPaid:
+        payment.setterPaid === "Yes"
+          ? "Yes"
+          : DEFAULT_PAYMENT_DETAILS.setterPaid,
+      closerPaid:
+        payment.closerPaid === "Yes"
+          ? "Yes"
+          : DEFAULT_PAYMENT_DETAILS.closerPaid,
+      paymentNotes:
+        typeof payment.paymentNotes === "string"
+          ? payment.paymentNotes
+          : DEFAULT_PAYMENT_DETAILS.paymentNotes,
     },
     timelineEvents,
     contactDetails: {
-      phoneNumber: typeof contact.phoneNumber === 'string' ? contact.phoneNumber : DEFAULT_CONTACT_DETAILS.phoneNumber,
-      email: typeof contact.email === 'string' ? contact.email : DEFAULT_CONTACT_DETAILS.email,
+      phoneNumber:
+        typeof contact.phoneNumber === "string"
+          ? contact.phoneNumber
+          : DEFAULT_CONTACT_DETAILS.phoneNumber,
+      email:
+        typeof contact.email === "string"
+          ? contact.email
+          : DEFAULT_CONTACT_DETAILS.email,
     },
+    tagIds,
   };
 }
 
 export async function updateConversationDetails(
   conversationId: string,
   ownerEmail: string,
-  details: Partial<ConversationDetails>
+  details: Partial<ConversationDetails>,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -816,19 +992,26 @@ export async function updateConversationDetails(
 
   const setPayload: Record<string, unknown> = {};
 
-  if (typeof details.notes === 'string') {
+  if (typeof details.notes === "string") {
     setPayload.notes = details.notes;
   }
 
   if (details.paymentDetails) {
     const payment = details.paymentDetails;
-    if (typeof payment.amount === 'string') setPayload['paymentDetails.amount'] = payment.amount;
-    if (typeof payment.paymentMethod === 'string') setPayload['paymentDetails.paymentMethod'] = payment.paymentMethod;
-    if (typeof payment.payOption === 'string') setPayload['paymentDetails.payOption'] = payment.payOption;
-    if (typeof payment.paymentFrequency === 'string') setPayload['paymentDetails.paymentFrequency'] = payment.paymentFrequency;
-    if (payment.setterPaid === 'Yes' || payment.setterPaid === 'No') setPayload['paymentDetails.setterPaid'] = payment.setterPaid;
-    if (payment.closerPaid === 'Yes' || payment.closerPaid === 'No') setPayload['paymentDetails.closerPaid'] = payment.closerPaid;
-    if (typeof payment.paymentNotes === 'string') setPayload['paymentDetails.paymentNotes'] = payment.paymentNotes;
+    if (typeof payment.amount === "string")
+      setPayload["paymentDetails.amount"] = payment.amount;
+    if (typeof payment.paymentMethod === "string")
+      setPayload["paymentDetails.paymentMethod"] = payment.paymentMethod;
+    if (typeof payment.payOption === "string")
+      setPayload["paymentDetails.payOption"] = payment.payOption;
+    if (typeof payment.paymentFrequency === "string")
+      setPayload["paymentDetails.paymentFrequency"] = payment.paymentFrequency;
+    if (payment.setterPaid === "Yes" || payment.setterPaid === "No")
+      setPayload["paymentDetails.setterPaid"] = payment.setterPaid;
+    if (payment.closerPaid === "Yes" || payment.closerPaid === "No")
+      setPayload["paymentDetails.closerPaid"] = payment.closerPaid;
+    if (typeof payment.paymentNotes === "string")
+      setPayload["paymentDetails.paymentNotes"] = payment.paymentNotes;
   }
 
   if (Array.isArray(details.timelineEvents)) {
@@ -837,22 +1020,27 @@ export async function updateConversationDetails(
 
   if (details.contactDetails) {
     const contact = details.contactDetails;
-    if (typeof contact.phoneNumber === 'string') setPayload['contactDetails.phoneNumber'] = contact.phoneNumber;
-    if (typeof contact.email === 'string') setPayload['contactDetails.email'] = contact.email;
+    if (typeof contact.phoneNumber === "string")
+      setPayload["contactDetails.phoneNumber"] = contact.phoneNumber;
+    if (typeof contact.email === "string")
+      setPayload["contactDetails.email"] = contact.email;
+  }
+
+  if (Array.isArray(details.tagIds)) {
+    setPayload.tagIds = normalizeConversationTagIds(details.tagIds);
   }
 
   if (Object.keys(setPayload).length === 0) return;
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: setPayload }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne({ id: conversationId, ownerEmail }, { $set: setPayload });
 }
 
 export async function addStatusTimelineEvent(
   conversationId: string,
   ownerEmail: string,
-  status: StatusType
+  status: StatusType,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -861,56 +1049,67 @@ export async function addStatusTimelineEvent(
   const timestamp = new Date().toISOString();
   const event: ConversationTimelineEvent = {
     id: `status_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    type: 'status_update',
+    type: "status_update",
     status,
     title: status,
     sub: `Status changed to ${status}`,
     timestamp,
   };
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    {
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne({ id: conversationId, ownerEmail }, {
       $push: { timelineEvents: event },
-    } as any
-  );
+    } as any);
 }
 
 export async function getConversationGraphSyncState(
   conversationId: string,
-  ownerEmail: string
+  ownerEmail: string,
 ): Promise<{ graphBeforeCursor?: string; graphBackfillDone?: boolean }> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
-  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { id: conversationId, ownerEmail },
-    { projection: { graphBeforeCursor: 1, graphBackfillDone: 1, syncBeforeCursor: 1, syncStatus: 1 } }
-  );
+  const doc = await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .findOne(
+      { id: conversationId, ownerEmail },
+      {
+        projection: {
+          graphBeforeCursor: 1,
+          graphBackfillDone: 1,
+          syncBeforeCursor: 1,
+          syncStatus: 1,
+        },
+      },
+    );
 
   if (!doc) return {};
 
   return {
     graphBeforeCursor:
-      typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor === 'string'
+      typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor ===
+      "string"
         ? (doc as { syncBeforeCursor?: string }).syncBeforeCursor
-        : typeof (doc as { graphBeforeCursor?: unknown }).graphBeforeCursor === 'string'
-        ? (doc as { graphBeforeCursor?: string }).graphBeforeCursor
-        : undefined,
+        : typeof (doc as { graphBeforeCursor?: unknown }).graphBeforeCursor ===
+            "string"
+          ? (doc as { graphBeforeCursor?: string }).graphBeforeCursor
+          : undefined,
     graphBackfillDone:
-      (doc as { syncStatus?: string }).syncStatus === 'done'
+      (doc as { syncStatus?: string }).syncStatus === "done"
         ? true
-        : typeof (doc as { graphBackfillDone?: unknown }).graphBackfillDone === 'boolean'
-        ? (doc as { graphBackfillDone?: boolean }).graphBackfillDone
-        : undefined,
+        : typeof (doc as { graphBackfillDone?: unknown }).graphBackfillDone ===
+            "boolean"
+          ? (doc as { graphBackfillDone?: boolean }).graphBackfillDone
+          : undefined,
   };
 }
 
 export async function updateConversationGraphSyncState(
   conversationId: string,
   ownerEmail: string,
-  state: { graphBeforeCursor?: string; graphBackfillDone?: boolean }
+  state: { graphBeforeCursor?: string; graphBackfillDone?: boolean },
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -923,20 +1122,19 @@ export async function updateConversationGraphSyncState(
   }
   if (state.graphBackfillDone !== undefined) {
     setPayload.graphBackfillDone = state.graphBackfillDone;
-    setPayload.syncStatus = state.graphBackfillDone ? 'done' : 'running';
+    setPayload.syncStatus = state.graphBackfillDone ? "done" : "running";
     if (state.graphBackfillDone) {
       setPayload.syncCompletedAt = new Date().toISOString();
     }
   }
   if (Object.keys(setPayload).length === 0) return;
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: setPayload }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne({ id: conversationId, ownerEmail }, { $set: setPayload });
 }
 
-export type ConversationSyncStatus = 'pending' | 'running' | 'done' | 'error';
+export type ConversationSyncStatus = "pending" | "running" | "done" | "error";
 
 export type ConversationSyncState = {
   syncStatus?: ConversationSyncStatus;
@@ -951,7 +1149,7 @@ export type ConversationSyncState = {
 export async function updateConversationSyncState(
   conversationId: string,
   ownerEmail: string,
-  state: ConversationSyncState
+  state: ConversationSyncState,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -963,23 +1161,29 @@ export async function updateConversationSyncState(
     setPayload.syncBeforeCursor = state.syncBeforeCursor;
     setPayload.graphBeforeCursor = state.syncBeforeCursor;
   }
-  if (state.syncCompletedAt !== undefined) setPayload.syncCompletedAt = state.syncCompletedAt;
-  if (state.syncStartedAt !== undefined) setPayload.syncStartedAt = state.syncStartedAt;
+  if (state.syncCompletedAt !== undefined)
+    setPayload.syncCompletedAt = state.syncCompletedAt;
+  if (state.syncStartedAt !== undefined)
+    setPayload.syncStartedAt = state.syncStartedAt;
   if (state.syncError !== undefined) setPayload.syncError = state.syncError;
-  if (state.syncRetryCount !== undefined) setPayload.syncRetryCount = state.syncRetryCount;
-  if (state.syncMessageCount !== undefined) setPayload.syncMessageCount = state.syncMessageCount;
+  if (state.syncRetryCount !== undefined)
+    setPayload.syncRetryCount = state.syncRetryCount;
+  if (state.syncMessageCount !== undefined)
+    setPayload.syncMessageCount = state.syncMessageCount;
   if (Object.keys(setPayload).length === 0) return;
 
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversationId, ownerEmail },
-    { $set: setPayload },
-    { upsert: false }
-  );
+  await db
+    .collection(CONVERSATIONS_COLLECTION)
+    .updateOne(
+      { id: conversationId, ownerEmail },
+      { $set: setPayload },
+      { upsert: false },
+    );
 }
 
 export async function getConversationSyncState(
   conversationId: string,
-  ownerEmail: string
+  ownerEmail: string,
 ): Promise<ConversationSyncState | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -996,39 +1200,48 @@ export async function getConversationSyncState(
         syncRetryCount: 1,
         syncMessageCount: 1,
       },
-    }
+    },
   );
 
   if (!doc) return null;
 
   return {
-    syncStatus: typeof (doc as { syncStatus?: unknown }).syncStatus === 'string'
-      ? (doc as { syncStatus?: ConversationSyncStatus }).syncStatus
-      : undefined,
-    syncBeforeCursor: typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor === 'string'
-      ? (doc as { syncBeforeCursor?: string }).syncBeforeCursor
-      : undefined,
-    syncCompletedAt: typeof (doc as { syncCompletedAt?: unknown }).syncCompletedAt === 'string'
-      ? (doc as { syncCompletedAt?: string }).syncCompletedAt
-      : undefined,
-    syncStartedAt: typeof (doc as { syncStartedAt?: unknown }).syncStartedAt === 'string'
-      ? (doc as { syncStartedAt?: string }).syncStartedAt
-      : undefined,
-    syncError: typeof (doc as { syncError?: unknown }).syncError === 'string'
-      ? (doc as { syncError?: string }).syncError
-      : undefined,
-    syncRetryCount: typeof (doc as { syncRetryCount?: unknown }).syncRetryCount === 'number'
-      ? (doc as { syncRetryCount?: number }).syncRetryCount
-      : undefined,
-    syncMessageCount: typeof (doc as { syncMessageCount?: unknown }).syncMessageCount === 'number'
-      ? (doc as { syncMessageCount?: number }).syncMessageCount
-      : undefined,
+    syncStatus:
+      typeof (doc as { syncStatus?: unknown }).syncStatus === "string"
+        ? (doc as { syncStatus?: ConversationSyncStatus }).syncStatus
+        : undefined,
+    syncBeforeCursor:
+      typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor ===
+      "string"
+        ? (doc as { syncBeforeCursor?: string }).syncBeforeCursor
+        : undefined,
+    syncCompletedAt:
+      typeof (doc as { syncCompletedAt?: unknown }).syncCompletedAt === "string"
+        ? (doc as { syncCompletedAt?: string }).syncCompletedAt
+        : undefined,
+    syncStartedAt:
+      typeof (doc as { syncStartedAt?: unknown }).syncStartedAt === "string"
+        ? (doc as { syncStartedAt?: string }).syncStartedAt
+        : undefined,
+    syncError:
+      typeof (doc as { syncError?: unknown }).syncError === "string"
+        ? (doc as { syncError?: string }).syncError
+        : undefined,
+    syncRetryCount:
+      typeof (doc as { syncRetryCount?: unknown }).syncRetryCount === "number"
+        ? (doc as { syncRetryCount?: number }).syncRetryCount
+        : undefined,
+    syncMessageCount:
+      typeof (doc as { syncMessageCount?: unknown }).syncMessageCount ===
+      "number"
+        ? (doc as { syncMessageCount?: number }).syncMessageCount
+        : undefined,
   };
 }
 
 export async function markConversationsPendingSync(
   ownerEmail: string,
-  conversationIds: string[]
+  conversationIds: string[],
 ): Promise<void> {
   if (!conversationIds.length) return;
   const client = await clientPromise;
@@ -1037,9 +1250,9 @@ export async function markConversationsPendingSync(
   await db.collection(CONVERSATIONS_COLLECTION).updateMany(
     { ownerEmail, id: { $in: conversationIds } },
     {
-      $set: { syncStatus: 'pending' },
+      $set: { syncStatus: "pending" },
       $setOnInsert: { syncRetryCount: 0, syncMessageCount: 0 },
-    }
+    },
   );
 }
 
@@ -1055,11 +1268,15 @@ export type InboxSyncJobState = {
   heartbeatAt?: string;
 };
 
-export async function getInboxSyncJob(ownerEmail: string): Promise<InboxSyncJobState | null> {
+export async function getInboxSyncJob(
+  ownerEmail: string,
+): Promise<InboxSyncJobState | null> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  const doc = await db.collection<InboxSyncJobState>(SYNC_COLLECTION).findOne({ ownerEmail });
+  const doc = await db
+    .collection<InboxSyncJobState>(SYNC_COLLECTION)
+    .findOne({ ownerEmail });
   if (!doc) return null;
   const { _id, ...rest } = doc as any;
   return rest as InboxSyncJobState;
@@ -1067,16 +1284,18 @@ export async function getInboxSyncJob(ownerEmail: string): Promise<InboxSyncJobS
 
 export async function upsertInboxSyncJob(
   ownerEmail: string,
-  updates: Partial<InboxSyncJobState>
+  updates: Partial<InboxSyncJobState>,
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
-  await db.collection(SYNC_COLLECTION).updateOne(
-    { ownerEmail },
-    { $set: { ...updates, ownerEmail } },
-    { upsert: true }
-  );
+  await db
+    .collection(SYNC_COLLECTION)
+    .updateOne(
+      { ownerEmail },
+      { $set: { ...updates, ownerEmail } },
+      { upsert: true },
+    );
 }
 
 export async function getConversationSyncOverview(ownerEmail: string): Promise<{
@@ -1092,10 +1311,18 @@ export async function getConversationSyncOverview(ownerEmail: string): Promise<{
 
   const [total, pending, running, done, error] = await Promise.all([
     db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail }),
-    db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail, syncStatus: 'pending' }),
-    db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail, syncStatus: 'running' }),
-    db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail, syncStatus: 'done' }),
-    db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail, syncStatus: 'error' }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .countDocuments({ ownerEmail, syncStatus: "pending" }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .countDocuments({ ownerEmail, syncStatus: "running" }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .countDocuments({ ownerEmail, syncStatus: "done" }),
+    db
+      .collection(CONVERSATIONS_COLLECTION)
+      .countDocuments({ ownerEmail, syncStatus: "error" }),
   ]);
 
   return { total, pending, running, done, error };
@@ -1103,21 +1330,32 @@ export async function getConversationSyncOverview(ownerEmail: string): Promise<{
 
 export async function purgeInboxDataForInstagramAccount(
   ownerEmail: string,
-  options: { accountId?: string; ownerInstagramUserId?: string }
-): Promise<{ conversationsDeleted: number; messagesDeleted: number; audioFilesDeleted: number }> {
+  options: { accountId?: string; ownerInstagramUserId?: string },
+): Promise<{
+  conversationsDeleted: number;
+  messagesDeleted: number;
+  audioFilesDeleted: number;
+}> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   await ensureInboxIndexes(db);
 
   const orFilters: Record<string, unknown>[] = [];
-  if (typeof options.accountId === 'string' && options.accountId.trim()) {
+  if (typeof options.accountId === "string" && options.accountId.trim()) {
     orFilters.push({ accountId: options.accountId });
   }
-  if (typeof options.ownerInstagramUserId === 'string' && options.ownerInstagramUserId.trim()) {
+  if (
+    typeof options.ownerInstagramUserId === "string" &&
+    options.ownerInstagramUserId.trim()
+  ) {
     orFilters.push({ ownerInstagramUserId: options.ownerInstagramUserId });
   }
   if (orFilters.length === 0) {
-    return { conversationsDeleted: 0, messagesDeleted: 0, audioFilesDeleted: 0 };
+    return {
+      conversationsDeleted: 0,
+      messagesDeleted: 0,
+      audioFilesDeleted: 0,
+    };
   }
 
   const conversationFilter = {
@@ -1131,24 +1369,32 @@ export async function purgeInboxDataForInstagramAccount(
     .toArray();
   const conversationIds = conversations
     .map((doc) => (doc as { id?: string }).id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
 
   if (conversationIds.length === 0) {
-    return { conversationsDeleted: 0, messagesDeleted: 0, audioFilesDeleted: 0 };
+    return {
+      conversationsDeleted: 0,
+      messagesDeleted: 0,
+      audioFilesDeleted: 0,
+    };
   }
 
-  const audioDocs = await db.collection(MESSAGES_COLLECTION).find(
-    {
-      ownerEmail,
-      conversationId: { $in: conversationIds },
-      'audioStorage.fileId': { $exists: true, $type: 'string' },
-    },
-    { projection: { audioStorage: 1 } }
-  ).toArray();
+  const audioDocs = await db
+    .collection(MESSAGES_COLLECTION)
+    .find(
+      {
+        ownerEmail,
+        conversationId: { $in: conversationIds },
+        "audioStorage.fileId": { $exists: true, $type: "string" },
+      },
+      { projection: { audioStorage: 1 } },
+    )
+    .toArray();
 
   const audioFileObjectIds: ObjectId[] = [];
   for (const doc of audioDocs) {
-    const fileId = (doc as { audioStorage?: { fileId?: string } }).audioStorage?.fileId;
+    const fileId = (doc as { audioStorage?: { fileId?: string } }).audioStorage
+      ?.fileId;
     if (!fileId) continue;
     try {
       audioFileObjectIds.push(new ObjectId(fileId));
@@ -1173,13 +1419,14 @@ export async function purgeInboxDataForInstagramAccount(
     const [filesResult, chunksResult] = await Promise.all([
       db.collection(`${AUDIO_BUCKET}.files`).deleteMany({
         _id: { $in: audioFileObjectIds },
-        'metadata.ownerEmail': ownerEmail,
+        "metadata.ownerEmail": ownerEmail,
       }),
       db.collection(`${AUDIO_BUCKET}.chunks`).deleteMany({
         files_id: { $in: audioFileObjectIds },
       }),
     ]);
-    audioFilesDeleted = (filesResult.deletedCount || 0) + (chunksResult.deletedCount || 0);
+    audioFilesDeleted =
+      (filesResult.deletedCount || 0) + (chunksResult.deletedCount || 0);
   }
 
   return {

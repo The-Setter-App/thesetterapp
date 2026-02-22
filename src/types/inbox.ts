@@ -88,6 +88,7 @@ export interface User {
   isActive?: boolean;
   conversationId?: string;
   recipientId?: string;
+  tagIds?: string[];
   notes?: string;
   paymentDetails?: PaymentDetails;
 }
@@ -97,14 +98,14 @@ export interface PaymentDetails {
   paymentMethod: string;
   payOption: string;
   paymentFrequency: string;
-  setterPaid: 'Yes' | 'No';
-  closerPaid: 'Yes' | 'No';
+  setterPaid: "Yes" | "No";
+  closerPaid: "Yes" | "No";
   paymentNotes: string;
 }
 
 export interface ConversationTimelineEvent {
   id: string;
-  type: 'status_update';
+  type: "status_update";
   status: StatusType;
   title: string;
   sub: string;
@@ -121,12 +122,13 @@ export interface ConversationDetails {
   paymentDetails: PaymentDetails;
   timelineEvents: ConversationTimelineEvent[];
   contactDetails: ConversationContactDetails;
+  tagIds: string[];
 }
 
 export interface Message {
   id: string;
   fromMe: boolean;
-  type: 'text' | 'audio' | 'image' | 'video' | 'file';
+  type: "text" | "audio" | "image" | "video" | "file";
   text?: string;
   duration?: string;
   status?: string;
@@ -135,9 +137,9 @@ export interface Message {
   isEmpty?: boolean;
   pending?: boolean;
   clientTempId?: string;
-  source?: 'instagram' | 'local_audio_fallback';
+  source?: "instagram" | "local_audio_fallback";
   audioStorage?: {
-    kind: 'gridfs';
+    kind: "gridfs";
     fileId: string;
     mimeType: string;
     size: number;
@@ -148,7 +150,7 @@ export interface MessagePageResponse {
   messages: Message[];
   nextCursor: string | null;
   hasMore: boolean;
-  source: 'mongo';
+  source: "mongo";
 }
 
 export interface ConversationSummarySection {
@@ -164,14 +166,14 @@ export interface ConversationSummary {
 
 export interface ConversationSummaryResponse {
   summary: ConversationSummary | null;
-  source: 'cache' | 'generated' | 'none';
+  source: "cache" | "generated" | "none";
 }
 
 // ── SSE Event Types ─────────────────────────────────────────────────────────
 
 /** Attachment shape as sent by the webhook (raw from Facebook). */
 export interface SSEAttachment {
-  type?: 'image' | 'video' | 'audio' | 'file';
+  type?: "image" | "video" | "audio" | "file";
   image_data?: { url: string; width: number; height: number };
   video_data?: { url: string; width: number; height: number };
   file_url?: string;
@@ -218,10 +220,14 @@ export interface SSEConversationPriorityData {
 
 /** Union of all SSE events the server can emit. */
 export type SSEEvent =
-  | { type: 'connected'; timestamp: string }
-  | { type: 'new_message'; timestamp: string; data: SSEMessageData }
-  | { type: 'message_echo'; timestamp: string; data: SSEMessageData }
-  | { type: 'message_seen'; timestamp: string; data: SSESeenData }
-  | { type: 'messages_synced'; timestamp: string; data: SSESyncedData }
-  | { type: 'user_status_updated'; timestamp?: string; data: SSEUserStatusData }
-  | { type: 'conversation_priority_updated'; timestamp?: string; data: SSEConversationPriorityData };
+  | { type: "connected"; timestamp: string }
+  | { type: "new_message"; timestamp: string; data: SSEMessageData }
+  | { type: "message_echo"; timestamp: string; data: SSEMessageData }
+  | { type: "message_seen"; timestamp: string; data: SSESeenData }
+  | { type: "messages_synced"; timestamp: string; data: SSESyncedData }
+  | { type: "user_status_updated"; timestamp?: string; data: SSEUserStatusData }
+  | {
+      type: "conversation_priority_updated";
+      timestamp?: string;
+      data: SSEConversationPriorityData;
+    };

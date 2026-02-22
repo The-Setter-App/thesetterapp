@@ -90,7 +90,7 @@ export default function FilterModal({
 }) {
   if (!show) return null;
   return (
-    <div className={`${inter.className} fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 antialiased`}>
+    <div className={`${inter.className} fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 antialiased`}>
       <div className="w-[420px] bg-white rounded-[18px] border border-[#F0F2F6] shadow-sm font-sans flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-4 pt-4 pb-2 text-[15px] font-medium text-[#2B2B2C]">Filters</div>

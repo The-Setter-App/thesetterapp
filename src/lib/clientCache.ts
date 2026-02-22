@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Client-Side Cache Helper (IndexedDB)
@@ -6,17 +6,29 @@
  * Why: localStorage is synchronous and blocks the main thread. IndexedDB is async and handles larger data.
  */
 
-import type { LeadRow } from '@/types/leads';
-import type { User, Message, ConversationDetails, ConversationSummary } from '@/types/inbox';
+import type {
+  ConversationDetails,
+  ConversationSummary,
+  Message,
+  User,
+} from "@/types/inbox";
+import type { LeadRow } from "@/types/leads";
+import type { TagRow } from "@/types/tags";
 
-const DB_NAME = 'inbox_cache_db';
+const DB_NAME = "inbox_cache_db";
 const DB_VERSION = 1;
-const STORE_NAME = 'key_value_store';
+const STORE_NAME = "key_value_store";
 const LEADS_CACHE_KEY = "leads";
 const LEADS_CACHE_TIMESTAMP_KEY = "leads_cached_at";
+const INBOX_TAGS_CACHE_KEY = "inbox_tags";
 
 export interface ConversationSummaryCacheRecord {
   summary: ConversationSummary | null;
+  fetchedAt: number;
+}
+
+export interface InboxTagsCacheRecord {
+  tags: TagRow[];
   fetchedAt: number;
 }
 
@@ -24,8 +36,8 @@ class InboxCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   private openDB(): Promise<IDBDatabase> {
-    if (typeof window === 'undefined') {
-      return Promise.reject(new Error('IndexedDB not available server-side'));
+    if (typeof window === "undefined") {
+      return Promise.reject(new Error("IndexedDB not available server-side"));
     }
 
     if (this.dbPromise) return this.dbPromise;
@@ -56,7 +68,7 @@ class InboxCache {
     try {
       const db = await this.openDB();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const transaction = db.transaction(STORE_NAME, "readonly");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(key);
 
@@ -73,7 +85,7 @@ class InboxCache {
     try {
       const db = await this.openDB();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.put(value, key);
 
@@ -84,34 +96,37 @@ class InboxCache {
       console.error(`[InboxCache] Error setting key ${key}:`, error);
     }
   }
-  
-  async update<T>(key: string, updater: (current: T | null) => T): Promise<void> {
+
+  async update<T>(
+    key: string,
+    updater: (current: T | null) => T,
+  ): Promise<void> {
     try {
       const db = await this.openDB();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(key);
-        
+
         request.onsuccess = () => {
-             const current = request.result as T;
-             const newValue = updater(current);
-             const putRequest = store.put(newValue, key);
-             putRequest.onsuccess = () => resolve();
-             putRequest.onerror = () => reject(putRequest.error);
+          const current = request.result as T;
+          const newValue = updater(current);
+          const putRequest = store.put(newValue, key);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
         };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-       console.error(`[InboxCache] Error updating key ${key}:`, error);
+      console.error(`[InboxCache] Error updating key ${key}:`, error);
     }
   }
 
   async clear(): Promise<void> {
-     try {
+    try {
       const db = await this.openDB();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.clear();
 
@@ -119,7 +134,7 @@ class InboxCache {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-       console.error(`[InboxCache] Error clearing cache:`, error);
+      console.error(`[InboxCache] Error clearing cache:`, error);
     }
   }
 
@@ -127,7 +142,7 @@ class InboxCache {
     try {
       const db = await this.openDB();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(key);
 
@@ -147,18 +162,18 @@ class InboxCache {
         db.close();
         this.dbPromise = null;
       }
-      
+
       return new Promise((resolve, reject) => {
         const request = indexedDB.deleteDatabase(DB_NAME);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
         request.onblocked = () => {
-          console.warn('[InboxCache] Delete database blocked by another tab');
+          console.warn("[InboxCache] Delete database blocked by another tab");
           resolve(); // Don't hang the app
         };
       });
     } catch (error) {
-      console.error('[InboxCache] Error resetting cache:', error);
+      console.error("[InboxCache] Error resetting cache:", error);
     }
   }
 }
@@ -166,42 +181,59 @@ class InboxCache {
 const inboxCache = new InboxCache();
 
 export async function getCachedUsers(): Promise<User[] | null> {
-  return inboxCache.get<User[]>('users');
+  return inboxCache.get<User[]>("users");
 }
 
 export async function setCachedUsers(users: User[]): Promise<void> {
-  return inboxCache.set('users', users);
+  return inboxCache.set("users", users);
 }
 
-export async function getCachedMessages(recipientId: string): Promise<Message[] | null> {
+export async function getCachedMessages(
+  recipientId: string,
+): Promise<Message[] | null> {
   return inboxCache.get<Message[]>(`messages_${recipientId}`);
 }
 
-export async function setCachedMessages(recipientId: string, messages: Message[]): Promise<void> {
+export async function setCachedMessages(
+  recipientId: string,
+  messages: Message[],
+): Promise<void> {
   return inboxCache.set(`messages_${recipientId}`, messages);
 }
 
-export async function updateCachedMessages(recipientId: string, updater: (msgs: Message[] | null) => Message[]): Promise<void> {
+export async function updateCachedMessages(
+  recipientId: string,
+  updater: (msgs: Message[] | null) => Message[],
+): Promise<void> {
   return inboxCache.update<Message[]>(`messages_${recipientId}`, updater);
 }
 
-export async function getCachedConversationDetails(recipientId: string): Promise<ConversationDetails | null> {
-  return inboxCache.get<ConversationDetails>(`conversation_details_${recipientId}`);
+export async function getCachedConversationDetails(
+  recipientId: string,
+): Promise<ConversationDetails | null> {
+  return inboxCache.get<ConversationDetails>(
+    `conversation_details_${recipientId}`,
+  );
 }
 
-export async function setCachedConversationDetails(recipientId: string, details: ConversationDetails): Promise<void> {
+export async function setCachedConversationDetails(
+  recipientId: string,
+  details: ConversationDetails,
+): Promise<void> {
   return inboxCache.set(`conversation_details_${recipientId}`, details);
 }
 
 export async function getCachedConversationSummary(
-  recipientId: string
+  recipientId: string,
 ): Promise<ConversationSummaryCacheRecord | null> {
-  return inboxCache.get<ConversationSummaryCacheRecord>(`conversation_summary_${recipientId}`);
+  return inboxCache.get<ConversationSummaryCacheRecord>(
+    `conversation_summary_${recipientId}`,
+  );
 }
 
 export async function setCachedConversationSummary(
   recipientId: string,
-  summary: ConversationSummary | null
+  summary: ConversationSummary | null,
 ): Promise<void> {
   return inboxCache.set(`conversation_summary_${recipientId}`, {
     summary,
@@ -222,6 +254,17 @@ export async function getCachedLeadsTimestamp(): Promise<number | null> {
   return inboxCache.get<number>(LEADS_CACHE_TIMESTAMP_KEY);
 }
 
+export async function getCachedInboxTags(): Promise<InboxTagsCacheRecord | null> {
+  return inboxCache.get<InboxTagsCacheRecord>(INBOX_TAGS_CACHE_KEY);
+}
+
+export async function setCachedInboxTags(tags: TagRow[]): Promise<void> {
+  return inboxCache.set(INBOX_TAGS_CACHE_KEY, {
+    tags,
+    fetchedAt: Date.now(),
+  });
+}
+
 export async function clearCache(): Promise<void> {
   return inboxCache.clear();
 }
@@ -230,7 +273,9 @@ export async function resetCache(): Promise<void> {
   return inboxCache.reset();
 }
 
-export async function removeCachedConversationsByAccount(accountId: string): Promise<void> {
+export async function removeCachedConversationsByAccount(
+  accountId: string,
+): Promise<void> {
   if (!accountId) return;
 
   const users = await getCachedUsers();
@@ -250,6 +295,6 @@ export async function removeCachedConversationsByAccount(accountId: string): Pro
       inboxCache.delete(`messages_${conversationId}`),
       inboxCache.delete(`conversation_details_${conversationId}`),
       inboxCache.delete(`conversation_summary_${conversationId}`),
-    ])
+    ]),
   );
 }

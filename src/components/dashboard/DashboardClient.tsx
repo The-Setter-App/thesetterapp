@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import React from 'react';
-import Head from 'next/head';
-import { buildFunnelGeometry } from '@/lib/dashboard/funnelGeometry';
-import type { DashboardSnapshot } from '@/types/dashboard';
+import Head from "next/head";
+import Link from "next/link";
+import React from "react";
+import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
+import type { DashboardSnapshot } from "@/types/dashboard";
 
 interface MetricCardProps {
   value: string;
@@ -13,16 +13,16 @@ interface MetricCardProps {
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
 }
 
 function formatReplyTime(replyTimeMs: number | null): string {
-  if (replyTimeMs === null) return 'N/A';
+  if (replyTimeMs === null) return "N/A";
 
   const totalSeconds = Math.round(replyTimeMs / 1000);
   if (totalSeconds < 60) {
@@ -44,7 +44,7 @@ function formatReplyTime(replyTimeMs: number | null): string {
 }
 
 function formatRate(rate: number | null): string {
-  return rate === null ? 'N/A' : `${rate}%`;
+  return rate === null ? "N/A" : `${rate}%`;
 }
 
 function NoConnectedAccountsState({ displayName }: { displayName: string }) {
@@ -74,35 +74,35 @@ function NoConnectedAccountsState({ displayName }: { displayName: string }) {
 const MetricCard = ({ value, label, icon }: MetricCardProps) => (
   <div
     className="w-full m-1 rounded-xl border border-[#F0F2F6] p-4 md:p-5 flex items-center gap-4"
-    style={{ background: 'rgba(135, 113, 255, 0.10)' }}
+    style={{ background: "rgba(135, 113, 255, 0.10)" }}
   >
     <div
       className="w-12 h-12 rounded-full flex items-center justify-center"
-      style={{ background: 'rgba(82, 53, 239, 0.20)' }}
+      style={{ background: "rgba(82, 53, 239, 0.20)" }}
     >
       {icon}
     </div>
     <div>
       <div
         style={{
-          width: '100%',
-          color: '#101011',
+          width: "100%",
+          color: "#101011",
           fontSize: 22,
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: "Inter, sans-serif",
           fontWeight: 700,
-          wordWrap: 'break-word'
+          wordWrap: "break-word",
         }}
       >
         {value}
       </div>
       <div
         style={{
-          width: '100%',
-          color: 'black',
+          width: "100%",
+          color: "black",
           fontSize: 14,
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: "Inter, sans-serif",
           fontWeight: 400,
-          wordWrap: 'break-word'
+          wordWrap: "break-word",
         }}
       >
         {label}
@@ -141,10 +141,20 @@ export default function Dashboard({
     <img src="/dashboardIcons/dollar.svg" alt="Dollar" width={30} height={30} />
   );
   const HourglassIcon = (
-    <img src="/dashboardIcons/hourglass.svg" alt="Hourglass" width={30} height={30} />
+    <img
+      src="/dashboardIcons/hourglass.svg"
+      alt="Hourglass"
+      width={30}
+      height={30}
+    />
   );
   const ConversionRateIcon = (
-    <img src="/dashboardIcons/conversion-rate.svg" alt="Conversion Rate" width={24} height={24} />
+    <img
+      src="/dashboardIcons/conversion-rate.svg"
+      alt="Conversion Rate"
+      width={24}
+      height={24}
+    />
   );
   const ReplyIcon = (
     <img src="/dashboardIcons/reply.svg" alt="Reply" width={23} height={28} />
@@ -163,68 +173,84 @@ export default function Dashboard({
   return (
     <>
       <Head>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
       </Head>
-      <div className="min-h-[100dvh] w-full bg-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div
+        className="min-h-[100dvh] w-full bg-white"
+        style={{ fontFamily: "Inter, sans-serif" }}
+      >
         <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
           {/* Header - Styled from Figma */}
           <header className="flex flex-col gap-4 border-b border-[#F0F2F6] px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
             <div className="flex flex-col gap-1">
-              <div style={{
-                color: '#101011',
-                fontSize: '18px',
-                fontWeight: 500,
-                lineHeight: '28px',
-                fontFamily: 'Inter, sans-serif'
-              }}>
+              <div
+                style={{
+                  color: "#101011",
+                  fontSize: "18px",
+                  fontWeight: 500,
+                  lineHeight: "28px",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
                 Hi, {displayName}!
               </div>
-              <div style={{
-                color: '#606266',
-                fontSize: '14px',
-                fontWeight: 400,
-                lineHeight: '20px',
-                fontFamily: 'Inter, sans-serif'
-              }}>
+              <div
+                style={{
+                  color: "#606266",
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  lineHeight: "20px",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
                 Your Setter Dashboard
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
               <div className="relative cursor-pointer">
-                <img src="/dashboardIcons/bell.svg" alt="Bell" width={24} height={24} />
+                <img
+                  src="/dashboardIcons/bell.svg"
+                  alt="Bell"
+                  width={24}
+                  height={24}
+                />
               </div>
               <form
                 onSubmit={handleSearchSubmit}
                 style={{
-                  width: '100%',
-                  maxWidth: '260px',
-                  height: '44px',
-                  paddingLeft: '16px',
-                  paddingRight: '16px',
-                  boxShadow: '0px 1px 2px rgba(16, 24, 40, 0.05)',
-                  borderRadius: '8px',
-                  outline: '1px #F0F2F6 solid',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'white'
+                  width: "100%",
+                  maxWidth: "260px",
+                  height: "44px",
+                  paddingLeft: "16px",
+                  paddingRight: "16px",
+                  boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
+                  borderRadius: "8px",
+                  outline: "1px #F0F2F6 solid",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "white",
                 }}
               >
-                <img src="/dashboardIcons/search.svg" alt="Search" width={14} height={14} />
+                <img
+                  src="/dashboardIcons/search.svg"
+                  alt="Search"
+                  width={14}
+                  height={14}
+                />
                 <input
                   type="text"
                   value={search}
                   onChange={handleSearchChange}
                   placeholder="Search"
+                  className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
                   style={{
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    color: '#101011',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif',
-                    width: '100%'
+                    border: "none",
+                    fontFamily: "Inter, sans-serif",
+                    width: "100%",
                   }}
                   aria-label="Search"
                 />
@@ -235,11 +261,31 @@ export default function Dashboard({
           <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
             {/* Metrics Grid */}
             <div className="px-3 md:px-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 md:gap-4">
-              <MetricCard value={totalRevenue} label="Total revenue" icon={DollarIcon} />
-              <MetricCard value={avgReplyTime} label="Avg reply time" icon={HourglassIcon} />
-              <MetricCard value={revenuePerCall} label="Revenue per call" icon={DollarIcon} />
-              <MetricCard value={conversationRate} label="Conversation rate" icon={ConversionRateIcon} />
-              <MetricCard value={avgReplyRate} label="Avg reply rate" icon={ReplyIcon} />
+              <MetricCard
+                value={totalRevenue}
+                label="Total revenue"
+                icon={DollarIcon}
+              />
+              <MetricCard
+                value={avgReplyTime}
+                label="Avg reply time"
+                icon={HourglassIcon}
+              />
+              <MetricCard
+                value={revenuePerCall}
+                label="Revenue per call"
+                icon={DollarIcon}
+              />
+              <MetricCard
+                value={conversationRate}
+                label="Conversation rate"
+                icon={ConversionRateIcon}
+              />
+              <MetricCard
+                value={avgReplyRate}
+                label="Avg reply rate"
+                icon={ReplyIcon}
+              />
             </div>
 
             {/* Funnel Visualizer */}
@@ -251,11 +297,14 @@ export default function Dashboard({
                     className="absolute inset-0 bg-[#8771FF]"
                     style={{
                       opacity: segment.opacity,
-                      clipPath: `polygon(${segment.start}% ${segment.upperStart}%, ${segment.end}% ${segment.upperEnd}%, ${segment.end}% ${segment.lowerEnd}%, ${segment.start}% ${segment.lowerStart}%)`
+                      clipPath: `polygon(${segment.start}% ${segment.upperStart}%, ${segment.end}% ${segment.upperEnd}%, ${segment.end}% ${segment.lowerEnd}%, ${segment.start}% ${segment.lowerStart}%)`,
                     }}
                   />
                 ))}
-                <div className="absolute inset-0 z-20" style={{ clipPath: funnelGeometry.clipPath }}>
+                <div
+                  className="absolute inset-0 z-20"
+                  style={{ clipPath: funnelGeometry.clipPath }}
+                >
                   <div
                     className="absolute left-0 right-0 h-px bg-[rgba(86,90,104,0.55)]"
                     style={{ top: `${funnelGeometry.centerLineY}%` }}
@@ -264,32 +313,50 @@ export default function Dashboard({
               </div>
               <div className="relative z-10 grid h-full grid-cols-5">
                 {[
-                  { label: 'Conversations', value: snapshot.funnel.conversations.toLocaleString() },
-                  { label: 'Qualified', value: snapshot.funnel.qualified.toLocaleString() },
-                  { label: 'Links Sent', value: snapshot.funnel.linksSent.toLocaleString() },
-                  { label: 'Booked', value: snapshot.funnel.booked.toLocaleString() },
-                  { label: 'Closed', value: snapshot.funnel.closed.toLocaleString() }
+                  {
+                    label: "Conversations",
+                    value: snapshot.funnel.conversations.toLocaleString(),
+                  },
+                  {
+                    label: "Qualified",
+                    value: snapshot.funnel.qualified.toLocaleString(),
+                  },
+                  {
+                    label: "Links Sent",
+                    value: snapshot.funnel.linksSent.toLocaleString(),
+                  },
+                  {
+                    label: "Booked",
+                    value: snapshot.funnel.booked.toLocaleString(),
+                  },
+                  {
+                    label: "Closed",
+                    value: snapshot.funnel.closed.toLocaleString(),
+                  },
                 ].map((step, i, arr) => (
-                  <div key={step.label} className={`p-4 flex flex-col gap-3 ${i !== arr.length - 1 ? 'border-r border-[rgba(135,113,255,0.2)]' : ''}`}>
+                  <div
+                    key={step.label}
+                    className={`p-4 flex flex-col gap-3 ${i !== arr.length - 1 ? "border-r border-[rgba(135,113,255,0.2)]" : ""}`}
+                  >
                     <div
                       style={{
-                        color: '#101011',
+                        color: "#101011",
                         fontSize: 14,
-                        fontFamily: 'Inter, sans-serif',
+                        fontFamily: "Inter, sans-serif",
                         fontWeight: 600,
-                        wordWrap: 'break-word'
+                        wordWrap: "break-word",
                       }}
                     >
                       {step.label}
                     </div>
                     <div
                       style={{
-                        color: '#8771FF',
+                        color: "#8771FF",
                         fontSize: 24,
-                        fontFamily: 'Inter, sans-serif',
+                        fontFamily: "Inter, sans-serif",
                         fontWeight: 700,
-                        wordWrap: 'break-word',
-                        marginTop: 4
+                        wordWrap: "break-word",
+                        marginTop: 4,
                       }}
                     >
                       {step.value}

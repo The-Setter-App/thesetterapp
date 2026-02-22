@@ -1,9 +1,16 @@
 "use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { type LucideIcon, Instagram, PlugZap, UserRound, Users2 } from 'lucide-react';
-import type { UserRole } from '@/types/auth';
+import {
+  Instagram,
+  type LucideIcon,
+  PlugZap,
+  Tags,
+  UserRound,
+  Users2,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { UserRole } from "@/types/auth";
 
 interface SettingsNavItem {
   href: string;
@@ -12,22 +19,26 @@ interface SettingsNavItem {
 }
 
 const ownerSettingsNavItems: SettingsNavItem[] = [
-  { href: '/settings/profile', label: 'Profile', icon: UserRound },
-  { href: '/settings/team', label: 'Team', icon: Users2 },
-  { href: '/settings/socials', label: 'Socials', icon: Instagram },
-  { href: '/settings/integration', label: 'Integration', icon: PlugZap },
+  { href: "/settings/profile", label: "Profile", icon: UserRound },
+  { href: "/settings/team", label: "Team", icon: Users2 },
+  { href: "/settings/socials", label: "Socials", icon: Instagram },
+  { href: "/settings/tags", label: "Tags", icon: Tags },
+  { href: "/settings/integration", label: "Integration", icon: PlugZap },
 ];
 
 const teamMemberSettingsNavItems: SettingsNavItem[] = [
-  { href: '/settings/profile', label: 'Profile', icon: UserRound },
-  { href: '/settings/team', label: 'Team', icon: Users2 },
+  { href: "/settings/profile", label: "Profile", icon: UserRound },
+  { href: "/settings/team", label: "Team", icon: Users2 },
+  { href: "/settings/tags", label: "Tags", icon: Tags },
 ];
 
-const viewerSettingsNavItems: SettingsNavItem[] = [{ href: '/settings/profile', label: 'Profile', icon: UserRound }];
+const viewerSettingsNavItems: SettingsNavItem[] = [
+  { href: "/settings/profile", label: "Profile", icon: UserRound },
+];
 
 function getSettingsItems(role: UserRole): SettingsNavItem[] {
-  if (role === 'owner') return ownerSettingsNavItems;
-  if (role === 'setter' || role === 'closer') return teamMemberSettingsNavItems;
+  if (role === "owner") return ownerSettingsNavItems;
+  if (role === "setter" || role === "closer") return teamMemberSettingsNavItems;
   return viewerSettingsNavItems;
 }
 
@@ -39,8 +50,12 @@ export default function SettingsSidebar({ role }: { role: UserRole }) {
     <aside className="h-screen border-r border-[#F0F2F6] bg-white">
       <div className="flex h-full flex-col p-4 md:p-6">
         <div className="mb-4 rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#606266]">Settings</p>
-          <p className="mt-1 text-sm font-medium text-[#101011]">Workspace controls</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#606266]">
+            Settings
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#101011]">
+            Workspace controls
+          </p>
         </div>
 
         <nav className="flex gap-2 overflow-x-auto md:block md:space-y-2 md:overflow-visible">
@@ -54,11 +69,14 @@ export default function SettingsSidebar({ role }: { role: UserRole }) {
                 href={item.href}
                 className={`inline-flex h-12 min-w-fit items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors focus:outline-none md:flex md:w-full ${
                   isActive
-                    ? 'border-[#8771FF] bg-[#8771FF] text-white'
-                    : 'border-[#F0F2F6] bg-white text-[#606266] hover:bg-[#F8F7FF]'
+                    ? "border-[#8771FF] bg-[#8771FF] text-white"
+                    : "border-[#F0F2F6] bg-white text-[#606266] hover:bg-[#F8F7FF]"
                 }`}
               >
-                <Icon size={16} className={isActive ? 'text-white' : 'text-[#606266]'} />
+                <Icon
+                  size={16}
+                  className={isActive ? "text-white" : "text-[#606266]"}
+                />
                 {item.label}
               </Link>
             );

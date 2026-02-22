@@ -1,140 +1,238 @@
 "use client";
 
-import Image from 'next/image';
-import { STATUS_COLOR_ICON_PATHS } from '@/lib/status/config';
-import { User } from '@/types/inbox';
+import { STATUS_COLOR_ICON_PATHS } from "@/lib/status/config";
+import type { User } from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
 
 interface ConversationListProps {
   users: User[];
   selectedUserId: string;
   onSelectUser: (id: string) => void;
-  onAction: (userId: string, action: 'qualified' | 'priority' | 'unpriority' | 'delete') => void;
+  onAction: (
+    userId: string,
+    action: "qualified" | "priority" | "unpriority" | "delete",
+  ) => void;
+  tagLookup: Record<string, TagRow>;
 }
 
 const VerifiedIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-blue-500">
-    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className="w-3.5 h-3.5 text-blue-500"
+  >
+    <path
+      fillRule="evenodd"
+      d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+      clipRule="evenodd"
+    />
   </svg>
 );
 
 const StarIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <path
+      fillRule="evenodd"
+      d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+      clipRule="evenodd"
+    />
   </svg>
 );
 
 const XIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6 18L18 6M6 6l12 12"
+    />
   </svg>
 );
 
 const FolderMoveIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 12h5.25m0 0L15 9.75m2.25 2.25L15 14.25M3.75 6A2.25 2.25 0 016 3.75h2.625a1.5 1.5 0 011.06.44l1.125 1.125a1.5 1.5 0 001.06.44h4.125A2.25 2.25 0 0118.25 7.875v10.5a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 12h5.25m0 0L15 9.75m2.25 2.25L15 14.25M3.75 6A2.25 2.25 0 016 3.75h2.625a1.5 1.5 0 011.06.44l1.125 1.125a1.5 1.5 0 001.06.44h4.125A2.25 2.25 0 0118.25 7.875v10.5a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z"
+    />
   </svg>
 );
 
-export default function ConversationList({ users, selectedUserId, onSelectUser, onAction }: ConversationListProps) {
+export default function ConversationList({
+  users,
+  selectedUserId,
+  onSelectUser,
+  onAction,
+  tagLookup,
+}: ConversationListProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
-      {users.map((u) => (
-        <div
-          key={u.id}
-          className={`group flex items-center px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
-            selectedUserId === u.id ? 'bg-blue-50/50' : ''
-          }`}
-          onClick={() => onSelectUser(u.id)}
-        >
-          <div className="relative flex-shrink-0">
-            <img
-              src={u.avatar || "/images/no_profile.jpg"}
-              alt={u.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            {(u.unread ?? 0) > 0 && (
-              <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
-                {(u.unread ?? 0) > 9 ? '9+' : u.unread}
-              </span>
-            )}
-          </div>
+      {users.map((u) => {
+        const resolvedTags = (u.tagIds || [])
+          .map((tagId) => tagLookup[tagId])
+          .filter((tag): tag is TagRow => Boolean(tag));
+        const visibleTags = resolvedTags.slice(0, 2);
+        const hiddenTagCount = Math.max(
+          0,
+          resolvedTags.length - visibleTags.length,
+        );
 
-          <div className="flex-1 min-w-0 ml-3 mr-2">
-            <div className="flex items-center mb-0.5">
-              <span className="font-bold text-sm text-gray-900 truncate">{u.name?.replace('@', '')}</span>
-              {u.verified && (
-                <span className="ml-1">
-                  <VerifiedIcon />
-                </span>
-              )}
-              <span className="text-[10px] text-gray-400 ml-2 whitespace-nowrap">{u.time}</span>
-            </div>
-            <div className="text-xs text-gray-500 truncate">{u.lastMessage}</div>
-            {u.accountLabel && (
-              <div className="mt-1 text-[10px] text-stone-500 truncate">Account: {u.accountLabel}</div>
-            )}
-          </div>
-
-          <div className="flex-shrink-0">
-            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border ${u.statusColor}`}>
-              {STATUS_COLOR_ICON_PATHS[u.status] && (
-                <img src={STATUS_COLOR_ICON_PATHS[u.status]} alt={u.status} className="w-4 h-4" />
-              )}
-              <span>{u.status}</span>
-            </div>
-          </div>
-
-          {/* Floating Action Icons (show on hover) */}
+        return (
           <div
-            className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
-            style={{ minWidth: 60 }}
-            onClick={(e) => e.stopPropagation()}
+            key={u.id}
+            className={`group flex items-center px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
+              selectedUserId === u.id ? "bg-blue-50/50" : ""
+            }`}
+            onClick={() => onSelectUser(u.id)}
           >
-            {/* Priority */}
-            <div className="group/act relative flex items-center">
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction(u.id, 'qualified')}
-                tabIndex={-1}
+              <div className="relative flex-shrink-0">
+                <img
+                  src={u.avatar || "/images/no_profile.jpg"}
+                  alt={u.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                {(u.unread ?? 0) > 0 && (
+                  <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
+                    {(u.unread ?? 0) > 9 ? "9+" : u.unread}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 ml-3 mr-2">
+                <div className="flex items-center mb-0.5">
+                  <span className="font-bold text-sm text-gray-900 truncate">
+                    {u.name?.replace("@", "")}
+                  </span>
+                  {u.verified && (
+                    <span className="ml-1">
+                      <VerifiedIcon />
+                    </span>
+                  )}
+                  <span className="text-[10px] text-gray-400 ml-2 whitespace-nowrap">
+                    {u.time}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 truncate">
+                  {u.lastMessage}
+                </div>
+                {u.accountLabel && (
+                  <div className="mt-1 text-[10px] text-stone-500 truncate">
+                    Account: {u.accountLabel}
+                  </div>
+                )}
+                {visibleTags.length > 0 && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {visibleTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="inline-flex max-w-[150px] truncate rounded-full border border-[#E2E5EB] bg-[#F8F7FF] px-2 py-0.5 text-[10px] font-semibold text-[#6d5ed6]"
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                    {hiddenTagCount > 0 && (
+                      <span className="inline-flex rounded-full border border-[#E2E5EB] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#606266]">
+                        +{hiddenTagCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-shrink-0">
+                <div
+                  className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border ${u.statusColor}`}
+                >
+                  {STATUS_COLOR_ICON_PATHS[u.status] && (
+                    <img
+                      src={STATUS_COLOR_ICON_PATHS[u.status]}
+                      alt={u.status}
+                      className="w-4 h-4"
+                    />
+                  )}
+                  <span>{u.status}</span>
+                </div>
+              </div>
+
+              {/* Floating Action Icons (show on hover) */}
+              <div
+                className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
+                style={{ minWidth: 60 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
-              </button>
-              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                Mark as qualified
-              </span>
+                {/* Priority */}
+                <div className="group/act relative flex items-center">
+                  <button
+                    type="button"
+                    className="flex h-5 w-5 items-center justify-center"
+                    onClick={() => onAction(u.id, "qualified")}
+                    tabIndex={-1}
+                  >
+                    <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
+                  </button>
+                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                    Mark as qualified
+                  </span>
+                </div>
+                {/* Delete */}
+                <div className="group/act relative flex items-center">
+                  <button
+                    type="button"
+                    className="flex h-5 w-5 items-center justify-center"
+                    onClick={() => onAction(u.id, "delete")}
+                    tabIndex={-1}
+                  >
+                    <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
+                  </button>
+                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                    Unqualify and remove user from inbox
+                  </span>
+                </div>
+                {/* Priority / Unpriority */}
+                <div className="group/act relative flex items-center">
+                  <button
+                    type="button"
+                    className="flex h-5 w-5 items-center justify-center"
+                    onClick={() =>
+                      onAction(u.id, u.isPriority ? "unpriority" : "priority")
+                    }
+                    tabIndex={-1}
+                  >
+                    <FolderMoveIcon
+                      className={`w-4 h-4 text-gray-700 ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
+                    />
+                  </button>
+                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                    {u.isPriority
+                      ? "Remove from priority inbox"
+                      : "Move to priority inbox"}
+                  </span>
+                </div>
+              </div>
             </div>
-            {/* Delete */}
-            <div className="group/act relative flex items-center">
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction(u.id, 'delete')}
-                tabIndex={-1}
-              >
-                <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
-              </button>
-              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                Unqualify and remove user from inbox
-              </span>
-            </div>
-            {/* Priority / Unpriority */}
-            <div className="group/act relative flex items-center">
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center"
-                onClick={() => onAction(u.id, u.isPriority ? 'unpriority' : 'priority')}
-                tabIndex={-1}
-              >
-                <FolderMoveIcon className={`w-4 h-4 text-gray-700 ${u.isPriority ? 'group-hover/act:text-red-400' : 'group-hover/act:text-yellow-400'}`} />
-              </button>
-              <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                {u.isPriority ? 'Remove from priority inbox' : 'Move to priority inbox'}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

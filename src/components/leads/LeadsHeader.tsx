@@ -56,7 +56,7 @@ export default function LeadsHeader({
               placeholder="Search"
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white pl-9 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none"
+              className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white pl-9 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none transition-colors hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
             />
           </div>
         </div>

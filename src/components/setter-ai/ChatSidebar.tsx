@@ -85,7 +85,7 @@ export default function ChatSidebar({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search messages"
-            className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white pl-10 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none focus:border-[#8771FF] focus:ring-0 focus-visible:outline-none"
+            className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white pl-10 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none transition-colors hover:bg-[#F8F7FF] focus:outline-none focus:ring-0 focus-visible:outline-none"
           />
         </div>
 
@@ -116,72 +116,74 @@ export default function ChatSidebar({
             ))}
           {!isLoading &&
             sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`group relative flex h-12 w-full min-w-[44px] items-center rounded-xl border px-1.5 text-left text-sm transition-colors
+              <div
+                key={session.id}
+                className={`group relative flex h-12 w-full min-w-[44px] items-center rounded-xl border px-1.5 text-left text-sm transition-colors
                 ${
                   session.id === activeSessionId
                     ? "border-[#E6E1FF] bg-[#F8F7FF] text-[#101011]"
                     : "border-[#F0F2F6] text-[#606266] hover:bg-[#F8F7FF]"
                 }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelectSession(session.id)}
-                className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 text-left outline-none focus-visible:outline-none"
-              >
-                <MessageSquare
-                  size={16}
-                  className={
-                    session.id === activeSessionId
-                      ? "text-[#8771FF]"
-                      : "text-[#9A9CA2]"
-                  }
-                />
-                <span
-                  className={`truncate ${session.id === activeSessionId ? "font-semibold" : "font-medium"}`}
-                >
-                  {session.title}
-                </span>
-              </button>
-
-              <div
-                className="relative shrink-0"
-                ref={openMenuSessionId === session.id ? menuContainerRef : null}
-                onPointerDown={(event) => event.stopPropagation()}
               >
                 <button
                   type="button"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleMenu(session.id);
-                  }}
-                  aria-label={`Open menu for ${session.title}`}
-                  className="inline-flex h-9 w-9 min-w-[44px] items-center justify-center rounded-lg text-[#606266] transition-colors hover:bg-[#F3F0FF] hover:text-[#101011] outline-none focus-visible:outline-none"
+                  onClick={() => onSelectSession(session.id)}
+                  className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 text-left outline-none focus-visible:outline-none"
                 >
-                  <MoreVertical size={16} />
+                  <MessageSquare
+                    size={16}
+                    className={
+                      session.id === activeSessionId
+                        ? "text-[#8771FF]"
+                        : "text-[#9A9CA2]"
+                    }
+                  />
+                  <span
+                    className={`truncate ${session.id === activeSessionId ? "font-semibold" : "font-medium"}`}
+                  >
+                    {session.title}
+                  </span>
                 </button>
 
-                {openMenuSessionId === session.id && (
-                  <div
-                    className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-[150px] rounded-xl border border-[#F0F2F6] bg-white p-1.5 shadow-sm"
+                <div
+                  className="relative shrink-0"
+                  ref={
+                    openMenuSessionId === session.id ? menuContainerRef : null
+                  }
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
                     onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleMenu(session.id);
+                    }}
+                    aria-label={`Open menu for ${session.title}`}
+                    className="inline-flex h-9 w-9 min-w-[44px] items-center justify-center rounded-lg text-[#606266] transition-colors hover:bg-[#F3F0FF] hover:text-[#101011] outline-none focus-visible:outline-none"
                   >
-                    <button
-                      type="button"
+                    <MoreVertical size={16} />
+                  </button>
+
+                  {openMenuSessionId === session.id && (
+                    <div
+                      className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-[150px] rounded-xl border border-[#F0F2F6] bg-white p-1.5 shadow-sm"
                       onPointerDown={(event) => event.stopPropagation()}
-                      onClick={() => handleDelete(session.id)}
-                      className="flex h-10 w-full min-w-[44px] items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 outline-none focus-visible:outline-none"
                     >
-                      <Trash2 size={14} />
-                      Delete chat
-                    </button>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => handleDelete(session.id)}
+                        className="flex h-10 w-full min-w-[44px] items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 outline-none focus-visible:outline-none"
+                      >
+                        <Trash2 size={14} />
+                        Delete chat
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </aside>

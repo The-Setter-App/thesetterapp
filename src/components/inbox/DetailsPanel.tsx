@@ -1,19 +1,45 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { User } from "@/types/inbox";
-import type { ConversationContactDetails, ConversationDetails, ConversationTimelineEvent, PaymentDetails, StatusType } from "@/types/inbox";
-import DetailsPanelHeader from "./details/DetailsPanelHeader";
-import SummaryTab from "./details/SummaryTab";
-import NotesTab from "./details/NotesTab";
-import TimelineTab from "./details/TimelineTab";
-import PaymentsTab from "./details/PaymentsTab";
-import CallsTab from "./details/CallsTab";
 import { useSSE } from "@/hooks/useSSE";
+import { loadInboxTagCatalog } from "@/lib/inbox/clientTagCatalog";
+import {
+  emitConversationTagsSynced,
+  syncConversationTagsToClientCache,
+} from "@/lib/inbox/clientTagSync";
+import type {
+  ConversationContactDetails,
+  ConversationDetails,
+  ConversationTimelineEvent,
+  PaymentDetails,
+  StatusType,
+  User,
+} from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
+import CallsTab from "./details/CallsTab";
+import DetailsPanelHeader from "./details/DetailsPanelHeader";
+import NotesTab from "./details/NotesTab";
+import PaymentsTab from "./details/PaymentsTab";
+import SummaryTab from "./details/SummaryTab";
+import TagsTab from "./details/TagsTab";
+import TimelineTab from "./details/TimelineTab";
 
-type DetailsTabName = "Summary" | "Notes" | "Timeline" | "Payments" | "Calls";
+type DetailsTabName =
+  | "Summary"
+  | "Notes"
+  | "Tags"
+  | "Timeline"
+  | "Payments"
+  | "Calls";
 
-const DETAILS_TABS: DetailsTabName[] = ["Summary", "Notes", "Timeline", "Payments", "Calls"];
+const DETAILS_TABS: DetailsTabName[] = [
+  "Summary",
+  "Notes",
+  "Tags",
+  "Timeline",
+  "Payments",
+  "Calls",
+];
 
 interface DetailsPanelProps {
   user: User;
@@ -22,7 +48,12 @@ interface DetailsPanelProps {
   syncedAt?: number;
 }
 
-export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: DetailsPanelProps) {
+export default function DetailsPanel({
+  user,
+  width,
+  syncedDetails,
+  syncedAt,
+}: DetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailsTabName>("Summary");
   const [notes, setNotes] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
@@ -35,32 +66,41 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     paymentNotes: "",
   });
   const [detailsLoaded, setDetailsLoaded] = useState(false);
-  const [timelineEvents, setTimelineEvents] = useState<ConversationTimelineEvent[]>([]);
-  const [contactDetails, setContactDetails] = useState<ConversationContactDetails>({
-    phoneNumber: "",
-    email: "",
-  });
-  const appendStatusTimelineEvent = useCallback((status: StatusType, idPrefix: string) => {
-    const now = Date.now();
-    setTimelineEvents((prev) => {
-      const last = prev[prev.length - 1];
-      if (last?.status === status) {
-        const lastTs = new Date(last.timestamp).getTime();
-        if (Number.isFinite(lastTs) && now - lastTs < 3000) return prev;
-      }
-      return [
-        ...prev,
-        {
-          id: `${idPrefix}_${now}_${Math.random().toString(36).slice(2, 8)}`,
-          type: "status_update",
-          status,
-          title: status,
-          sub: `Status changed to ${status}`,
-          timestamp: new Date(now).toISOString(),
-        },
-      ];
+  const [timelineEvents, setTimelineEvents] = useState<
+    ConversationTimelineEvent[]
+  >([]);
+  const [contactDetails, setContactDetails] =
+    useState<ConversationContactDetails>({
+      phoneNumber: "",
+      email: "",
     });
-  }, []);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<TagRow[]>([]);
+  const [loadingAvailableTags, setLoadingAvailableTags] = useState(false);
+  const appendStatusTimelineEvent = useCallback(
+    (status: StatusType, idPrefix: string) => {
+      const now = Date.now();
+      setTimelineEvents((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.status === status) {
+          const lastTs = new Date(last.timestamp).getTime();
+          if (Number.isFinite(lastTs) && now - lastTs < 3000) return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: `${idPrefix}_${now}_${Math.random().toString(36).slice(2, 8)}`,
+            type: "status_update",
+            status,
+            title: status,
+            sub: `Status changed to ${status}`,
+            timestamp: new Date(now).toISOString(),
+          },
+        ];
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     const conversationId = user.id;
@@ -75,16 +115,20 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
         amount: details?.paymentDetails?.amount ?? "",
         paymentMethod: details?.paymentDetails?.paymentMethod ?? "Fanbasis",
         payOption: details?.paymentDetails?.payOption ?? "One Time",
-        paymentFrequency: details?.paymentDetails?.paymentFrequency ?? "One Time",
+        paymentFrequency:
+          details?.paymentDetails?.paymentFrequency ?? "One Time",
         setterPaid: details?.paymentDetails?.setterPaid ?? "No",
         closerPaid: details?.paymentDetails?.closerPaid ?? "No",
         paymentNotes: details?.paymentDetails?.paymentNotes ?? "",
       });
-      setTimelineEvents(Array.isArray(details?.timelineEvents) ? details.timelineEvents : []);
+      setTimelineEvents(
+        Array.isArray(details?.timelineEvents) ? details.timelineEvents : [],
+      );
       setContactDetails({
         phoneNumber: details?.contactDetails?.phoneNumber ?? "",
         email: details?.contactDetails?.email ?? "",
       });
+      setTagIds(Array.isArray(details?.tagIds) ? details.tagIds : []);
     };
 
     if (syncedDetails) {
@@ -95,7 +139,9 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     (async () => {
       try {
-        const res = await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/details`);
+        const res = await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(conversationId)}/details`,
+        );
         if (!res.ok || !active) return;
         const data = await res.json();
         if (!active) return;
@@ -117,11 +163,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes }),
-        });
+        await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notes }),
+          },
+        );
       } catch (error) {
         console.error("[DetailsPanel] Failed to save notes:", error);
       }
@@ -135,11 +184,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentDetails }),
-        });
+        await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentDetails }),
+          },
+        );
       } catch (error) {
         console.error("[DetailsPanel] Failed to save payment details:", error);
       }
@@ -153,11 +205,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactDetails }),
-        });
+        await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contactDetails }),
+          },
+        );
       } catch (error) {
         console.error("[DetailsPanel] Failed to save contact details:", error);
       }
@@ -165,6 +220,59 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
     return () => window.clearTimeout(timeout);
   }, [contactDetails, detailsLoaded, user.id]);
+
+  useEffect(() => {
+    if (!detailsLoaded || !user.id) return;
+
+    const timeout = window.setTimeout(async () => {
+      const payloadTagIds = [...tagIds];
+      emitConversationTagsSynced({
+        conversationId: user.id,
+        tagIds: payloadTagIds,
+      });
+      syncConversationTagsToClientCache(user.id, payloadTagIds).catch((error) =>
+        console.error("[DetailsPanel] Failed to sync tag cache:", error),
+      );
+
+      try {
+        await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tagIds: payloadTagIds }),
+          },
+        );
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to save tags:", error);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [tagIds, detailsLoaded, user.id]);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingAvailableTags(true);
+
+    (async () => {
+      try {
+        const tags = await loadInboxTagCatalog();
+        if (!active) return;
+        setAvailableTags(tags);
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to load inbox tags:", error);
+      } finally {
+        if (active) {
+          setLoadingAvailableTags(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useSSE("/api/sse", {
     onMessage: (message) => {
@@ -176,13 +284,22 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
 
   useEffect(() => {
     const handleLocalStatus = (event: Event) => {
-      const custom = event as CustomEvent<{ userId?: string; status?: StatusType }>;
-      if (!custom.detail?.userId || custom.detail.userId !== user.id || !custom.detail.status) return;
+      const custom = event as CustomEvent<{
+        userId?: string;
+        status?: StatusType;
+      }>;
+      if (
+        !custom.detail?.userId ||
+        custom.detail.userId !== user.id ||
+        !custom.detail.status
+      )
+        return;
       appendStatusTimelineEvent(custom.detail.status, "status_local");
     };
 
     window.addEventListener("userStatusUpdated", handleLocalStatus);
-    return () => window.removeEventListener("userStatusUpdated", handleLocalStatus);
+    return () =>
+      window.removeEventListener("userStatusUpdated", handleLocalStatus);
   }, [appendStatusTimelineEvent, user.id]);
 
   const getTabButtonClass = (tabName: DetailsTabName) => {
@@ -196,11 +313,14 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
     if (!user.id) return;
     setTimelineEvents([]);
     try {
-      await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/details`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timelineEvents: [] }),
-      });
+      await fetch(
+        `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timelineEvents: [] }),
+        },
+      );
     } catch (error) {
       console.error("[DetailsPanel] Failed to clear timeline:", error);
     }
@@ -212,7 +332,11 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
       style={width ? { width: `${width}px` } : { width: "400px" }}
     >
       {/* Header: Avatar, Name, Status, Contacts, Setter/Closer */}
-      <DetailsPanelHeader user={user} contactDetails={contactDetails} onChangeContactDetails={setContactDetails} />
+      <DetailsPanelHeader
+        user={user}
+        contactDetails={contactDetails}
+        onChangeContactDetails={setContactDetails}
+      />
 
       <hr className="border-gray-200" />
 
@@ -232,9 +356,23 @@ export default function DetailsPanel({ user, width, syncedDetails, syncedAt }: D
       {/* Tab Content */}
       <div className="flex-1 bg-white overflow-hidden flex flex-col">
         {activeTab === "Summary" && <SummaryTab conversationId={user.id} />}
-        {activeTab === "Notes" && <NotesTab notes={notes} onChange={setNotes} />}
-        {activeTab === "Timeline" && <TimelineTab events={timelineEvents} onClear={handleClearTimeline} />}
-        {activeTab === "Payments" && <PaymentsTab value={paymentDetails} onChange={setPaymentDetails} />}
+        {activeTab === "Notes" && (
+          <NotesTab notes={notes} onChange={setNotes} />
+        )}
+        {activeTab === "Tags" && (
+          <TagsTab
+            availableTags={availableTags}
+            selectedTagIds={tagIds}
+            loading={loadingAvailableTags}
+            onChangeTagIds={setTagIds}
+          />
+        )}
+        {activeTab === "Timeline" && (
+          <TimelineTab events={timelineEvents} onClear={handleClearTimeline} />
+        )}
+        {activeTab === "Payments" && (
+          <PaymentsTab value={paymentDetails} onChange={setPaymentDetails} />
+        )}
         {activeTab === "Calls" && <CallsTab />}
       </div>
     </aside>
