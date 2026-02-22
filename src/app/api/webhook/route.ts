@@ -4,6 +4,7 @@ import { sseEmitter } from '../sse/route';
 import { 
   findConversationIdByParticipantAndAccount,
   findConversationIdByParticipantUnique,
+  reconcileOutgoingAudioEchoWithLocalFallback,
   saveMessageToDb, 
   updateConversationMetadata, 
   saveConversationsToDb,
@@ -315,32 +316,19 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
 
     const { normalized: sseAttachments, messageType, attachmentUrl } = normalizeWebhookAttachments(attachments);
 
-    const ssePayload: SSEEvent = {
-      type: isEcho ? 'message_echo' : 'new_message',
-      timestamp: new Date().toISOString(),
-      data: {
-        senderId,
-        recipientId,
-        conversationId: conversationId || '',
-        accountId: creds.accountId,
-        messageId,
-        text: messageText,
-        attachments: sseAttachments,
-        timestamp,
-        fromMe: isEcho ? true : fromMe,
-      },
-    };
-
     if (isEcho) {
       webhookDebug(`[Webhook] Message echo (sent): ${messageText || '[attachment]'}`);
     } else {
       webhookDebug(`[Webhook] Message received: ${messageText || '[attachment]'}`);
     }
 
-    // Emit first so frontend can render instantly, then persist to MongoDB.
-    sseEmitter.emit('message', ssePayload);
-
     // Persist to MongoDB if conversation is known
+    let emittedMessageId = messageId;
+    let emittedTimestamp = timestamp;
+    let emittedAttachmentUrl = attachmentUrl;
+    let emittedDuration: string | undefined;
+    let shouldSaveWebhookMessage = true;
+
     if (conversationId) {
       const newMessage: Message = {
         id: messageId,
@@ -350,9 +338,72 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
         timestamp: new Date(timestamp).toISOString(),
         attachmentUrl,
       };
-      
-      await saveMessageToDb(newMessage, conversationId, ownerEmail);
-      webhookDebug(`[Webhook] Persisted message ${messageId} to MongoDB`);
+
+      if (isEcho && messageType === 'audio') {
+        const reconciled = await reconcileOutgoingAudioEchoWithLocalFallback({
+          ownerEmail,
+          conversationId,
+          timestamp: newMessage.timestamp || new Date(timestamp).toISOString(),
+          text: newMessage.text,
+        });
+        if (reconciled) {
+          shouldSaveWebhookMessage = false;
+          emittedMessageId = reconciled.id;
+          const reconciledTimestampMs = reconciled.timestamp
+            ? new Date(reconciled.timestamp).getTime()
+            : Number.NaN;
+          emittedTimestamp = Number.isFinite(reconciledTimestampMs)
+            ? reconciledTimestampMs
+            : timestamp;
+          emittedAttachmentUrl = reconciled.attachmentUrl || attachmentUrl;
+          emittedDuration = reconciled.duration;
+          webhookDebug(
+            `[Webhook] Reused local audio fallback ${reconciled.id} for outgoing audio echo ${messageId}`,
+          );
+        }
+      }
+
+      if (shouldSaveWebhookMessage) {
+        await saveMessageToDb(
+          { ...newMessage, source: 'instagram' },
+          conversationId,
+          ownerEmail,
+        );
+        webhookDebug(`[Webhook] Persisted message ${messageId} to MongoDB`);
+      }
+
+      const emittedAttachments =
+        emittedAttachmentUrl && sseAttachments.length > 0
+          ? sseAttachments.map((attachment, index) =>
+              index === 0
+                ? {
+                    ...attachment,
+                    file_url: emittedAttachmentUrl,
+                    payload: { url: emittedAttachmentUrl },
+                  }
+                : attachment,
+            )
+          : sseAttachments;
+
+      const ssePayload: SSEEvent = {
+        type: isEcho ? 'message_echo' : 'new_message',
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId,
+          recipientId,
+          conversationId: conversationId || '',
+          accountId: creds.accountId,
+          messageId: emittedMessageId,
+          text: messageText,
+          duration: emittedDuration,
+          attachments: emittedAttachments,
+          timestamp: emittedTimestamp,
+          fromMe: isEcho ? true : fromMe,
+        },
+      };
+
+      // Emit after persistence/reconciliation so frontend gets canonical message IDs.
+      sseEmitter.emit('message', ssePayload);
 
       // Update Conversation Metadata (Last Message, Time, Unread)
       // This ensures the sidebar is up-to-date in the DB immediately
@@ -403,6 +454,22 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
         console.error('[Webhook] Failed to update conversation metadata:', err);
       }
     } else {
+      const ssePayload: SSEEvent = {
+        type: isEcho ? 'message_echo' : 'new_message',
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId,
+          recipientId,
+          conversationId: '',
+          accountId: creds.accountId,
+          messageId,
+          text: messageText,
+          attachments: sseAttachments,
+          timestamp,
+          fromMe: isEcho ? true : fromMe,
+        },
+      };
+      sseEmitter.emit('message', ssePayload);
       console.warn('[Webhook] Could not persist message: Conversation ID not found');
     }
   }

@@ -13,6 +13,7 @@ import ConversationList from "@/components/inbox/ConversationList";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
 import { useSSE } from "@/hooks/useSSE";
 import {
+  getCachedMessages,
   getCachedUsers,
   setCachedUsers,
   updateCachedMessages,
@@ -57,6 +58,7 @@ import {
   mergeMessageCacheSnapshots,
   mergeUsersWithLocalRecency,
   normalizeUsersFromBackend,
+  resolveAudioDurationFromUrl,
   sortUsersByRecency,
 } from "./sidebar/utils";
 
@@ -86,6 +88,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   const refetchInFlightRef = useRef(false);
   const realtimeSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const resolvingDurationKeysRef = useRef<Set<string>>(new Set());
 
   // Filter persistence
   useEffect(() => {
@@ -255,20 +258,25 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         };
 
         const optimisticMessage = mapRealtimePayloadToMessage(eventType, data);
-        updateCachedMessages(matchedConversation.id, (existing) => {
-          const messages = existing ?? [];
-          if (messages.some((message) => message.id === optimisticMessage.id)) {
-            return messages;
-          }
-          return [...messages, optimisticMessage].sort((a, b) => {
-            const aTs = Date.parse(a.timestamp || "");
-            const bTs = Date.parse(b.timestamp || "");
-            if (Number.isFinite(aTs) && Number.isFinite(bTs) && aTs !== bTs) {
-              return aTs - bTs;
+        void (async () => {
+          let nextMessage = optimisticMessage;
+          if (
+            nextMessage.type === "audio" &&
+            !nextMessage.duration &&
+            nextMessage.attachmentUrl
+          ) {
+            const resolvedDuration = await resolveAudioDurationFromUrl(
+              nextMessage.attachmentUrl,
+            );
+            if (resolvedDuration) {
+              nextMessage = { ...nextMessage, duration: resolvedDuration };
             }
-            return a.id.localeCompare(b.id);
-          });
-        }).catch((error) =>
+          }
+
+          await updateCachedMessages(matchedConversation.id, (existing) =>
+            mergeMessageCacheSnapshots(existing, [nextMessage]),
+          );
+        })().catch((error) =>
           console.error("Failed optimistic message cache update:", error),
         );
 
@@ -276,6 +284,47 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         setCachedUsers(sorted).catch((error) => console.error(error));
         return sorted;
       });
+    },
+    [],
+  );
+
+  const hydrateMissingAudioDurations = useCallback(
+    async (conversationId: string) => {
+      const cachedMessages = await getCachedMessages(conversationId);
+      if (!cachedMessages?.length) return;
+
+      const candidates = cachedMessages.filter(
+        (message) =>
+          message.type === "audio" &&
+          !message.duration &&
+          Boolean(message.attachmentUrl),
+      );
+      if (candidates.length === 0) return;
+
+      for (const message of candidates) {
+        const key = `${conversationId}:${message.id}`;
+        if (resolvingDurationKeysRef.current.has(key)) continue;
+        resolvingDurationKeysRef.current.add(key);
+
+        try {
+          const attachmentUrl = message.attachmentUrl;
+          if (!attachmentUrl) continue;
+
+          const resolvedDuration = await resolveAudioDurationFromUrl(attachmentUrl);
+          if (!resolvedDuration) continue;
+
+          await updateCachedMessages(conversationId, (existing) => {
+            if (!existing) return [];
+            return existing.map((entry) => {
+              if (entry.id !== message.id || entry.type !== "audio") return entry;
+              if (entry.duration === resolvedDuration) return entry;
+              return { ...entry, duration: resolvedDuration };
+            });
+          });
+        } finally {
+          resolvingDurationKeysRef.current.delete(key);
+        }
+      }
     },
     [],
   );
@@ -297,6 +346,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         await updateCachedMessages(targetConversationId, (existing) =>
           mergeMessageCacheSnapshots(existing, latestMessages),
         );
+        await hydrateMissingAudioDurations(targetConversationId);
       }
 
       setUsers((previousUsers) => {
@@ -317,7 +367,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         },
       });
     },
-    [],
+    [hydrateMissingAudioDurations],
   );
 
   const handleSidebarMessageEvent = useCallback(
