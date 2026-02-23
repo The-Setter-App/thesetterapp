@@ -176,141 +176,145 @@ export default function ChatWindow({
       onScroll={(event) => {
         stickToBottomRef.current = isNearBottom(event.currentTarget);
       }}
-      className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none"
+      className="flex-1 overflow-y-auto bg-white scrollbar-none"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
-      {(loadingOlder || hasMore) && (
-        <div className="flex justify-center py-2">
-          {hasMore ? (
-            <button
-              type="button"
-              onClick={onLoadMore}
-              disabled={loadingOlder}
-              className="h-11 rounded-full bg-stone-100 px-4 text-xs font-medium text-stone-800 transition-colors hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loadingOlder ? 'Loading older messages...' : 'Load more messages'}
-            </button>
-          ) : (
-            <div className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
-              No more messages
-            </div>
-          )}
-        </div>
-      )}
-
-      {messages.map((msg, index) => {
-        const previous = index > 0 ? messages[index - 1] : undefined;
-        const showSeparator = shouldShowTimeSeparator(msg, previous);
-        const separatorLabel = showSeparator ? formatSeparatorTime(msg) : '';
-
-        return (
-          <div key={msg.id}>
-            {showSeparator && separatorLabel && (
-              <div className="my-3 flex justify-center">
-                <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-medium text-stone-600">
-                  {separatorLabel}
-                </span>
+      <div className="flex min-h-full flex-col px-8 py-6">
+        {(loadingOlder || hasMore) && (
+          <div className="flex justify-center py-2">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingOlder}
+                className="h-11 rounded-full bg-stone-100 px-4 text-xs font-medium text-stone-800 transition-colors hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loadingOlder ? 'Loading older messages...' : 'Load more messages'}
+              </button>
+            ) : (
+              <div className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
+                No more messages
               </div>
             )}
-            <div className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
-              <div
-                className={`text-sm ${
-                  msg.type === 'audio' || msg.type === 'image'
-                    ? 'bg-transparent p-0' 
-                    : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
-                } ${
-                  msg.type === 'audio' || msg.type === 'image'
-                    ? '' 
-                    : msg.type === 'video' ? 'p-1' : 'px-3 py-2'
-                }`}
-              >
-                {msg.type === 'text' && (
-                  <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+          </div>
+        )}
+
+        <div className="mt-auto space-y-2">
+          {messages.map((msg, index) => {
+            const previous = index > 0 ? messages[index - 1] : undefined;
+            const showSeparator = shouldShowTimeSeparator(msg, previous);
+            const separatorLabel = showSeparator ? formatSeparatorTime(msg) : '';
+
+            return (
+              <div key={msg.id}>
+                {showSeparator && separatorLabel && (
+                  <div className="my-3 flex justify-center">
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-medium text-stone-600">
+                      {separatorLabel}
+                    </span>
+                  </div>
                 )}
-                
-                {msg.type === 'image' && msg.attachmentUrl && (
-                  <div>
-                    <div
-                      className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
-                    >
-                      {!loadedMediaByMessageId[msg.id] && (
-                        <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
-                      )}
-                      <img
-                        src={msg.attachmentUrl}
-                        alt="Attachment"
-                        className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
-                        onLoad={() => {
-                          markMediaLoaded(msg.id);
-                          keepBottomIfPinned();
-                        }}
-                        onClick={() => setSelectedImage(msg.attachmentUrl || null)}
+                <div className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
+                  <div
+                    className={`text-sm ${
+                      msg.type === 'audio' || msg.type === 'image'
+                        ? 'bg-transparent p-0'
+                        : `max-w-[80%] rounded-[12px] ${msg.fromMe ? 'bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : 'bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]'}`
+                    } ${
+                      msg.type === 'audio' || msg.type === 'image'
+                        ? ''
+                        : msg.type === 'video' ? 'p-1' : 'px-3 py-2'
+                    }`}
+                  >
+                    {msg.type === 'text' && (
+                      <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                    )}
+
+                    {msg.type === 'image' && msg.attachmentUrl && (
+                      <div>
+                        <div
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                        >
+                          {!loadedMediaByMessageId[msg.id] && (
+                            <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                          )}
+                          <img
+                            src={msg.attachmentUrl}
+                            alt="Attachment"
+                            className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
+                            onLoad={() => {
+                              markMediaLoaded(msg.id);
+                              keepBottomIfPinned();
+                            }}
+                            onClick={() => setSelectedImage(msg.attachmentUrl || null)}
+                          />
+                        </div>
+                        {msg.text && (
+                          <p className={`mt-1 text-xs ${msg.fromMe ? 'text-stone-200 text-right' : 'text-stone-600 text-left'}`}>
+                            {msg.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {msg.type === 'image' && !msg.attachmentUrl && (
+                      <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
+                    )}
+
+                    {msg.type === 'video' && msg.attachmentUrl && (
+                      <div>
+                        <div
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                        >
+                          {!loadedMediaByMessageId[msg.id] && (
+                            <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                          )}
+                          <video
+                            src={msg.attachmentUrl}
+                            controls
+                            onLoadedMetadata={() => {
+                              markMediaLoaded(msg.id);
+                              keepBottomIfPinned();
+                            }}
+                            onLoadedData={keepBottomIfPinned}
+                            className={`block h-auto w-full transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
+                          />
+                        </div>
+                        {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+                      </div>
+                    )}
+
+                    {msg.type === 'audio' && (
+                      <AudioMessage
+                        messageId={msg.id}
+                        src={msg.attachmentUrl || ''}
+                        duration={msg.duration}
+                        isOwn={msg.fromMe}
+                        onDurationResolved={onAudioDurationResolved}
                       />
-                    </div>
-                    {msg.text && (
-                      <p className={`mt-1 text-xs ${msg.fromMe ? 'text-stone-200 text-right' : 'text-stone-600 text-left'}`}>
-                        {msg.text}
-                      </p>
+                    )}
+
+                    {msg.type === 'file' && (
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span>{msg.text || 'File attachment'}</span>
+                      </div>
                     )}
                   </div>
-                )}
-                {msg.type === 'image' && !msg.attachmentUrl && (
-                  <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
-                )}
-                
-                {msg.type === 'video' && msg.attachmentUrl && (
-                  <div>
-                    <div
-                      className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
-                    >
-                      {!loadedMediaByMessageId[msg.id] && (
-                        <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
-                      )}
-                      <video
-                        src={msg.attachmentUrl}
-                        controls
-                        onLoadedMetadata={() => {
-                          markMediaLoaded(msg.id);
-                          keepBottomIfPinned();
-                        }}
-                        onLoadedData={keepBottomIfPinned}
-                        className={`block h-auto w-full transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
-                      />
-                    </div>
-                    {msg.text && <p className="px-3 py-2">{msg.text}</p>}
-                  </div>
-                )}
-                
-                {msg.type === 'audio' && (
-                  <AudioMessage 
-                    messageId={msg.id}
-                    src={msg.attachmentUrl || ''} 
-                    duration={msg.duration} 
-                    isOwn={msg.fromMe} 
-                    onDurationResolved={onAudioDurationResolved}
-                  />
-                )}
-                
-                {msg.type === 'file' && (
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    <span>{msg.text || 'File attachment'}</span>
-                  </div>
-                )}
+                  {msg.pending && msg.fromMe && (
+                    <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
+                  )}
+                  {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
+                </div>
               </div>
-              {msg.pending && msg.fromMe && (
-                <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
-              )}
-              {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
 
-      {/* Scroll anchor */}
-      <div ref={bottomRef} />
+          {/* Scroll anchor */}
+          <div ref={bottomRef} />
+        </div>
+      </div>
 
       {selectedImage && (
         <div
