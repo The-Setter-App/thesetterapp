@@ -89,12 +89,19 @@ export default function ProfileSettingsContent({ user }: { user: AppUser }) {
 
     setSaving(true);
     try {
+      const profileImagePayload =
+        profileImageBase64.length === 0
+          ? null
+          : profileImageBase64.startsWith("data:image/")
+            ? profileImageBase64
+            : undefined;
+
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: normalizedDisplayName,
-          profileImageBase64: profileImageBase64 || null,
+          profileImageBase64: profileImagePayload,
         }),
       });
       const payload = (await response.json()) as { error?: string };

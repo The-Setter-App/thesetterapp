@@ -134,8 +134,10 @@ export function mapGraphMessageToAppMessage(
     attachmentUrl = raw.sticker;
   }
 
-  // Skip empty messages (no text and no attachments)
-  const hasContent = raw.message?.trim() || attachmentUrl || raw.sticker;
+  // Graph may omit attachment URLs for some media payloads (notably audio),
+  // but the attachment itself still means this is a real message.
+  const hasAttachment = Boolean(raw.attachments?.data?.length);
+  const hasContent = raw.message?.trim() || attachmentUrl || raw.sticker || hasAttachment;
   
   return {
     id: raw.id,

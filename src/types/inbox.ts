@@ -150,7 +150,7 @@ export interface MessagePageResponse {
   messages: Message[];
   nextCursor: string | null;
   hasMore: boolean;
-  source: "mongo";
+  source: "supabase";
 }
 
 export interface ConversationSummarySection {

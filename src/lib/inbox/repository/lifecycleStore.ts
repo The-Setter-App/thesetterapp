@@ -1,10 +1,4 @@
-import { ObjectId } from "mongodb";
-import {
-  AUDIO_BUCKET,
-  CONVERSATIONS_COLLECTION,
-  getInboxDb,
-  MESSAGES_COLLECTION,
-} from "@/lib/inbox/repository/core";
+import { AUDIO_BUCKET, CONVERSATIONS_COLLECTION, getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
 
 export async function purgeInboxDataForInstagramAccount(
   ownerEmail: string,
@@ -14,19 +8,26 @@ export async function purgeInboxDataForInstagramAccount(
   messagesDeleted: number;
   audioFilesDeleted: number;
 }> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const orFilters: Record<string, unknown>[] = [];
-  if (typeof options.accountId === "string" && options.accountId.trim()) {
-    orFilters.push({ accountId: options.accountId });
-  }
-  if (
-    typeof options.ownerInstagramUserId === "string" &&
-    options.ownerInstagramUserId.trim()
-  ) {
-    orFilters.push({ ownerInstagramUserId: options.ownerInstagramUserId });
-  }
-  if (orFilters.length === 0) {
+  const { data: conversations } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("id,payload")
+    .eq("owner_email", ownerEmail);
+
+  const filteredConversationIds = (conversations ?? [])
+    .filter((row) => {
+      const payload = (row as { payload: { accountId?: string; ownerInstagramUserId?: string } }).payload;
+      const accountMatch = options.accountId ? payload.accountId === options.accountId : false;
+      const ownerMatch = options.ownerInstagramUserId
+        ? payload.ownerInstagramUserId === options.ownerInstagramUserId
+        : false;
+      return accountMatch || ownerMatch;
+    })
+    .map((row) => (row as { id: string }).id)
+    .filter((id) => typeof id === "string" && id.length > 0);
+
+  if (filteredConversationIds.length === 0) {
     return {
       conversationsDeleted: 0,
       messagesDeleted: 0,
@@ -34,80 +35,42 @@ export async function purgeInboxDataForInstagramAccount(
     };
   }
 
-  const conversationFilter = {
-    ownerEmail,
-    $or: orFilters,
-  };
+  const { data: audioRows } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("payload")
+    .eq("owner_email", ownerEmail)
+    .in("conversation_id", filteredConversationIds);
 
-  const conversations = await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .find(conversationFilter, { projection: { id: 1 } })
-    .toArray();
-  const conversationIds = conversations
-    .map((doc) => (doc as { id?: string }).id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const audioPaths = (audioRows ?? [])
+    .map((row) => {
+      const payload = (row as { payload: { audioStorage?: { fileId?: string } } }).payload;
+      return payload.audioStorage?.fileId;
+    })
+    .filter((fileId): fileId is string => typeof fileId === "string" && fileId.length > 0);
 
-  if (conversationIds.length === 0) {
-    return {
-      conversationsDeleted: 0,
-      messagesDeleted: 0,
-      audioFilesDeleted: 0,
-    };
-  }
+  const { count: messagesDeleted } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .delete({ count: "exact" })
+    .eq("owner_email", ownerEmail)
+    .in("conversation_id", filteredConversationIds);
 
-  const audioDocs = await db
-    .collection(MESSAGES_COLLECTION)
-    .find(
-      {
-        ownerEmail,
-        conversationId: { $in: conversationIds },
-        "audioStorage.fileId": { $exists: true, $type: "string" },
-      },
-      { projection: { audioStorage: 1 } },
-    )
-    .toArray();
+  const { count: conversationsDeleted } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .delete({ count: "exact" })
+    .eq("owner_email", ownerEmail)
+    .in("id", filteredConversationIds);
 
-  const audioFileObjectIds: ObjectId[] = [];
-  for (const doc of audioDocs) {
-    const fileId = (doc as { audioStorage?: { fileId?: string } }).audioStorage
-      ?.fileId;
-    if (!fileId) continue;
-    try {
-      audioFileObjectIds.push(new ObjectId(fileId));
-    } catch {
-      // Ignore malformed IDs from legacy records.
+  let audioFilesDeleted = 0;
+  if (audioPaths.length > 0) {
+    const { error } = await supabase.storage.from(AUDIO_BUCKET).remove(audioPaths);
+    if (!error) {
+      audioFilesDeleted = audioPaths.length;
     }
   }
 
-  const [messagesResult, conversationsResult] = await Promise.all([
-    db.collection(MESSAGES_COLLECTION).deleteMany({
-      ownerEmail,
-      conversationId: { $in: conversationIds },
-    }),
-    db.collection(CONVERSATIONS_COLLECTION).deleteMany({
-      ownerEmail,
-      id: { $in: conversationIds },
-    }),
-  ]);
-
-  let audioFilesDeleted = 0;
-  if (audioFileObjectIds.length > 0) {
-    const [filesResult, chunksResult] = await Promise.all([
-      db.collection(`${AUDIO_BUCKET}.files`).deleteMany({
-        _id: { $in: audioFileObjectIds },
-        "metadata.ownerEmail": ownerEmail,
-      }),
-      db.collection(`${AUDIO_BUCKET}.chunks`).deleteMany({
-        files_id: { $in: audioFileObjectIds },
-      }),
-    ]);
-    audioFilesDeleted =
-      (filesResult.deletedCount || 0) + (chunksResult.deletedCount || 0);
-  }
-
   return {
-    conversationsDeleted: conversationsResult.deletedCount || 0,
-    messagesDeleted: messagesResult.deletedCount || 0,
+    conversationsDeleted: conversationsDeleted ?? 0,
+    messagesDeleted: messagesDeleted ?? 0,
     audioFilesDeleted,
   };
 }

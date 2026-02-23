@@ -1,8 +1,6 @@
-import clientPromise from '@/lib/mongodb';
-import type { DashboardMessageStats } from '@/types/dashboard';
+import { getInboxSupabase } from "@/lib/inbox/repository/core";
+import type { DashboardMessageStats } from "@/types/dashboard";
 
-const DB_NAME = 'thesetterapp';
-const MESSAGES_COLLECTION = 'messages';
 const CONVERSATION_QUERY_CHUNK_SIZE = 250;
 const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/i;
 
@@ -50,20 +48,19 @@ function chunkConversationIds(conversationIds: string[]): string[][] {
 
 function absorbMessage(
   stats: MutableDashboardMessageStats,
-  message: Pick<DashboardMessageDoc, 'fromMe' | 'text' | 'timestamp'>,
+  message: Pick<DashboardMessageDoc, "fromMe" | "text" | "timestamp">,
 ): void {
   const timestampMs = parseTimestampMs(message.timestamp);
   if (timestampMs === null) return;
 
   if (message.fromMe === true) {
     stats.outgoingCount += 1;
-    if (URL_PATTERN.test(message.text || '')) {
+    if (URL_PATTERN.test(message.text || "")) {
       stats.linksSentCount += 1;
     }
 
     if (stats.pendingIncomingCursor < stats.pendingIncomingTimestamps.length) {
-      const pendingIncomingMs =
-        stats.pendingIncomingTimestamps[stats.pendingIncomingCursor];
+      const pendingIncomingMs = stats.pendingIncomingTimestamps[stats.pendingIncomingCursor];
       stats.pendingIncomingCursor += 1;
 
       const replyDelayMs = timestampMs - pendingIncomingMs;
@@ -127,33 +124,34 @@ export async function getDashboardMessageStats(
     statsByConversationId.set(conversationId, createMutableStats(conversationId));
   }
 
-  const client = await clientPromise;
-  const db = client.db(DB_NAME);
-  const collection = db.collection<DashboardMessageDoc>(MESSAGES_COLLECTION);
-
+  const supabase = getInboxSupabase();
   const chunks = chunkConversationIds(sanitizedConversationIds);
   for (const chunk of chunks) {
-    const messages = await collection
-      .find(
-        {
-          ownerEmail,
-          conversationId: { $in: chunk },
-          isEmpty: { $ne: true },
-          timestamp: { $exists: true, $type: 'string' },
-        },
-        {
-          projection: {
-            _id: 0,
-            id: 1,
-            conversationId: 1,
-            fromMe: 1,
-            text: 1,
-            timestamp: 1,
-          },
-        },
-      )
-      .sort({ conversationId: 1, timestamp: 1, id: 1 })
-      .toArray();
+    const { data } = await supabase
+      .from("inbox_messages")
+      .select("id,conversation_id,payload,timestamp_text,is_empty")
+      .eq("owner_email", ownerEmail)
+      .in("conversation_id", chunk)
+      .neq("is_empty", true)
+      .not("timestamp_text", "is", null)
+      .order("conversation_id", { ascending: true })
+      .order("timestamp_text", { ascending: true })
+      .order("id", { ascending: true });
+
+    const messages = (data ?? []).map((row) => {
+      const typed = row as {
+        id: string;
+        conversation_id: string;
+        payload: { fromMe?: boolean; text?: string; timestamp?: string };
+      };
+      return {
+        id: typed.id,
+        conversationId: typed.conversation_id,
+        fromMe: typed.payload.fromMe,
+        text: typed.payload.text,
+        timestamp: typed.payload.timestamp,
+      } as DashboardMessageDoc;
+    });
 
     for (const message of messages) {
       const stats = statsByConversationId.get(message.conversationId);

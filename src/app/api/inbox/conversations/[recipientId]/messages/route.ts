@@ -31,7 +31,7 @@ export async function GET(
         messages: [],
         nextCursor: null,
         hasMore: false,
-        source: 'mongo',
+        source: 'supabase',
       }, {
         headers: { 'Cache-Control': 'no-store' },
       });
@@ -65,7 +65,7 @@ export async function GET(
       messages: page.messages,
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
-      source: 'mongo',
+      source: 'supabase',
     }, {
       headers: { 'Cache-Control': 'no-store' },
     });

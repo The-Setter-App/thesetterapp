@@ -1,12 +1,13 @@
-import { getInboxDb, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
+import { getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
 import type { Message } from "@/types/inbox";
 
-type MessageDoc = Message & {
+type MessageRow = {
+  owner_email: string;
   id: string;
-  ownerEmail: string;
-  conversationId: string;
-  timestamp?: string;
-  isEmpty?: boolean;
+  conversation_id: string;
+  payload: Message;
+  timestamp_text: string | null;
+  is_empty: boolean | null;
 };
 
 type MessageCursor = {
@@ -14,74 +15,100 @@ type MessageCursor = {
   id: string;
 };
 
-/**
- * Get messages for a conversation from MongoDB
- */
-export async function getMessagesFromDb(
-  conversationId: string,
-  ownerEmail: string,
-): Promise<Message[]> {
-  try {
-    const db = await getInboxDb();
-    // Filter by conversationId AND ownerEmail for isolation
-    const docs = await db
-      .collection<MessageDoc>(MESSAGES_COLLECTION)
-      .find({ conversationId, ownerEmail })
-      .sort({ timestamp: 1 })
-      .toArray();
+function hasDisplayableMessageContent(message: Message): boolean {
+  const text = typeof message.text === "string" ? message.text.trim() : "";
+  if (text.length > 0) return true;
+  if (message.attachmentUrl) return true;
+  return (
+    message.type === "audio" ||
+    message.type === "image" ||
+    message.type === "video" ||
+    message.type === "file"
+  );
+}
 
-    // Sanitize _id for Client Components
-    return docs.map((doc) => {
-      const { _id: _ignored, ...rest } = doc as MessageDoc & { _id?: unknown };
-      return rest as Message;
-    });
+function mapMessage(row: MessageRow): Message {
+  return {
+    ...row.payload,
+    id: row.id,
+  };
+}
+
+function sortNewestFirst(a: MessageRow, b: MessageRow): number {
+  const at = a.timestamp_text ?? "";
+  const bt = b.timestamp_text ?? "";
+  if (at > bt) return -1;
+  if (at < bt) return 1;
+  return b.id.localeCompare(a.id);
+}
+
+function isBeforeCursor(row: MessageRow, cursor: MessageCursor): boolean {
+  const timestamp = row.timestamp_text ?? "";
+  if (timestamp < cursor.timestamp) return true;
+  if (timestamp > cursor.timestamp) return false;
+  return row.id < cursor.id;
+}
+
+export async function getMessagesFromDb(conversationId: string, ownerEmail: string): Promise<Message[]> {
+  try {
+    const supabase = getInboxSupabase();
+    const { data, error } = await supabase
+      .from(MESSAGES_COLLECTION)
+      .select("owner_email,id,conversation_id,payload,timestamp_text,is_empty")
+      .eq("conversation_id", conversationId)
+      .eq("owner_email", ownerEmail)
+      .order("timestamp_text", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (error || !data) return [];
+    return (data as MessageRow[]).map(mapMessage);
   } catch (error) {
-    console.error(
-      `[InboxRepo] Error fetching messages for ${conversationId}:`,
-      error,
-    );
+    console.error(`[InboxRepo] Error fetching messages for ${conversationId}:`, error);
     return [];
   }
 }
 
-/**
- * Save a single message to MongoDB
- */
-export async function saveMessageToDb(
-  message: Message,
-  conversationId: string,
-  ownerEmail: string,
-): Promise<void> {
-  const db = await getInboxDb();
-  await db
-    .collection(MESSAGES_COLLECTION)
-    .updateOne(
-      { id: message.id, ownerEmail },
-      { $set: { ...message, conversationId, ownerEmail } },
-      { upsert: true },
-    );
+export async function saveMessageToDb(message: Message, conversationId: string, ownerEmail: string): Promise<void> {
+  const supabase = getInboxSupabase();
+  await supabase.from(MESSAGES_COLLECTION).upsert(
+    {
+      owner_email: ownerEmail,
+      id: message.id,
+      conversation_id: conversationId,
+      payload: message,
+      timestamp_text: message.timestamp ?? null,
+      is_empty: message.isEmpty ?? null,
+      client_temp_id: message.clientTempId ?? null,
+      source: message.source ?? null,
+      type: message.type,
+      from_me: message.fromMe,
+      audio_storage: message.audioStorage ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "owner_email,id" },
+  );
 }
 
-/**
- * Bulk save messages to MongoDB
- */
-export async function saveMessagesToDb(
-  messages: Message[],
-  conversationId: string,
-  ownerEmail: string,
-): Promise<void> {
+export async function saveMessagesToDb(messages: Message[], conversationId: string, ownerEmail: string): Promise<void> {
   if (messages.length === 0) return;
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const operations = messages.map((message) => ({
-    updateOne: {
-      filter: { id: message.id, ownerEmail },
-      update: { $set: { ...message, conversationId, ownerEmail } },
-      upsert: true,
-    },
+  const rows = messages.map((message) => ({
+    owner_email: ownerEmail,
+    id: message.id,
+    conversation_id: conversationId,
+    payload: message,
+    timestamp_text: message.timestamp ?? null,
+    is_empty: message.isEmpty ?? null,
+    client_temp_id: message.clientTempId ?? null,
+    source: message.source ?? null,
+    type: message.type,
+    from_me: message.fromMe,
+    audio_storage: message.audioStorage ?? null,
+    updated_at: new Date().toISOString(),
   }));
 
-  await db.collection(MESSAGES_COLLECTION).bulkWrite(operations);
+  await supabase.from(MESSAGES_COLLECTION).upsert(rows, { onConflict: "owner_email,id" });
 }
 
 export function encodeMessagesCursor(cursor: MessageCursor): string {
@@ -100,55 +127,44 @@ export function decodeMessagesCursor(cursor: string): MessageCursor | null {
   }
 }
 
-function buildCursorFilter(cursor: MessageCursor) {
-  return {
-    $or: [
-      { timestamp: { $lt: cursor.timestamp } },
-      { timestamp: cursor.timestamp, id: { $lt: cursor.id } },
-    ],
-  };
-}
-
 export async function getMessagesPageFromDb(
   conversationId: string,
   ownerEmail: string,
   limit: number,
   cursor?: string,
-): Promise<{
-  messages: Message[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}> {
-  const db = await getInboxDb();
+): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
+  const supabase = getInboxSupabase();
+
+  const { data } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("owner_email,id,conversation_id,payload,timestamp_text,is_empty")
+    .eq("conversation_id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .not("timestamp_text", "is", null)
+    .order("timestamp_text", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(Math.max(limit * 3, 120));
 
   const parsedCursor = cursor ? decodeMessagesCursor(cursor) : null;
-  const baseFilter: Record<string, unknown> = {
-    conversationId,
-    ownerEmail,
-    isEmpty: { $ne: true },
-    timestamp: { $exists: true, $type: "string" },
-  };
-
-  const filter = parsedCursor
-    ? { ...baseFilter, ...buildCursorFilter(parsedCursor) }
-    : baseFilter;
-
-  const docs = await db
-    .collection<MessageDoc>(MESSAGES_COLLECTION)
-    .find(filter)
-    .sort({ timestamp: -1, id: -1 })
-    .limit(limit)
-    .toArray();
-
-  const sanitized = docs.map((doc) => {
-    const { _id: _ignored, ...rest } = doc as MessageDoc & { _id?: unknown };
-    return rest as Message;
+  let rows = (data ?? []) as MessageRow[];
+  rows = rows.filter((row) => {
+    if (row.is_empty !== true) return true;
+    return hasDisplayableMessageContent(row.payload);
   });
-  const newestToOldest = sanitized;
-  const oldestToNewest = [...newestToOldest].reverse();
-  const last = newestToOldest[newestToOldest.length - 1];
 
-  if (!last?.timestamp) {
+  if (parsedCursor) {
+    rows = rows.filter((row) => isBeforeCursor(row, parsedCursor));
+  }
+
+  rows.sort(sortNewestFirst);
+  const pageRows = rows.slice(0, limit);
+  const hasMore = rows.length > limit;
+
+  const newestToOldest = pageRows.map(mapMessage);
+  const oldestToNewest = [...newestToOldest].reverse();
+
+  const last = pageRows[pageRows.length - 1];
+  if (!last?.timestamp_text) {
     return {
       messages: oldestToNewest,
       nextCursor: null,
@@ -156,22 +172,9 @@ export async function getMessagesPageFromDb(
     };
   }
 
-  const nextCursor = encodeMessagesCursor({
-    timestamp: last.timestamp,
-    id: last.id,
-  });
-
-  const hasMoreFilter = {
-    ...baseFilter,
-    ...buildCursorFilter({ timestamp: last.timestamp, id: last.id }),
-  };
-  const nextOne = await db
-    .collection(MESSAGES_COLLECTION)
-    .findOne(hasMoreFilter);
-
   return {
     messages: oldestToNewest,
-    nextCursor: nextOne ? nextCursor : null,
-    hasMore: Boolean(nextOne),
+    nextCursor: hasMore ? encodeMessagesCursor({ timestamp: last.timestamp_text, id: last.id }) : null,
+    hasMore,
   };
 }

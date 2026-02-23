@@ -15,6 +15,10 @@ interface UpdateProfileBody {
   markOnboardingComplete?: unknown;
 }
 
+function isHttpUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://');
+}
+
 function parseBoolean(value: unknown): boolean {
   return value === true;
 }
@@ -40,13 +44,17 @@ export async function PATCH(request: Request) {
 
     let profileImageBase64: string | null | undefined;
     if (typeof body.profileImageBase64 === 'string') {
-      if (!isValidProfileImageDataUrl(body.profileImageBase64)) {
+      if (isValidProfileImageDataUrl(body.profileImageBase64)) {
+        if (exceedsProfileImageSizeLimit(body.profileImageBase64)) {
+          return NextResponse.json({ error: 'Profile image is too large' }, { status: 400 });
+        }
+        profileImageBase64 = body.profileImageBase64;
+      } else if (isHttpUrl(body.profileImageBase64)) {
+        // Existing stored image URL sent back by client; treat as no image mutation.
+        profileImageBase64 = undefined;
+      } else {
         return NextResponse.json({ error: 'Invalid profile image format' }, { status: 400 });
       }
-      if (exceedsProfileImageSizeLimit(body.profileImageBase64)) {
-        return NextResponse.json({ error: 'Profile image is too large' }, { status: 400 });
-      }
-      profileImageBase64 = body.profileImageBase64;
     } else if (body.profileImageBase64 === null) {
       profileImageBase64 = null;
     }

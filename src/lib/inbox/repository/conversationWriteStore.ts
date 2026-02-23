@@ -1,82 +1,69 @@
-import {
-  buildConversationSetPayload,
-  type ConversationDoc,
-} from "@/lib/inbox/repository/conversationShared";
-import {
-  CONVERSATIONS_COLLECTION,
-  getInboxDb,
-} from "@/lib/inbox/repository/core";
+import { buildConversationSetPayload } from "@/lib/inbox/repository/conversationShared";
+import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
 import type { User } from "@/types/inbox";
 
-/**
- * Save or update a single conversation in MongoDB
- */
-export async function saveConversationToDb(
-  conversation: User,
-  ownerEmail: string,
-): Promise<void> {
-  const db = await getInboxDb();
-  const existing = await db
-    .collection<ConversationDoc>(CONVERSATIONS_COLLECTION)
-    .findOne({ id: conversation.id, ownerEmail });
+async function getExistingConversationPayload(conversationId: string, ownerEmail: string): Promise<User | null> {
+  const supabase = getInboxSupabase();
+  const { data } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("payload")
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .maybeSingle();
 
-  const setPayload = buildConversationSetPayload(
-    conversation,
-    ownerEmail,
-    existing,
-  );
-
-  await db.collection(CONVERSATIONS_COLLECTION).updateOne(
-    { id: conversation.id, ownerEmail },
-    {
-      $set: setPayload,
-      $setOnInsert: { unread: 0 },
-    },
-    { upsert: true },
-  );
+  if (!data) return null;
+  return (data as { payload: User }).payload;
 }
 
-/**
- * Bulk save conversations to MongoDB
- */
-export async function saveConversationsToDb(
-  conversations: User[],
-  ownerEmail: string,
-): Promise<void> {
+export async function saveConversationToDb(conversation: User, ownerEmail: string): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(conversation.id, ownerEmail);
+  const merged = buildConversationSetPayload(conversation, ownerEmail, existing);
+
+  const row = {
+    owner_email: ownerEmail,
+    id: conversation.id,
+    payload: merged.payload,
+    unread: 0,
+    status: merged.payload.status,
+    is_priority: merged.payload.isPriority ?? false,
+    updated_at: new Date().toISOString(),
+  };
+
+  await supabase.from(CONVERSATIONS_COLLECTION).upsert(row, { onConflict: "owner_email,id" });
+}
+
+export async function saveConversationsToDb(conversations: User[], ownerEmail: string): Promise<void> {
   if (conversations.length === 0) return;
-  const db = await getInboxDb();
 
-  const operations = await Promise.all(
-    conversations.map(async (conversation) => {
-      // Preserve custom status if already set in DB
-      const existing = await db
-        .collection<ConversationDoc>(CONVERSATIONS_COLLECTION)
-        .findOne({ id: conversation.id, ownerEmail });
-      const setPayload = buildConversationSetPayload(
-        conversation,
-        ownerEmail,
-        existing,
-      );
+  const rows: Array<{
+    owner_email: string;
+    id: string;
+    payload: User;
+    unread: number;
+    status: string | undefined;
+    is_priority: boolean;
+    updated_at: string;
+  }> = [];
 
-      return {
-        updateOne: {
-          filter: { id: conversation.id, ownerEmail },
-          update: {
-            $set: setPayload,
-            $setOnInsert: { unread: 0 },
-          },
-          upsert: true,
-        },
-      };
-    }),
-  );
+  for (const conversation of conversations) {
+    const existing = await getExistingConversationPayload(conversation.id, ownerEmail);
+    const merged = buildConversationSetPayload(conversation, ownerEmail, existing);
+    rows.push({
+      owner_email: ownerEmail,
+      id: conversation.id,
+      payload: merged.payload,
+      unread: existing?.unread ?? 0,
+      status: merged.payload.status,
+      is_priority: merged.payload.isPriority ?? false,
+      updated_at: new Date().toISOString(),
+    });
+  }
 
-  await db.collection(CONVERSATIONS_COLLECTION).bulkWrite(operations);
+  const supabase = getInboxSupabase();
+  await supabase.from(CONVERSATIONS_COLLECTION).upsert(rows, { onConflict: "owner_email,id" });
 }
 
-/**
- * Update conversation metadata (last message, time, unread count)
- */
 export async function updateConversationMetadata(
   conversationId: string,
   ownerEmail: string,
@@ -86,53 +73,50 @@ export async function updateConversationMetadata(
   clearUnread = false,
   eventTimestampIso?: string,
 ): Promise<void> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  if (!existing) return;
 
-  const update: {
-    $set: {
-      lastMessage: string;
-      time: string;
-      updatedAt: string;
-      unread?: number;
-    };
-    $inc?: { unread: number };
-  } = {
-    $set: {
-      lastMessage,
-      time,
-      updatedAt: eventTimestampIso || new Date().toISOString(),
-    },
+  const { data: unreadRow } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("unread")
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  const currentUnread = (unreadRow as { unread: number } | null)?.unread ?? 0;
+  const nextUnread = clearUnread ? 0 : incrementUnread ? currentUnread + 1 : currentUnread;
+
+  const nextPayload: User = {
+    ...existing,
+    lastMessage,
+    time,
+    updatedAt: eventTimestampIso || new Date().toISOString(),
+    unread: nextUnread,
   };
 
-  if (incrementUnread) {
-    update.$inc = { unread: 1 };
-  }
-
-  if (clearUnread) {
-    update.$set.unread = 0;
-  }
-
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne({ id: conversationId, ownerEmail }, update);
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({
+      payload: nextPayload,
+      unread: nextUnread,
+      updated_at: eventTimestampIso || new Date().toISOString(),
+    })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
 }
 
-/**
- * Update user status by recipientId
- */
-export async function updateUserStatus(
-  conversationId: string,
-  ownerEmail: string,
-  newStatus: string,
-): Promise<void> {
-  const db = await getInboxDb();
+export async function updateUserStatus(conversationId: string, ownerEmail: string, newStatus: string): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  if (!existing) return;
 
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne(
-      { id: conversationId, ownerEmail },
-      { $set: { status: newStatus } },
-    );
+  const nextPayload: User = { ...existing, status: newStatus as User["status"] };
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload, status: newStatus, updated_at: new Date().toISOString() })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
 }
 
 export async function updateConversationPriority(
@@ -140,27 +124,27 @@ export async function updateConversationPriority(
   ownerEmail: string,
   isPriority: boolean,
 ): Promise<void> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  if (!existing) return;
 
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne({ id: conversationId, ownerEmail }, { $set: { isPriority } });
+  const nextPayload: User = { ...existing, isPriority };
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload, is_priority: isPriority, updated_at: new Date().toISOString() })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
 }
 
-/**
- * Update user avatar
- */
-export async function updateUserAvatar(
-  conversationId: string,
-  ownerEmail: string,
-  avatarUrl: string,
-): Promise<void> {
-  const db = await getInboxDb();
+export async function updateUserAvatar(conversationId: string, ownerEmail: string, avatarUrl: string): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  if (!existing) return;
 
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne(
-      { id: conversationId, ownerEmail },
-      { $set: { avatar: avatarUrl } },
-    );
+  const nextPayload: User = { ...existing, avatar: avatarUrl };
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload, updated_at: new Date().toISOString() })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
 }

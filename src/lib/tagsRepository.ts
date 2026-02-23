@@ -1,19 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { type Db, MongoServerError } from "mongodb";
-import clientPromise from "@/lib/mongodb";
-import {
-  hasDuplicateTagName,
-  isTagCategory,
-  MAX_TAG_DESCRIPTION_LENGTH,
-  MAX_TAG_NAME_LENGTH,
-  normalizeTagText,
-  PRESET_TAG_ROWS,
-} from "@/lib/tags/config";
-import type { TagCategory, TagRow, WorkspaceCustomTag } from "@/types/tags";
-
-const DB_NAME = "thesetterapp";
-const WORKSPACE_TAGS_COLLECTION = "workspace_tags";
-let tagsIndexesReady = false;
+import { normalizeTagText, hasDuplicateTagName, isTagCategory, MAX_TAG_DESCRIPTION_LENGTH, MAX_TAG_NAME_LENGTH, PRESET_TAG_ROWS } from "@/lib/tags/config";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import type { WorkspaceTagRowDb } from "@/lib/supabase/types";
+import type { TagCategory, TagRow } from "@/types/tags";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -31,37 +20,17 @@ function formatTimestamp(value: Date): string {
   });
 }
 
-function mapTagDocumentToRow(tag: WorkspaceCustomTag): TagRow {
+function mapTagRow(row: WorkspaceTagRowDb): TagRow {
   return {
-    id: tag.id,
-    name: tag.name,
-    category: tag.category,
-    description: tag.description,
-    source: tag.source,
-    inboxStatus: tag.inboxStatus,
-    createdBy: tag.createdByLabel,
-    createdAt: formatTimestamp(tag.createdAt),
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    description: row.description,
+    source: "Custom",
+    inboxStatus: "Not wired yet",
+    createdBy: row.created_by_label,
+    createdAt: formatTimestamp(new Date(row.created_at)),
   };
-}
-
-async function ensureTagIndexes(db: Db): Promise<void> {
-  if (tagsIndexesReady) return;
-
-  const collection = db.collection<WorkspaceCustomTag>(
-    WORKSPACE_TAGS_COLLECTION,
-  );
-  await Promise.allSettled([
-    collection.createIndex(
-      { workspaceOwnerEmail: 1, normalizedName: 1 },
-      { unique: true, name: "workspace_tags_unique_name_per_workspace" },
-    ),
-    collection.createIndex(
-      { workspaceOwnerEmail: 1, createdAt: -1 },
-      { name: "workspace_tags_by_workspace_created_at" },
-    ),
-  ]);
-
-  tagsIndexesReady = true;
 }
 
 export class WorkspaceTagRepositoryError extends Error {
@@ -75,18 +44,10 @@ export class WorkspaceTagRepositoryError extends Error {
   }
 }
 
-function validateTagPayload(input: {
-  name: string;
-  category: TagCategory;
-  description: string;
-}) {
+function validateTagPayload(input: { name: string; category: TagCategory; description: string }) {
   const normalizedName = normalizeTagText(input.name);
   if (!normalizedName) {
-    throw new WorkspaceTagRepositoryError(
-      "invalid_name",
-      "Tag name is required.",
-      400,
-    );
+    throw new WorkspaceTagRepositoryError("invalid_name", "Tag name is required.", 400);
   }
 
   if (normalizedName.length > MAX_TAG_NAME_LENGTH) {
@@ -98,11 +59,7 @@ function validateTagPayload(input: {
   }
 
   if (!isTagCategory(input.category)) {
-    throw new WorkspaceTagRepositoryError(
-      "invalid_category",
-      "Invalid tag category.",
-      400,
-    );
+    throw new WorkspaceTagRepositoryError("invalid_category", "Invalid tag category.", 400);
   }
 
   const normalizedDescription = normalizeTagText(input.description);
@@ -115,11 +72,7 @@ function validateTagPayload(input: {
   }
 
   if (hasDuplicateTagName(normalizedName, PRESET_TAG_ROWS)) {
-    throw new WorkspaceTagRepositoryError(
-      "reserved_name",
-      "Tag name already exists in preset tags.",
-      409,
-    );
+    throw new WorkspaceTagRepositoryError("reserved_name", "Tag name already exists in preset tags.", 409);
   }
 
   return {
@@ -128,29 +81,24 @@ function validateTagPayload(input: {
   };
 }
 
-export async function listWorkspaceCustomTags(
-  workspaceOwnerEmail: string,
-): Promise<TagRow[]> {
+export async function listWorkspaceCustomTags(workspaceOwnerEmail: string): Promise<TagRow[]> {
   const normalizedWorkspaceOwnerEmail = normalizeEmail(workspaceOwnerEmail);
+  const supabase = getSupabaseServerClient();
 
-  const client = await clientPromise;
-  const db = client.db(DB_NAME);
-  await ensureTagIndexes(db);
+  const { data, error } = await supabase
+    .from("workspace_tags")
+    .select("id,workspace_owner_email,normalized_name,name,category,description,source,inbox_status,created_by_email,created_by_label,created_at,updated_at")
+    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
+    .order("created_at", { ascending: false });
 
-  const collection = db.collection<WorkspaceCustomTag>(
-    WORKSPACE_TAGS_COLLECTION,
-  );
-  const rows = await collection
-    .find({ workspaceOwnerEmail: normalizedWorkspaceOwnerEmail })
-    .sort({ createdAt: -1 })
-    .toArray();
+  if (error) {
+    throw new WorkspaceTagRepositoryError("list_failed", "Failed to load custom tags.", 500);
+  }
 
-  return rows.map(mapTagDocumentToRow);
+  return ((data ?? []) as WorkspaceTagRowDb[]).map(mapTagRow);
 }
 
-export async function listWorkspaceAssignableTags(
-  workspaceOwnerEmail: string,
-): Promise<TagRow[]> {
+export async function listWorkspaceAssignableTags(workspaceOwnerEmail: string): Promise<TagRow[]> {
   const customTags = await listWorkspaceCustomTags(workspaceOwnerEmail);
   return [...PRESET_TAG_ROWS, ...customTags];
 }
@@ -163,9 +111,7 @@ export async function createWorkspaceCustomTag(input: {
   createdByEmail: string;
   createdByLabel?: string;
 }): Promise<TagRow> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(
-    input.workspaceOwnerEmail,
-  );
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
   const normalizedCreatedByEmail = normalizeEmail(input.createdByEmail);
   const normalizedCreatedByLabel = normalizeTagText(input.createdByLabel || "");
   const { normalizedName, normalizedDescription } = validateTagPayload({
@@ -174,43 +120,38 @@ export async function createWorkspaceCustomTag(input: {
     description: input.description,
   });
 
-  const now = new Date();
-  const tag: WorkspaceCustomTag = {
+  const supabase = getSupabaseServerClient();
+  const now = new Date().toISOString();
+
+  const insertPayload = {
     id: randomUUID(),
-    workspaceOwnerEmail: normalizedWorkspaceOwnerEmail,
-    normalizedName: normalizedName.toLowerCase(),
+    workspace_owner_email: normalizedWorkspaceOwnerEmail,
+    normalized_name: normalizedName.toLowerCase(),
     name: normalizedName,
     category: input.category,
     description: normalizedDescription || "No description added",
-    source: "Custom",
-    inboxStatus: "Not wired yet",
-    createdByEmail: normalizedCreatedByEmail,
-    createdByLabel: normalizedCreatedByLabel || normalizedCreatedByEmail,
-    createdAt: now,
-    updatedAt: now,
+    source: "Custom" as const,
+    inbox_status: "Not wired yet" as const,
+    created_by_email: normalizedCreatedByEmail,
+    created_by_label: normalizedCreatedByLabel || normalizedCreatedByEmail,
+    created_at: now,
+    updated_at: now,
   };
 
-  const client = await clientPromise;
-  const db = client.db(DB_NAME);
-  await ensureTagIndexes(db);
+  const { data, error } = await supabase
+    .from("workspace_tags")
+    .insert(insertPayload)
+    .select("id,workspace_owner_email,normalized_name,name,category,description,source,inbox_status,created_by_email,created_by_label,created_at,updated_at")
+    .single();
 
-  const collection = db.collection<WorkspaceCustomTag>(
-    WORKSPACE_TAGS_COLLECTION,
-  );
-  try {
-    await collection.insertOne(tag);
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      throw new WorkspaceTagRepositoryError(
-        "duplicate_tag",
-        "Tag name already exists.",
-        409,
-      );
+  if (error) {
+    if (error.code === "23505") {
+      throw new WorkspaceTagRepositoryError("duplicate_tag", "Tag name already exists.", 409);
     }
-    throw error;
+    throw new WorkspaceTagRepositoryError("create_failed", "Failed to create tag.", 500);
   }
 
-  return mapTagDocumentToRow(tag);
+  return mapTagRow(data as WorkspaceTagRowDb);
 }
 
 export async function updateWorkspaceCustomTag(input: {
@@ -220,16 +161,10 @@ export async function updateWorkspaceCustomTag(input: {
   category: TagCategory;
   description: string;
 }): Promise<TagRow> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(
-    input.workspaceOwnerEmail,
-  );
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
   const normalizedTagId = normalizeTagId(input.tagId);
   if (!normalizedTagId) {
-    throw new WorkspaceTagRepositoryError(
-      "invalid_tag_id",
-      "Invalid tag id.",
-      400,
-    );
+    throw new WorkspaceTagRepositoryError("invalid_tag_id", "Invalid tag id.", 400);
   }
 
   const { normalizedName, normalizedDescription } = validateTagPayload({
@@ -238,99 +173,65 @@ export async function updateWorkspaceCustomTag(input: {
     description: input.description,
   });
 
-  const client = await clientPromise;
-  const db = client.db(DB_NAME);
-  await ensureTagIndexes(db);
+  const supabase = getSupabaseServerClient();
 
-  const collection = db.collection<WorkspaceCustomTag>(
-    WORKSPACE_TAGS_COLLECTION,
-  );
-  const currentTag = await collection.findOne({
-    id: normalizedTagId,
-    workspaceOwnerEmail: normalizedWorkspaceOwnerEmail,
-  });
-  if (!currentTag) {
-    throw new WorkspaceTagRepositoryError(
-      "tag_not_found",
-      "Tag not found.",
-      404,
-    );
+  const { data: existingTag } = await supabase
+    .from("workspace_tags")
+    .select("id")
+    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
+    .eq("id", normalizedTagId)
+    .maybeSingle();
+
+  if (!existingTag) {
+    throw new WorkspaceTagRepositoryError("tag_not_found", "Tag not found.", 404);
   }
 
-  try {
-    await collection.updateOne(
-      {
-        id: normalizedTagId,
-        workspaceOwnerEmail: normalizedWorkspaceOwnerEmail,
-      },
-      {
-        $set: {
-          normalizedName: normalizedName.toLowerCase(),
-          name: normalizedName,
-          category: input.category,
-          description: normalizedDescription || "No description added",
-          updatedAt: new Date(),
-        },
-      },
-    );
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      throw new WorkspaceTagRepositoryError(
-        "duplicate_tag",
-        "Tag name already exists.",
-        409,
-      );
+  const { data, error } = await supabase
+    .from("workspace_tags")
+    .update({
+      normalized_name: normalizedName.toLowerCase(),
+      name: normalizedName,
+      category: input.category,
+      description: normalizedDescription || "No description added",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
+    .eq("id", normalizedTagId)
+    .select("id,workspace_owner_email,normalized_name,name,category,description,source,inbox_status,created_by_email,created_by_label,created_at,updated_at")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new WorkspaceTagRepositoryError("duplicate_tag", "Tag name already exists.", 409);
     }
-    throw error;
+    throw new WorkspaceTagRepositoryError("update_failed", "Failed to update tag.", 500);
   }
 
-  const updatedTag = await collection.findOne({
-    id: normalizedTagId,
-    workspaceOwnerEmail: normalizedWorkspaceOwnerEmail,
-  });
-  if (!updatedTag) {
-    throw new WorkspaceTagRepositoryError(
-      "tag_not_found",
-      "Tag not found.",
-      404,
-    );
-  }
-
-  return mapTagDocumentToRow(updatedTag);
+  return mapTagRow(data as WorkspaceTagRowDb);
 }
 
 export async function deleteWorkspaceCustomTag(input: {
   workspaceOwnerEmail: string;
   tagId: string;
 }): Promise<void> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(
-    input.workspaceOwnerEmail,
-  );
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
   const normalizedTagId = normalizeTagId(input.tagId);
   if (!normalizedTagId) {
-    throw new WorkspaceTagRepositoryError(
-      "invalid_tag_id",
-      "Invalid tag id.",
-      400,
-    );
+    throw new WorkspaceTagRepositoryError("invalid_tag_id", "Invalid tag id.", 400);
   }
 
-  const client = await clientPromise;
-  const db = client.db(DB_NAME);
-  await ensureTagIndexes(db);
+  const supabase = getSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("workspace_tags")
+    .delete({ count: "exact" })
+    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
+    .eq("id", normalizedTagId);
 
-  const collection = db.collection<WorkspaceCustomTag>(
-    WORKSPACE_TAGS_COLLECTION,
-  );
-  const result = await collection.deleteOne({
-    id: normalizedTagId,
-    workspaceOwnerEmail: normalizedWorkspaceOwnerEmail,
-  });
-  if (result.deletedCount === 0) {
-    throw new WorkspaceTagRepositoryError(
-      "tag_not_found",
-      "Tag not found.",
-      404,
-    );
+  if (error) {
+    throw new WorkspaceTagRepositoryError("delete_failed", "Failed to delete tag.", 500);
+  }
+
+  if (!count) {
+    throw new WorkspaceTagRepositoryError("tag_not_found", "Tag not found.", 404);
   }
 }

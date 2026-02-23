@@ -6,7 +6,6 @@ import { encryptData } from '@/lib/crypto';
 import { InstagramAccountConnection } from '@/types/auth';
 import { randomUUID } from 'crypto';
 import { REQUIRED_INSTAGRAM_SCOPES } from '@/lib/instagramPermissions';
-import { syncInboxForAccounts } from '@/lib/inboxSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -254,10 +253,6 @@ export async function GET(request: NextRequest) {
     }
 
     await upsertInstagramAccounts(session.email, accountConnections);
-    const syncResult = await syncInboxForAccounts(session.email, accountConnections);
-    console.log(
-      `[Instagram OAuth] Initial inbox sync completed: conversations=${syncResult.syncedConversations}, messages=${syncResult.syncedMessages}`
-    );
     const failedSubscriptions = diagnostics.filter((d) => d.status === 'connected_webhook_subscribe_failed');
     const warning = failedSubscriptions.length > 0 ? `webhook_subscribe_failed_${failedSubscriptions.length}` : '';
     const successUrl = warning

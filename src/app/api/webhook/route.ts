@@ -130,7 +130,7 @@ function verifySignature(payload: string, signature: string | null): boolean {
 }
 
 /**
- * Look up the conversation ID from MongoDB.
+ * Look up the conversation ID from Supabase.
  */
 async function resolveConversationId(
   senderId: string,
@@ -226,10 +226,10 @@ function normalizeWebhookAttachments(attachments?: unknown[]): {
  * Handle incoming messaging events.
  *
  * Enriches every SSE payload with:
- *  - `conversationId` — resolved from MongoDB
+ *  - `conversationId` — resolved from Supabase
  *  - `fromMe` — true when the sender is our page / IG account
  *
- * Persists the message to MongoDB immediately.
+ * Persists the message to Supabase immediately.
  */
 async function handleMessagingEvent(event: Record<string, unknown>) {
   const sender = event.sender as { id: string };
@@ -322,7 +322,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       webhookDebug(`[Webhook] Message received: ${messageText || '[attachment]'}`);
     }
 
-    // Persist to MongoDB if conversation is known
+    // Persist to Supabase if conversation is known
     let emittedMessageId = messageId;
     let emittedTimestamp = timestamp;
     let emittedAttachmentUrl = attachmentUrl;
@@ -369,7 +369,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           conversationId,
           ownerEmail,
         );
-        webhookDebug(`[Webhook] Persisted message ${messageId} to MongoDB`);
+        webhookDebug(`[Webhook] Persisted message ${messageId} to Supabase`);
       }
 
       const emittedAttachments =

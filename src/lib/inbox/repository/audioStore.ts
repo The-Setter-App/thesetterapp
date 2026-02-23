@@ -1,10 +1,5 @@
-import type { Db } from "mongodb";
-import { GridFSBucket, ObjectId } from "mongodb";
-import {
-  AUDIO_BUCKET,
-  getInboxDb,
-  MESSAGES_COLLECTION,
-} from "@/lib/inbox/repository/core";
+import { Readable } from "node:stream";
+import { AUDIO_BUCKET, getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
 import { saveMessageToDb } from "@/lib/inbox/repository/messageStore";
 import type { Message } from "@/types/inbox";
 
@@ -23,10 +18,6 @@ type MessageDoc = Message & {
   };
 };
 
-function getAudioBucket(db: Db): GridFSBucket {
-  return new GridFSBucket(db, { bucketName: AUDIO_BUCKET });
-}
-
 export async function saveVoiceNoteBlobToGridFs(params: {
   ownerEmail: string;
   conversationId: string;
@@ -36,27 +27,23 @@ export async function saveVoiceNoteBlobToGridFs(params: {
   mimeType: string;
   bytes: Buffer;
 }): Promise<{ fileId: string; mimeType: string; size: number }> {
-  const db = await getInboxDb();
-  const bucket = getAudioBucket(db);
+  const supabase = getInboxSupabase();
+  const safeOwner = encodeURIComponent(params.ownerEmail);
+  const safeConversation = encodeURIComponent(params.conversationId);
+  const safeMessage = encodeURIComponent(params.messageId);
+  const extension = params.fileName.includes(".") ? params.fileName.split(".").pop() : "webm";
+  const objectPath = `${safeOwner}/${safeConversation}/${safeMessage}.${extension}`;
 
-  const uploadStream = bucket.openUploadStream(params.fileName, {
-    metadata: {
-      ownerEmail: params.ownerEmail,
-      conversationId: params.conversationId,
-      recipientId: params.recipientId,
-      messageId: params.messageId,
-      mimeType: params.mimeType,
-    },
-  });
+  const { error } = await supabase.storage
+    .from(AUDIO_BUCKET)
+    .upload(objectPath, params.bytes, { contentType: params.mimeType, upsert: true });
 
-  await new Promise<void>((resolve, reject) => {
-    uploadStream.on("error", reject);
-    uploadStream.on("finish", () => resolve());
-    uploadStream.end(params.bytes);
-  });
+  if (error) {
+    throw new Error(`Failed to upload voice note: ${error.message}`);
+  }
 
   return {
-    fileId: uploadStream.id.toString(),
+    fileId: objectPath,
     mimeType: params.mimeType,
     size: params.bytes.length,
   };
@@ -77,7 +64,7 @@ export async function saveOrUpdateLocalAudioMessage(params: {
     size: number;
   };
 }): Promise<Message> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
   const baseAttachmentUrl = `/api/inbox/messages/${encodeURIComponent(params.messageId)}/audio`;
   const baseMessage: Message = {
@@ -95,34 +82,33 @@ export async function saveOrUpdateLocalAudioMessage(params: {
 
   let existing: Message | null = null;
   if (params.clientTempId) {
-    const existingDoc = await db
-      .collection<MessageDoc>(MESSAGES_COLLECTION)
-      .findOne({
-        ownerEmail: params.ownerEmail,
-        conversationId: params.conversationId,
-        clientTempId: params.clientTempId,
-      });
-    existing = existingDoc as Message | null;
+    const { data } = await supabase
+      .from(MESSAGES_COLLECTION)
+      .select("payload")
+      .eq("owner_email", params.ownerEmail)
+      .eq("conversation_id", params.conversationId)
+      .eq("client_temp_id", params.clientTempId)
+      .maybeSingle();
+
+    existing = (data as { payload: Message } | null)?.payload ?? null;
   }
 
   if (!existing) {
-    const fiveMinutesAgoIso = new Date(
-      Date.now() - 5 * 60 * 1000,
-    ).toISOString();
-    const existingDoc = await db
-      .collection<MessageDoc>(MESSAGES_COLLECTION)
-      .findOne(
-        {
-          ownerEmail: params.ownerEmail,
-          conversationId: params.conversationId,
-          fromMe: true,
-          type: "audio",
-          source: { $ne: "local_audio_fallback" },
-          timestamp: { $gte: fiveMinutesAgoIso },
-        },
-        { sort: { timestamp: -1 } },
-      );
-    existing = existingDoc as Message | null;
+    const fiveMinutesAgoIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from(MESSAGES_COLLECTION)
+      .select("payload")
+      .eq("owner_email", params.ownerEmail)
+      .eq("conversation_id", params.conversationId)
+      .eq("from_me", true)
+      .eq("type", "audio")
+      .neq("source", "local_audio_fallback")
+      .gte("timestamp_text", fiveMinutesAgoIso)
+      .order("timestamp_text", { ascending: false })
+      .limit(1);
+
+    const row = (data ?? [])[0] as { payload: Message } | undefined;
+    existing = row?.payload ?? null;
   }
 
   if (existing?.id) {
@@ -134,17 +120,7 @@ export async function saveOrUpdateLocalAudioMessage(params: {
       timestamp: existing.timestamp || params.timestamp,
       attachmentUrl: mergedAttachmentUrl,
     };
-    await db.collection(MESSAGES_COLLECTION).updateOne(
-      { id: existing.id, ownerEmail: params.ownerEmail },
-      {
-        $set: {
-          ...merged,
-          conversationId: params.conversationId,
-          ownerEmail: params.ownerEmail,
-        },
-      },
-      { upsert: true },
-    );
+    await saveMessageToDb(merged, params.conversationId, params.ownerEmail);
     return merged;
   }
 
@@ -158,24 +134,22 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
   timestamp: string;
   text?: string;
 }): Promise<Message | null> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
   const tenMinutesAgoIso = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
-  const candidates = await db
-    .collection<MessageDoc>(MESSAGES_COLLECTION)
-    .find(
-      {
-        ownerEmail: params.ownerEmail,
-        conversationId: params.conversationId,
-        fromMe: true,
-        type: "audio",
-        source: "local_audio_fallback",
-        timestamp: { $gte: tenMinutesAgoIso },
-      },
-      { sort: { timestamp: -1 }, limit: 5 },
-    )
-    .toArray();
+  const { data } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("payload")
+    .eq("owner_email", params.ownerEmail)
+    .eq("conversation_id", params.conversationId)
+    .eq("from_me", true)
+    .eq("type", "audio")
+    .eq("source", "local_audio_fallback")
+    .gte("timestamp_text", tenMinutesAgoIso)
+    .order("timestamp_text", { ascending: false })
+    .limit(5);
 
+  const candidates = (data ?? []).map((row) => (row as { payload: Message }).payload as MessageDoc);
   if (candidates.length === 0) {
     return null;
   }
@@ -186,9 +160,7 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
     if (!Number.isFinite(targetTimestampMs)) return best;
 
     const bestDiff = Math.abs(Date.parse(best.timestamp || "") - targetTimestampMs);
-    const candidateDiff = Math.abs(
-      Date.parse(candidate.timestamp || "") - targetTimestampMs,
-    );
+    const candidateDiff = Math.abs(Date.parse(candidate.timestamp || "") - targetTimestampMs);
     return candidateDiff < bestDiff ? candidate : best;
   }, candidates[0]);
 
@@ -198,18 +170,7 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
     timestamp: params.timestamp || fallback.timestamp,
   };
 
-  await db.collection(MESSAGES_COLLECTION).updateOne(
-    { id: fallback.id, ownerEmail: params.ownerEmail },
-    {
-      $set: {
-        ...merged,
-        conversationId: params.conversationId,
-        ownerEmail: params.ownerEmail,
-      },
-    },
-    { upsert: true },
-  );
-
+  await saveMessageToDb(merged, params.conversationId, params.ownerEmail);
   return merged;
 }
 
@@ -221,37 +182,28 @@ export async function getVoiceNoteStreamForMessage(
   mimeType: string;
   size: number;
 } | null> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const message = await db
-    .collection<MessageDoc>(MESSAGES_COLLECTION)
-    .findOne({ id: messageId, ownerEmail });
+  const { data } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("payload")
+    .eq("id", messageId)
+    .eq("owner_email", ownerEmail)
+    .maybeSingle();
+
+  const message = (data as { payload: MessageDoc } | null)?.payload;
   const fileId = message?.audioStorage?.fileId;
   if (!fileId) return null;
 
-  let objectId: ObjectId;
-  try {
-    objectId = new ObjectId(fileId);
-  } catch {
-    return null;
-  }
+  const { data: blob, error } = await supabase.storage.from(AUDIO_BUCKET).download(fileId);
+  if (error || !blob) return null;
 
-  const bucket = getAudioBucket(db);
-  const files = await bucket
-    .find({ _id: objectId, "metadata.ownerEmail": ownerEmail })
-    .toArray();
-  const file = files[0];
-  if (!file) return null;
-
-  const fileMime = (file.metadata as { mimeType?: string } | undefined)
-    ?.mimeType;
+  const arrayBuffer = await blob.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
   return {
-    stream: bucket.openDownloadStream(objectId),
-    mimeType: fileMime || message.audioStorage?.mimeType || "audio/webm",
-    size:
-      typeof file.length === "number"
-        ? file.length
-        : message.audioStorage?.size || 0,
+    stream: Readable.from(buffer),
+    mimeType: message.audioStorage?.mimeType || blob.type || "audio/webm",
+    size: buffer.length,
   };
 }

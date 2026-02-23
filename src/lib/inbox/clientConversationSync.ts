@@ -31,7 +31,7 @@ export async function fetchLatestConversationMessages(
     { cache: 'no-store' }
   );
   if (!response.ok) {
-    throw new Error(`Failed to fetch latest MongoDB messages for conversation ${conversationId}`);
+    throw new Error(`Failed to fetch latest Supabase messages for conversation ${conversationId}`);
   }
   const payload = (await response.json()) as ConversationMessagesResponse;
   return Array.isArray(payload.messages) ? payload.messages : [];

@@ -1,44 +1,30 @@
-import {
-  CONVERSATIONS_COLLECTION,
-  getInboxDb,
-} from "@/lib/inbox/repository/core";
+import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
 
 export async function getConversationGraphSyncState(
   conversationId: string,
   ownerEmail: string,
 ): Promise<{ graphBeforeCursor?: string; graphBackfillDone?: boolean }> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { id: conversationId, ownerEmail },
-    {
-      projection: {
-        graphBeforeCursor: 1,
-        graphBackfillDone: 1,
-        syncBeforeCursor: 1,
-        syncStatus: 1,
-      },
-    },
-  );
+  const { data } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("graph_before_cursor,graph_backfill_done,sync_before_cursor,sync_status")
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .maybeSingle();
 
-  if (!doc) return {};
+  if (!data) return {};
+
+  const row = data as {
+    graph_before_cursor: string | null;
+    graph_backfill_done: boolean | null;
+    sync_before_cursor: string | null;
+    sync_status: string | null;
+  };
 
   return {
-    graphBeforeCursor:
-      typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor ===
-      "string"
-        ? (doc as { syncBeforeCursor?: string }).syncBeforeCursor
-        : typeof (doc as { graphBeforeCursor?: unknown }).graphBeforeCursor ===
-            "string"
-          ? (doc as { graphBeforeCursor?: string }).graphBeforeCursor
-          : undefined,
-    graphBackfillDone:
-      (doc as { syncStatus?: string }).syncStatus === "done"
-        ? true
-        : typeof (doc as { graphBackfillDone?: unknown }).graphBackfillDone ===
-            "boolean"
-          ? (doc as { graphBackfillDone?: boolean }).graphBackfillDone
-          : undefined,
+    graphBeforeCursor: row.sync_before_cursor ?? row.graph_before_cursor ?? undefined,
+    graphBackfillDone: row.sync_status === "done" ? true : row.graph_backfill_done ?? undefined,
   };
 }
 
@@ -47,25 +33,36 @@ export async function updateConversationGraphSyncState(
   ownerEmail: string,
   state: { graphBeforeCursor?: string; graphBackfillDone?: boolean },
 ): Promise<void> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const setPayload: Record<string, unknown> = {};
+  const updates: {
+    graph_before_cursor?: string;
+    sync_before_cursor?: string;
+    graph_backfill_done?: boolean;
+    sync_status?: ConversationSyncStatus;
+    sync_completed_at?: string;
+  } = {};
+
   if (state.graphBeforeCursor !== undefined) {
-    setPayload.graphBeforeCursor = state.graphBeforeCursor;
-    setPayload.syncBeforeCursor = state.graphBeforeCursor;
+    updates.graph_before_cursor = state.graphBeforeCursor;
+    updates.sync_before_cursor = state.graphBeforeCursor;
   }
+
   if (state.graphBackfillDone !== undefined) {
-    setPayload.graphBackfillDone = state.graphBackfillDone;
-    setPayload.syncStatus = state.graphBackfillDone ? "done" : "running";
+    updates.graph_backfill_done = state.graphBackfillDone;
+    updates.sync_status = state.graphBackfillDone ? "done" : "running";
     if (state.graphBackfillDone) {
-      setPayload.syncCompletedAt = new Date().toISOString();
+      updates.sync_completed_at = new Date().toISOString();
     }
   }
-  if (Object.keys(setPayload).length === 0) return;
 
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne({ id: conversationId, ownerEmail }, { $set: setPayload });
+  if (Object.keys(updates).length === 0) return;
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update(updates)
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail);
 }
 
 export type ConversationSyncStatus = "pending" | "running" | "done" | "error";
@@ -85,103 +82,83 @@ export async function updateConversationSyncState(
   ownerEmail: string,
   state: ConversationSyncState,
 ): Promise<void> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
-  const setPayload: Record<string, unknown> = {};
-  if (state.syncStatus !== undefined) setPayload.syncStatus = state.syncStatus;
+  const updates: {
+    sync_status?: ConversationSyncStatus;
+    sync_before_cursor?: string;
+    graph_before_cursor?: string;
+    sync_completed_at?: string;
+    sync_started_at?: string;
+    sync_error?: string;
+    sync_retry_count?: number;
+    sync_message_count?: number;
+  } = {};
+
+  if (state.syncStatus !== undefined) updates.sync_status = state.syncStatus;
   if (state.syncBeforeCursor !== undefined) {
-    setPayload.syncBeforeCursor = state.syncBeforeCursor;
-    setPayload.graphBeforeCursor = state.syncBeforeCursor;
+    updates.sync_before_cursor = state.syncBeforeCursor;
+    updates.graph_before_cursor = state.syncBeforeCursor;
   }
-  if (state.syncCompletedAt !== undefined)
-    setPayload.syncCompletedAt = state.syncCompletedAt;
-  if (state.syncStartedAt !== undefined)
-    setPayload.syncStartedAt = state.syncStartedAt;
-  if (state.syncError !== undefined) setPayload.syncError = state.syncError;
-  if (state.syncRetryCount !== undefined)
-    setPayload.syncRetryCount = state.syncRetryCount;
-  if (state.syncMessageCount !== undefined)
-    setPayload.syncMessageCount = state.syncMessageCount;
-  if (Object.keys(setPayload).length === 0) return;
+  if (state.syncCompletedAt !== undefined) updates.sync_completed_at = state.syncCompletedAt;
+  if (state.syncStartedAt !== undefined) updates.sync_started_at = state.syncStartedAt;
+  if (state.syncError !== undefined) updates.sync_error = state.syncError;
+  if (state.syncRetryCount !== undefined) updates.sync_retry_count = state.syncRetryCount;
+  if (state.syncMessageCount !== undefined) updates.sync_message_count = state.syncMessageCount;
 
-  await db
-    .collection(CONVERSATIONS_COLLECTION)
-    .updateOne(
-      { id: conversationId, ownerEmail },
-      { $set: setPayload },
-      { upsert: false },
-    );
+  if (Object.keys(updates).length === 0) return;
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update(updates)
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail);
 }
 
 export async function getConversationSyncState(
   conversationId: string,
   ownerEmail: string,
 ): Promise<ConversationSyncState | null> {
-  const db = await getInboxDb();
-  const doc = await db.collection(CONVERSATIONS_COLLECTION).findOne(
-    { id: conversationId, ownerEmail },
-    {
-      projection: {
-        syncStatus: 1,
-        syncBeforeCursor: 1,
-        syncCompletedAt: 1,
-        syncStartedAt: 1,
-        syncError: 1,
-        syncRetryCount: 1,
-        syncMessageCount: 1,
-      },
-    },
-  );
+  const supabase = getInboxSupabase();
+  const { data } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("sync_status,sync_before_cursor,sync_completed_at,sync_started_at,sync_error,sync_retry_count,sync_message_count")
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .maybeSingle();
 
-  if (!doc) return null;
+  if (!data) return null;
+
+  const row = data as {
+    sync_status: ConversationSyncStatus | null;
+    sync_before_cursor: string | null;
+    sync_completed_at: string | null;
+    sync_started_at: string | null;
+    sync_error: string | null;
+    sync_retry_count: number | null;
+    sync_message_count: number | null;
+  };
 
   return {
-    syncStatus:
-      typeof (doc as { syncStatus?: unknown }).syncStatus === "string"
-        ? (doc as { syncStatus?: ConversationSyncStatus }).syncStatus
-        : undefined,
-    syncBeforeCursor:
-      typeof (doc as { syncBeforeCursor?: unknown }).syncBeforeCursor ===
-      "string"
-        ? (doc as { syncBeforeCursor?: string }).syncBeforeCursor
-        : undefined,
-    syncCompletedAt:
-      typeof (doc as { syncCompletedAt?: unknown }).syncCompletedAt === "string"
-        ? (doc as { syncCompletedAt?: string }).syncCompletedAt
-        : undefined,
-    syncStartedAt:
-      typeof (doc as { syncStartedAt?: unknown }).syncStartedAt === "string"
-        ? (doc as { syncStartedAt?: string }).syncStartedAt
-        : undefined,
-    syncError:
-      typeof (doc as { syncError?: unknown }).syncError === "string"
-        ? (doc as { syncError?: string }).syncError
-        : undefined,
-    syncRetryCount:
-      typeof (doc as { syncRetryCount?: unknown }).syncRetryCount === "number"
-        ? (doc as { syncRetryCount?: number }).syncRetryCount
-        : undefined,
-    syncMessageCount:
-      typeof (doc as { syncMessageCount?: unknown }).syncMessageCount ===
-      "number"
-        ? (doc as { syncMessageCount?: number }).syncMessageCount
-        : undefined,
+    syncStatus: row.sync_status ?? undefined,
+    syncBeforeCursor: row.sync_before_cursor ?? undefined,
+    syncCompletedAt: row.sync_completed_at ?? undefined,
+    syncStartedAt: row.sync_started_at ?? undefined,
+    syncError: row.sync_error ?? undefined,
+    syncRetryCount: row.sync_retry_count ?? undefined,
+    syncMessageCount: row.sync_message_count ?? undefined,
   };
 }
 
-export async function markConversationsPendingSync(
-  ownerEmail: string,
-  conversationIds: string[],
-): Promise<void> {
+export async function markConversationsPendingSync(ownerEmail: string, conversationIds: string[]): Promise<void> {
   if (!conversationIds.length) return;
-  const db = await getInboxDb();
-  await db.collection(CONVERSATIONS_COLLECTION).updateMany(
-    { ownerEmail, id: { $in: conversationIds } },
-    {
-      $set: { syncStatus: "pending" },
-      $setOnInsert: { syncRetryCount: 0, syncMessageCount: 0 },
-    },
-  );
+  const supabase = getInboxSupabase();
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ sync_status: "pending" as const })
+    .eq("owner_email", ownerEmail)
+    .in("id", conversationIds);
 }
 
 export async function getConversationSyncOverview(ownerEmail: string): Promise<{
@@ -191,23 +168,37 @@ export async function getConversationSyncOverview(ownerEmail: string): Promise<{
   done: number;
   error: number;
 }> {
-  const db = await getInboxDb();
+  const supabase = getInboxSupabase();
 
   const [total, pending, running, done, error] = await Promise.all([
-    db.collection(CONVERSATIONS_COLLECTION).countDocuments({ ownerEmail }),
-    db
-      .collection(CONVERSATIONS_COLLECTION)
-      .countDocuments({ ownerEmail, syncStatus: "pending" }),
-    db
-      .collection(CONVERSATIONS_COLLECTION)
-      .countDocuments({ ownerEmail, syncStatus: "running" }),
-    db
-      .collection(CONVERSATIONS_COLLECTION)
-      .countDocuments({ ownerEmail, syncStatus: "done" }),
-    db
-      .collection(CONVERSATIONS_COLLECTION)
-      .countDocuments({ ownerEmail, syncStatus: "error" }),
+    supabase.from(CONVERSATIONS_COLLECTION).select("id", { count: "exact", head: true }).eq("owner_email", ownerEmail),
+    supabase
+      .from(CONVERSATIONS_COLLECTION)
+      .select("id", { count: "exact", head: true })
+      .eq("owner_email", ownerEmail)
+      .eq("sync_status", "pending"),
+    supabase
+      .from(CONVERSATIONS_COLLECTION)
+      .select("id", { count: "exact", head: true })
+      .eq("owner_email", ownerEmail)
+      .eq("sync_status", "running"),
+    supabase
+      .from(CONVERSATIONS_COLLECTION)
+      .select("id", { count: "exact", head: true })
+      .eq("owner_email", ownerEmail)
+      .eq("sync_status", "done"),
+    supabase
+      .from(CONVERSATIONS_COLLECTION)
+      .select("id", { count: "exact", head: true })
+      .eq("owner_email", ownerEmail)
+      .eq("sync_status", "error"),
   ]);
 
-  return { total, pending, running, done, error };
+  return {
+    total: total.count ?? 0,
+    pending: pending.count ?? 0,
+    running: running.count ?? 0,
+    done: done.count ?? 0,
+    error: error.count ?? 0,
+  };
 }
