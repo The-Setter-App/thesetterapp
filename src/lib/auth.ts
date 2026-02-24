@@ -3,8 +3,18 @@ import { JWTPayload } from '@/types/auth';
 import { cookies } from 'next/headers';
 import { getUser } from '@/lib/userRepository';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'default-secret-key-change-me';
-const key = new TextEncoder().encode(SECRET_KEY);
+function getRequiredJwtSecret(): string {
+  const value = process.env.JWT_SECRET;
+  if (!value) {
+    throw new Error('Missing required environment variable: JWT_SECRET');
+  }
+  if (value.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long');
+  }
+  return value;
+}
+
+const key = new TextEncoder().encode(getRequiredJwtSecret());
 
 export async function encrypt(payload: Omit<JWTPayload, 'iat' | 'exp'>) {
   return await new SignJWT(payload)

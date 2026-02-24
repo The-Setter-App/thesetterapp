@@ -1,16 +1,28 @@
 import { NextRequest } from 'next/server';
 import { EventEmitter } from 'events';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
+import type { SSEEvent } from '@/types/inbox';
 
 // Global event emitter for SSE broadcasts
 export const sseEmitter = new EventEmitter();
 sseEmitter.setMaxListeners(100); // Support up to 100 concurrent connections
 
+interface WorkspaceScopedSseEvent {
+  workspaceOwnerEmail: string;
+  event: SSEEvent;
+}
+
+export function emitWorkspaceSseEvent(workspaceOwnerEmail: string, event: SSEEvent): void {
+  sseEmitter.emit('message', { workspaceOwnerEmail, event } satisfies WorkspaceScopedSseEvent);
+}
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  let workspaceOwnerEmail = '';
   try {
-    await requireInboxWorkspaceContext();
+    const context = await requireInboxWorkspaceContext();
+    workspaceOwnerEmail = context.workspaceOwnerEmail;
   } catch (error) {
     if (error instanceof AccessError) {
       return new Response(JSON.stringify({ error: error.message }), { status: error.status });
@@ -27,8 +39,9 @@ export async function GET(request: NextRequest) {
       controller.enqueue(encoder.encode(initialMessage));
 
       // Handler for new messages
-      const messageHandler = (data: unknown) => {
-        const message = `data: ${JSON.stringify(data)}\n\n`;
+      const messageHandler = (data: WorkspaceScopedSseEvent) => {
+        if (data.workspaceOwnerEmail !== workspaceOwnerEmail) return;
+        const message = `data: ${JSON.stringify(data.event)}\n\n`;
         controller.enqueue(encoder.encode(message));
       };
 

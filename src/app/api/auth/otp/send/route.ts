@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createOTP } from '@/lib/userRepository';
 import { sendOTPEmail } from '@/lib/email';
+import { enforceOtpSendRateLimit, getClientIp } from '@/lib/otpSecurity';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   try {
@@ -9,14 +12,28 @@ export async function POST(request: Request) {
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+
+    const clientIp = getClientIp(request.headers);
+    const rateLimit = await enforceOtpSendRateLimit(normalizedEmail, clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many OTP requests. Try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
     
-    const otp = await createOTP(email);
+    const otp = await createOTP(normalizedEmail);
     
     // Send OTP via email using Resend
-    await sendOTPEmail(email, otp);
-    
-    // Keep console log for development debugging if needed, but safe to remove if strict
-    console.log(`🔐 OTP sent to ${email}`);
+    await sendOTPEmail(normalizedEmail, otp);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { sseEmitter } from '../sse/route';
+import { emitWorkspaceSseEvent } from '../sse/route';
 import { 
   findConversationIdByParticipantAndAccount,
   findConversationIdByParticipantUnique,
@@ -113,8 +113,15 @@ function verifySignature(payload: string, signature: string | null): boolean {
     return false;
   }
 
-  // Remove 'sha256=' prefix
-  const signatureHash = signature.replace('sha256=', '');
+  if (!signature.startsWith('sha256=')) {
+    return false;
+  }
+
+  // Remove 'sha256=' prefix and validate exact SHA-256 hex shape.
+  const signatureHash = signature.slice(7).trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(signatureHash)) {
+    return false;
+  }
   
   // Calculate expected signature
   const expectedHash = crypto
@@ -122,11 +129,14 @@ function verifySignature(payload: string, signature: string | null): boolean {
     .update(payload)
     .digest('hex');
 
+  const provided = Buffer.from(signatureHash, 'hex');
+  const expected = Buffer.from(expectedHash, 'hex');
+  if (provided.length !== expected.length) {
+    return false;
+  }
+
   // Compare signatures
-  return crypto.timingSafeEqual(
-    Buffer.from(signatureHash),
-    Buffer.from(expectedHash)
-  );
+  return crypto.timingSafeEqual(provided, expected);
 }
 
 /**
@@ -403,7 +413,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       };
 
       // Emit after persistence/reconciliation so frontend gets canonical message IDs.
-      sseEmitter.emit('message', ssePayload);
+      emitWorkspaceSseEvent(ownerEmail, ssePayload);
 
       // Update Conversation Metadata (Last Message, Time, Unread)
       // This ensures the sidebar is up-to-date in the DB immediately
@@ -469,7 +479,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           fromMe: isEcho ? true : fromMe,
         },
       };
-      sseEmitter.emit('message', ssePayload);
+      emitWorkspaceSseEvent(ownerEmail, ssePayload);
       console.warn('[Webhook] Could not persist message: Conversation ID not found');
     }
   }
@@ -488,7 +498,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       },
     };
 
-    sseEmitter.emit('message', seenPayload);
+    emitWorkspaceSseEvent(ownerEmail, seenPayload);
   }
 
   // Handle message delivery

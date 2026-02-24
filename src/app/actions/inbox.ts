@@ -15,9 +15,10 @@ import {
   updateConversationPriority,
   addStatusTimelineEvent,
 } from '@/lib/inboxRepository';
-import { sseEmitter } from '@/app/api/sse/route';
+import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
 import { isStatusType } from '@/lib/status/config';
 import type { User, Message, StatusType } from '@/types/inbox';
+import type { SSEAttachment } from '@/types/inbox';
 import { requireInboxWorkspaceContext } from '@/lib/workspace';
 
 async function getOwnerEmail(): Promise<string> {
@@ -225,14 +226,22 @@ export async function syncLatestMessages(
     }
 
     if (matchedOutgoingMessage) {
-      const attachments = [];
+      const attachments: SSEAttachment[] = [];
       if (matchedOutgoingMessage.type === 'image' && matchedOutgoingMessage.attachmentUrl) {
-        attachments.push({ image_data: { url: matchedOutgoingMessage.attachmentUrl } });
+        attachments.push({
+          type: 'image',
+          image_data: { url: matchedOutgoingMessage.attachmentUrl, width: 0, height: 0 },
+          payload: { url: matchedOutgoingMessage.attachmentUrl },
+        });
       } else if (matchedOutgoingMessage.type === 'video' && matchedOutgoingMessage.attachmentUrl) {
-        attachments.push({ video_data: { url: matchedOutgoingMessage.attachmentUrl } });
+        attachments.push({
+          type: 'video',
+          video_data: { url: matchedOutgoingMessage.attachmentUrl, width: 0, height: 0 },
+          payload: { url: matchedOutgoingMessage.attachmentUrl },
+        });
       }
 
-      sseEmitter.emit('message', {
+      emitWorkspaceSseEvent(ownerEmail, {
         type: 'message_echo',
         timestamp: new Date().toISOString(),
         data: {
@@ -249,7 +258,7 @@ export async function syncLatestMessages(
       });
     }
 
-    sseEmitter.emit('message', {
+    emitWorkspaceSseEvent(ownerEmail, {
       type: 'messages_synced',
       timestamp: new Date().toISOString(),
       data: {
@@ -265,13 +274,15 @@ export async function syncLatestMessages(
 export async function updateUserStatusAction(conversationId: string, newStatus: string): Promise<void> {
   try {
     const ownerEmail = await getOwnerEmail();
-    await updateUserStatus(conversationId, ownerEmail, newStatus);
-    if (isStatusType(newStatus)) {
-      await addStatusTimelineEvent(conversationId, ownerEmail, newStatus);
+    if (!isStatusType(newStatus)) {
+      throw new Error('Invalid status type');
     }
+    await updateUserStatus(conversationId, ownerEmail, newStatus);
+    await addStatusTimelineEvent(conversationId, ownerEmail, newStatus);
 
-    sseEmitter.emit('message', {
+    emitWorkspaceSseEvent(ownerEmail, {
       type: 'user_status_updated',
+      timestamp: new Date().toISOString(),
       data: { conversationId, status: newStatus },
     });
   } catch (error) {
@@ -285,8 +296,9 @@ export async function updateConversationPriorityAction(conversationId: string, i
     const ownerEmail = await getOwnerEmail();
     await updateConversationPriority(conversationId, ownerEmail, isPriority);
 
-    sseEmitter.emit('message', {
+    emitWorkspaceSseEvent(ownerEmail, {
       type: 'conversation_priority_updated',
+      timestamp: new Date().toISOString(),
       data: { conversationId, isPriority },
     });
   } catch (error) {

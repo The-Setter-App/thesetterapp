@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { verifyOTP, upsertUser } from '@/lib/userRepository';
 import { createSession } from '@/lib/auth';
+import {
+  enforceOtpVerifyRateLimit,
+  getClientIp,
+  resetOtpVerifyEmailLimit,
+} from '@/lib/otpSecurity';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OTP_REGEX = /^\d{6}$/;
 
 export async function POST(request: Request) {
   try {
@@ -9,9 +17,27 @@ export async function POST(request: Request) {
     if (!email || !otp) {
       return NextResponse.json({ error: 'Email and OTP are required' }, { status: 400 });
     }
+
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedOtp = typeof otp === 'string' ? otp.trim() : '';
+    if (!EMAIL_REGEX.test(normalizedEmail) || !OTP_REGEX.test(normalizedOtp)) {
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
+    }
+
+    const clientIp = getClientIp(request.headers);
+    const rateLimit = await enforceOtpVerifyRateLimit(normalizedEmail, clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many OTP verification attempts. Try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
     
     // Verify OTP
-    const isValid = await verifyOTP(email, otp);
+    const isValid = await verifyOTP(normalizedEmail, normalizedOtp);
     
     if (!isValid) {
       // Check for a magic bypass code for development ease if strictly requested, 
@@ -21,7 +47,8 @@ export async function POST(request: Request) {
     }
     
     // OTP valid - create/update user and session
-    const user = await upsertUser(email);
+    const user = await upsertUser(normalizedEmail);
+    await resetOtpVerifyEmailLimit(normalizedEmail);
     await createSession({ email: user.email, role: user.role });
 
     return NextResponse.json({ success: true, requiresOnboarding: user.hasCompletedOnboarding === false });

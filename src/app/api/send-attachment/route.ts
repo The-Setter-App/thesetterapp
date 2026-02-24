@@ -5,7 +5,7 @@ import { decryptData } from '@/lib/crypto';
 import { syncLatestMessages } from '@/app/actions/inbox';
 import { findConversationById, saveOrUpdateLocalAudioMessage, saveVoiceNoteBlobToGridFs, updateConversationMetadata } from '@/lib/inboxRepository';
 import { getRelativeTime } from '@/lib/mappers';
-import { sseEmitter } from '../sse/route';
+import { emitWorkspaceSseEvent } from '../sse/route';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 export async function POST(request: NextRequest) {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       );
 
       const eventTimestampMs = Date.parse(savedMessage.timestamp || timestampIso);
-      sseEmitter.emit('message', {
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
         type: 'message_echo',
         timestamp: new Date().toISOString(),
         data: {
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      sseEmitter.emit('message', {
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
         type: 'messages_synced',
         timestamp: new Date().toISOString(),
         data: {

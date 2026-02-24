@@ -38,7 +38,8 @@ yarn-error.log*
 next-env.d.ts
 
 # Environment variables
-.env
+.env*
+!.env.example
 
 # EchoDE
 .echode/

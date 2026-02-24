@@ -121,6 +121,7 @@ async function mapUserFromRow(row: AppUserRow): Promise<User> {
   const createdAt = new Date(row.created_at);
   const lastLoginAt = row.last_login_at ? new Date(row.last_login_at) : undefined;
   const isOwner = row.role === "owner";
+  const profileImageUrl = await resolveProfileImageUrl(row.profile_image_path);
 
   const teamMembers = isOwner ? await fetchTeamMembers(email) : [];
   const instagramAccounts = await fetchInstagramAccounts(email);
@@ -131,10 +132,7 @@ async function mapUserFromRow(row: AppUserRow): Promise<User> {
     createdAt,
     lastLoginAt,
     displayName: normalizeOptionalDisplayName(row.display_name),
-    profileImageBase64:
-      resolveProfileImageUrl(row.profile_image_path) ??
-      row.profile_image_base64 ??
-      undefined,
+    profileImageBase64: profileImageUrl ?? row.profile_image_base64 ?? undefined,
     hasCompletedOnboarding:
       typeof row.has_completed_onboarding === "boolean"
         ? row.has_completed_onboarding
@@ -275,7 +273,7 @@ export async function createOTP(email: string): Promise<string> {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
   await supabase.from("otp_codes").delete().eq("email", normalizedEmail);
 
