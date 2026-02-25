@@ -64,17 +64,20 @@ export async function DELETE(
   try {
     const { sessionEmail } = await requireWorkspaceContext();
     const { sessionId } = await context.params;
-    const deleted = await deleteSetterAiSession(sessionEmail, sessionId);
+    const result = await deleteSetterAiSession(sessionEmail, sessionId);
 
-    if (!deleted) {
+    if (result === "error") {
       return NextResponse.json(
-        { error: "Session not found." },
-        { status: 404 },
+        { error: "Failed to delete session." },
+        { status: 500 },
       );
     }
 
     return NextResponse.json(
-      { ok: true },
+      {
+        ok: true,
+        alreadyDeleted: result === "not_found",
+      },
       {
         headers: {
           "Cache-Control": "private, no-store",

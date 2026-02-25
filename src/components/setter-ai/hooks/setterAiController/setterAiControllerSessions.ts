@@ -22,7 +22,6 @@ import {
   getCachedSetterAiMessages,
   getCachedSetterAiMessagesTimestamp,
   getCachedSetterAiSessions,
-  getCachedSetterAiSessionsTimestamp,
   setSetterAiLastEmail,
 } from "@/lib/setterAiCache";
 import type { Message } from "@/types/ai";
@@ -98,53 +97,49 @@ export async function refreshSessions(params: {
     setActiveSessionId,
   } = params;
 
-  let hadCached = false;
+  let fallbackSessions: ClientChatSession[] = [];
   if (currentEmail) {
     await hydrateDeletedSessionTombstonesFn(currentEmail);
     const tombstonedIds = deletedSessionIdsRef.current;
-    const [cachedSessions, cachedAt] = await Promise.all([
-      getCachedSetterAiSessions(currentEmail),
-      getCachedSetterAiSessionsTimestamp(currentEmail),
-    ]);
+    const cachedSessions = await getCachedSetterAiSessions(currentEmail);
     const filteredCachedSessions =
       cachedSessions?.filter((session) => !tombstonedIds.has(session.id)) || [];
 
     if (filteredCachedSessions.length > 0) {
-      hadCached = true;
+      fallbackSessions = filteredCachedSessions;
       setChatSessions((prev) =>
         mergeSessionsWithLocalMessages(filteredCachedSessions, prev),
       );
       setActiveSessionId(resolvePreferredSessionIdFn(filteredCachedSessions));
     }
-
-    const cacheIsFresh = Boolean(
-      cachedAt && Date.now() - cachedAt < CACHE_TTL_MS,
-    );
-    if (!forceNetwork && cacheIsFresh && hadCached) {
-      return filteredCachedSessions as ClientChatSession[];
-    }
   }
+  try {
+    const data = await fetchSessionsFromServer();
+    const safeEmail = data.currentEmail.trim().toLowerCase();
+    setCurrentEmail(safeEmail);
+    await setSetterAiLastEmail(safeEmail);
+    await hydrateDeletedSessionTombstonesFn(safeEmail);
 
-  const data = await fetchSessionsFromServer();
-  const safeEmail = data.currentEmail.trim().toLowerCase();
-  setCurrentEmail(safeEmail);
-  await setSetterAiLastEmail(safeEmail);
-  await hydrateDeletedSessionTombstonesFn(safeEmail);
+    const tombstonedIds = deletedSessionIdsRef.current;
+    const nextSessions = (data.sessions || []).filter(
+      (session) => !tombstonedIds.has(session.id),
+    );
+    let mergedSessions: ClientChatSession[] = nextSessions;
+    setChatSessions((prev) => {
+      mergedSessions = mergeSessionsWithLocalMessages(nextSessions, prev);
+      return mergedSessions;
+    });
 
-  const tombstonedIds = deletedSessionIdsRef.current;
-  const nextSessions = (data.sessions || []).filter(
-    (session) => !tombstonedIds.has(session.id),
-  );
-  let mergedSessions: ClientChatSession[] = nextSessions;
-  setChatSessions((prev) => {
-    mergedSessions = mergeSessionsWithLocalMessages(nextSessions, prev);
+    setActiveSessionId(resolvePreferredSessionIdFn(mergedSessions));
+
+    await cacheSessionList(safeEmail, mergedSessions);
     return mergedSessions;
-  });
-
-  setActiveSessionId(resolvePreferredSessionIdFn(mergedSessions));
-
-  await cacheSessionList(safeEmail, mergedSessions);
-  return mergedSessions;
+  } catch (error) {
+    if (!forceNetwork && fallbackSessions.length > 0) {
+      return fallbackSessions;
+    }
+    throw error;
+  }
 }
 
 export async function loadSessionMessages(params: {

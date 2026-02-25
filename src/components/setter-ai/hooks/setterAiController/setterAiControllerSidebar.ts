@@ -109,8 +109,9 @@ export async function handleDeleteSession(params: {
   if (!isLocalSessionId(sessionId)) {
     void (async () => {
       const response = await deleteSessionOnServer(sessionId).catch(() => null);
+      const deleteAccepted = Boolean(response?.ok || response?.status === 404);
 
-      if (response?.ok) {
+      if (deleteAccepted) {
         return;
       }
 

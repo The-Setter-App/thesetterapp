@@ -337,9 +337,14 @@ export async function appendSetterAiExchangeAfterStream(
   invalidateMessageCache(normalizedEmail, sessionId);
 }
 
-export async function deleteSetterAiSession(email: string, sessionId: string): Promise<boolean> {
+export type DeleteSetterAiSessionResult = "deleted" | "not_found" | "error";
+
+export async function deleteSetterAiSession(
+  email: string,
+  sessionId: string,
+): Promise<DeleteSetterAiSessionResult> {
   const normalizedEmail = normalizeEmail(email);
-  if (!isUuid(sessionId)) return false;
+  if (!isUuid(sessionId)) return "not_found";
 
   const supabase = getSupabaseServerClient();
   const { error, count } = await supabase
@@ -348,11 +353,17 @@ export async function deleteSetterAiSession(email: string, sessionId: string): P
     .eq("id", sessionId)
     .eq("email", normalizedEmail);
 
-  if (error || !count) {
-    return false;
+  if (error) {
+    return "error";
+  }
+
+  if (!count) {
+    invalidateSessionCache(normalizedEmail);
+    invalidateMessageCache(normalizedEmail, sessionId);
+    return "not_found";
   }
 
   invalidateSessionCache(normalizedEmail);
   invalidateMessageCache(normalizedEmail, sessionId);
-  return true;
+  return "deleted";
 }
