@@ -302,7 +302,7 @@ export default function ChatWindow({
                       </div>
                     )}
                   </div>
-                  {msg.pending && msg.fromMe && (
+                  {msg.pending && !msg.clientAcked && msg.fromMe && (
                     <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
                   )}
                   {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}

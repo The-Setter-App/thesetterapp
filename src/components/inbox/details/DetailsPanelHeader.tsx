@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSSE } from "@/hooks/useSSE";
 import { User, StatusType } from "@/types/inbox";
 import type { ConversationContactDetails } from "@/types/inbox";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { isStatusType, STATUS_COLOR_ICON_PATHS, STATUS_OPTIONS } from "@/lib/status/config";
+import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
+import type { SSEEvent } from "@/types/inbox";
 import {
   emitConversationStatusSynced,
   syncConversationStatusToClientCache,
@@ -61,13 +62,20 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
   }, [userId]);
 
   // Listen for SSE status updates (cross-tab / external updates)
-  useSSE('/api/sse', {
-    onMessage: (msg) => {
-      if (msg.type === 'user_status_updated' && msg.data.conversationId === userId && isStatusType(msg.data.status)) {
-        setCurrentStatus(msg.data.status);
-      }
-    }
-  });
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent>;
+      const msg = customEvent.detail;
+      if (!msg || typeof msg !== "object") return;
+      if (msg.type !== "user_status_updated") return;
+      if (msg.data.conversationId !== userId) return;
+      if (!isStatusType(msg.data.status)) return;
+      setCurrentStatus(msg.data.status);
+    };
+
+    window.addEventListener(INBOX_SSE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
+  }, [userId]);
   const displayName = user.name.replace("@", "");
   const emailValue = contactDetails.email.trim();
   const phoneValue = contactDetails.phoneNumber.trim();

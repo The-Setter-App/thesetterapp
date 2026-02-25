@@ -136,6 +136,7 @@ export interface Message {
   attachmentUrl?: string;
   isEmpty?: boolean;
   pending?: boolean;
+  clientAcked?: boolean;
   clientTempId?: string;
   source?: "instagram" | "local_audio_fallback";
   audioStorage?: {

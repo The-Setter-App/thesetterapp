@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
 import { sendMessage } from '@/lib/graphApi';
-import { syncLatestMessages } from '@/app/actions/inbox';
 import { findConversationById } from '@/lib/inboxRepository';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
@@ -33,10 +32,6 @@ export async function POST(
 
     const accessToken = decryptData(account.accessToken);
     await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion);
-
-    syncLatestMessages(conversationId, { text }).catch((err) => {
-      console.warn('[InboxSendAPI] Background sync failed:', err);
-    });
 
     return NextResponse.json({ accepted: true, clientTempId: body.clientTempId || null });
   } catch (error) {

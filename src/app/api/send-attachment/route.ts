@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendAttachmentMessage } from '@/lib/graphApi';
 import { getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
-import { syncLatestMessages } from '@/app/actions/inbox';
 import { findConversationById, saveOrUpdateLocalAudioMessage, saveVoiceNoteBlobToGridFs, updateConversationMetadata } from '@/lib/inboxRepository';
 import { getRelativeTime } from '@/lib/mappers';
 import { emitWorkspaceSseEvent } from '../sse/route';
@@ -115,25 +114,8 @@ export async function POST(request: NextRequest) {
           fromMe: true,
         },
       });
-
-      emitWorkspaceSseEvent(workspaceOwnerEmail, {
-        type: 'messages_synced',
-        timestamp: new Date().toISOString(),
-        data: {
-          conversationId: conversation.id,
-          recipientId: conversation.recipientId,
-        },
-      });
-
       return NextResponse.json({ success: true, messageId: savedMessage.id });
     }
-
-    // Sync latest messages to get the real ID and URL, and emit SSE to frontend
-    // This allows the frontend to replace the optimistic blob URL with the real one
-    // Pass matchCriteria to ensure we find the image message even if a text message was sent immediately after
-    syncLatestMessages(conversation.id, { type: attachmentType }).catch(err =>
-      console.warn('[SendAttachment] Background sync failed:', err)
-    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

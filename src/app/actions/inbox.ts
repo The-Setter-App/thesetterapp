@@ -174,7 +174,6 @@ export async function sendNewMessage(conversationId: string, text: string): Prom
 
     const accessToken = decryptData(account.accessToken);
     await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion);
-    syncLatestMessages(conversationId, { text }).catch((err) => console.warn('[InboxActions] Background sync failed:', err));
   } catch (error) {
     console.error('[InboxActions] Error sending message:', error);
     throw error;

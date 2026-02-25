@@ -11,18 +11,18 @@ import {
 } from "@/app/actions/inbox";
 import ConversationList from "@/components/inbox/ConversationList";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
-import { useSSE } from "@/hooks/useSSE";
 import {
-  getCachedMessages,
   getCachedUsers,
   setCachedUsers,
-  updateCachedMessages,
 } from "@/lib/clientCache";
 import {
-  fetchLatestConversationMessages,
   findConversationForRealtimeMessage,
 } from "@/lib/inbox/clientConversationSync";
-import { emitInboxRealtimeMessage } from "@/lib/inbox/clientRealtimeEvents";
+import {
+  INBOX_MESSAGE_EVENT,
+  INBOX_SSE_EVENT,
+  type InboxRealtimeMessageDetail,
+} from "@/lib/inbox/clientRealtimeEvents";
 import {
   buildTagLookup,
   loadInboxTagCatalog,
@@ -55,11 +55,7 @@ import SidebarSearchBar from "./sidebar/SidebarSearchBar";
 import SidebarTabs, { type SidebarTab } from "./sidebar/SidebarTabs";
 import {
   buildRealtimePreviewText,
-  mapRealtimePayloadToMessage,
-  mergeMessageCacheSnapshots,
-  mergeUsersWithLocalRecency,
   normalizeUsersFromBackend,
-  resolveAudioDurationFromUrl,
   sortUsersByRecency,
 } from "./sidebar/utils";
 
@@ -88,8 +84,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [tagLookup, setTagLookup] = useState<Record<string, TagRow>>({});
 
   const refetchInFlightRef = useRef(false);
-  const realtimeSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const resolvingDurationKeysRef = useRef<Set<string>>(new Set());
   const tagCatalogRefreshInFlightRef = useRef(false);
 
   // Filter persistence
@@ -128,34 +122,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, []);
 
   useEffect(() => {
-    const REFRESH_INTERVAL_MS = 45000;
-    let intervalId: number | null = null;
-
-    const startInterval = () => {
-      if (intervalId !== null) return;
-      intervalId = window.setInterval(() => {
-        if (document.visibilityState !== "visible") return;
-        refetchConversations().catch((error) => {
-          console.error("Failed to refresh conversations:", error);
-        });
-      }, REFRESH_INTERVAL_MS);
-    };
-
-    const stopInterval = () => {
-      if (intervalId === null) return;
-      window.clearInterval(intervalId);
-      intervalId = null;
-    };
-
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refetchConversations().catch((error) => {
           console.error("Failed to refresh conversations:", error);
         });
-        startInterval();
-        return;
       }
-      stopInterval();
     };
 
     const onFocus = () => {
@@ -164,16 +136,11 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       });
     };
 
-    if (document.visibilityState === "visible") {
-      startInterval();
-    }
-
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", onFocus);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onFocus);
-      stopInterval();
     };
   }, [refetchConversations]);
 
@@ -273,142 +240,33 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           unread: outgoing ? 0 : (current.unread ?? 0) + 1,
         };
 
-        const optimisticMessage = mapRealtimePayloadToMessage(eventType, data);
-        void (async () => {
-          let nextMessage = optimisticMessage;
-          if (
-            nextMessage.type === "audio" &&
-            !nextMessage.duration &&
-            nextMessage.attachmentUrl
-          ) {
-            const resolvedDuration = await resolveAudioDurationFromUrl(
-              nextMessage.attachmentUrl,
-            );
-            if (resolvedDuration) {
-              nextMessage = { ...nextMessage, duration: resolvedDuration };
-            }
-          }
-
-          await updateCachedMessages(matchedConversation.id, (existing) =>
-            mergeMessageCacheSnapshots(existing, [nextMessage]),
-          );
-        })().catch((error) =>
-          console.error("Failed optimistic message cache update:", error),
-        );
-
-        const sorted = sortUsersByRecency(next);
-        setCachedUsers(sorted).catch((error) => console.error(error));
-        return sorted;
+        return sortUsersByRecency(next);
       });
     },
     [],
   );
 
-  const hydrateMissingAudioDurations = useCallback(
-    async (conversationId: string) => {
-      const cachedMessages = await getCachedMessages(conversationId);
-      if (!cachedMessages?.length) return;
-
-      const candidates = cachedMessages.filter(
-        (message) =>
-          message.type === "audio" &&
-          !message.duration &&
-          Boolean(message.attachmentUrl),
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<InboxRealtimeMessageDetail>;
+      if (!customEvent.detail?.type || !customEvent.detail?.data) return;
+      applyOptimisticRealtimePreview(
+        customEvent.detail.type,
+        customEvent.detail.data,
       );
-      if (candidates.length === 0) return;
+    };
 
-      for (const message of candidates) {
-        const key = `${conversationId}:${message.id}`;
-        if (resolvingDurationKeysRef.current.has(key)) continue;
-        resolvingDurationKeysRef.current.add(key);
+    window.addEventListener(INBOX_MESSAGE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_MESSAGE_EVENT, handler);
+  }, [applyOptimisticRealtimePreview]);
 
-        try {
-          const attachmentUrl = message.attachmentUrl;
-          if (!attachmentUrl) continue;
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent>;
+      const message = customEvent.detail;
+      if (!message || typeof message !== "object") return;
 
-          const resolvedDuration = await resolveAudioDurationFromUrl(attachmentUrl);
-          if (!resolvedDuration) continue;
-
-          await updateCachedMessages(conversationId, (existing) => {
-            if (!existing) return [];
-            return existing.map((entry) => {
-              if (entry.id !== message.id || entry.type !== "audio") return entry;
-              if (entry.duration === resolvedDuration) return entry;
-              return { ...entry, duration: resolvedDuration };
-            });
-          });
-        } finally {
-          resolvingDurationKeysRef.current.delete(key);
-        }
-      }
-    },
-    [],
-  );
-
-  const syncRealtimeConversationFromMongo = useCallback(
-    async (eventType: "new_message" | "message_echo", data: SSEMessageData) => {
-      const freshUsers = sortUsersByRecency(
-        normalizeUsersFromBackend(await getInboxUsers()),
-      );
-      const matchedConversation = findConversationForRealtimeMessage(
-        freshUsers,
-        data,
-      );
-      const targetConversationId =
-        matchedConversation?.id || data.conversationId || null;
-      if (targetConversationId) {
-        const latestMessages =
-          await fetchLatestConversationMessages(targetConversationId);
-        await updateCachedMessages(targetConversationId, (existing) =>
-          mergeMessageCacheSnapshots(existing, latestMessages),
-        );
-        await hydrateMissingAudioDurations(targetConversationId);
-      }
-
-      setUsers((previousUsers) => {
-        const mergedUsers = mergeUsersWithLocalRecency(
-          previousUsers,
-          freshUsers,
-        );
-        setCachedUsers(mergedUsers).catch((error) => console.error(error));
-        return mergedUsers;
-      });
-      if (!targetConversationId) return;
-
-      emitInboxRealtimeMessage({
-        type: eventType,
-        data: {
-          ...data,
-          conversationId: targetConversationId,
-        },
-      });
-    },
-    [hydrateMissingAudioDurations],
-  );
-
-  const handleSidebarMessageEvent = useCallback(
-    (eventType: "new_message" | "message_echo", data: SSEMessageData) => {
-      applyOptimisticRealtimePreview(eventType, data);
-      realtimeSyncQueueRef.current = realtimeSyncQueueRef.current
-        .catch(() => undefined)
-        .then(() => syncRealtimeConversationFromMongo(eventType, data))
-        .catch((error) => {
-          console.error(
-            "Failed to synchronize realtime conversation snapshot:",
-            error,
-          );
-        });
-    },
-    [applyOptimisticRealtimePreview, syncRealtimeConversationFromMongo],
-  );
-
-  useSSE("/api/sse", {
-    onMessage: (message: SSEEvent) => {
-      if (message.type === "new_message") {
-        handleSidebarMessageEvent("new_message", message.data);
-      } else if (message.type === "message_echo") {
-        handleSidebarMessageEvent("message_echo", message.data);
-      } else if (message.type === "user_status_updated") {
+      if (message.type === "user_status_updated") {
         if (isStatusType(message.data.status)) {
           applyUserStatusUpdate(
             message.data.conversationId,
@@ -425,14 +283,20 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             status: message.data.status,
           });
         }
-      } else if (message.type === "conversation_priority_updated") {
+        return;
+      }
+
+      if (message.type === "conversation_priority_updated") {
         applyUserPriorityUpdate(
           message.data.conversationId,
           Boolean(message.data.isPriority),
         );
       }
-    },
-  });
+    };
+
+    window.addEventListener(INBOX_SSE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
+  }, [applyUserPriorityUpdate, applyUserStatusUpdate]);
 
   useEffect(() => {
     const legacyHandler = (e: Event) => {

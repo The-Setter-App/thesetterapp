@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSSE } from "@/hooks/useSSE";
+import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import {
   loadInboxTagCatalog,
 } from "@/lib/inbox/clientTagCatalog";
@@ -18,6 +18,7 @@ import type {
   StatusType,
   User,
 } from "@/types/inbox";
+import type { SSEEvent } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 import CallsTab from "./details/CallsTab";
 import DetailsPanelHeader from "./details/DetailsPanelHeader";
@@ -302,13 +303,19 @@ export default function DetailsPanel({
     };
   }, []);
 
-  useSSE("/api/sse", {
-    onMessage: (message) => {
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent>;
+      const message = customEvent.detail;
+      if (!message || typeof message !== "object") return;
       if (message.type !== "user_status_updated") return;
       if (message.data.conversationId !== user.id) return;
       appendStatusTimelineEvent(message.data.status, "status_sse");
-    },
-  });
+    };
+
+    window.addEventListener(INBOX_SSE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
+  }, [appendStatusTimelineEvent, user.id]);
 
   useEffect(() => {
     const handleLocalStatus = (event: Event) => {

@@ -4,7 +4,7 @@ import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCac
 import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
 import { INBOX_MESSAGE_EVENT, type InboxRealtimeMessageDetail } from '@/lib/inbox/clientRealtimeEvents';
 import type { User, Message, MessagePageResponse, ConversationDetails, SSEMessageData } from '@/types/inbox';
-import { useSSE } from '@/hooks/useSSE';
+import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping';
 
 export function useChat(selectedUserId: string) {
   const INITIAL_PAGE_SIZE = 20;
@@ -27,8 +27,6 @@ export function useChat(selectedUserId: string) {
   const nextCursorRef = useRef<string | null>(null);
   const reconcileTimersRef = useRef<number[]>([]);
   const detailsRefreshTimerRef = useRef<number | null>(null);
-  const latestRefreshTimerRef = useRef<number | null>(null);
-  const latestRefreshInFlightRef = useRef(false);
   const NO_MESSAGES_PLACEHOLDER_REGEX = /^no messages yet$/i;
 
   const clearReconcileTimers = () => {
@@ -36,6 +34,27 @@ export function useChat(selectedUserId: string) {
       window.clearTimeout(timer);
     }
     reconcileTimersRef.current = [];
+  };
+
+  const markTempMessagesClientAcked = (tempIds: string[]) => {
+    if (tempIds.length === 0) return;
+
+    setChatHistory((prev) => {
+      let changed = false;
+      const next = prev.map((message) => {
+        if (!tempIds.includes(message.id) || !message.pending || message.clientAcked) {
+          return message;
+        }
+        changed = true;
+        return { ...message, clientAcked: true };
+      });
+
+      if (!changed) return prev;
+      setCachedMessages(selectedUserId, next).catch((e) =>
+        console.error("Cache update failed:", e),
+      );
+      return next;
+    });
   };
 
   const mergeMessages = (base: Message[], incoming: Message[]): Message[] => {
@@ -101,30 +120,6 @@ export function useChat(selectedUserId: string) {
     }
 
     return response.json();
-  }
-
-  const refreshLatestMessages = async (limit = 10) => {
-    if (latestRefreshInFlightRef.current) return;
-    if (document.visibilityState !== 'visible') return;
-    latestRefreshInFlightRef.current = true;
-    try {
-      const page = await fetchMessagePage(limit);
-      setChatHistory((prev) => {
-        const merged = mergeMessages(prev, page.messages);
-        setCachedMessages(selectedUserId, merged).catch(e => console.error('Cache update failed:', e));
-        return merged;
-      });
-    } catch (err) {
-      console.error('Failed to refresh latest messages:', err);
-    } finally {
-      latestRefreshInFlightRef.current = false;
-    }
-  };
-
-  async function fetchLatestMessage(): Promise<Message | null> {
-    const page = await fetchMessagePage(1);
-    if (!page.messages.length) return null;
-    return page.messages[page.messages.length - 1];
   }
 
   async function fetchConversationDetails(): Promise<ConversationDetails | null> {
@@ -322,7 +317,6 @@ export function useChat(selectedUserId: string) {
   }, [selectedUserId]);
 
   const applyRealtimeMessageToChat = (eventType: 'new_message' | 'message_echo', data: SSEMessageData) => {
-    const { fromMe: sseFromMe, text, messageId, timestamp, attachments, duration } = data;
     const sameConversationId = data.conversationId === selectedUserId;
     const sameParticipant =
       Boolean(user?.recipientId) &&
@@ -332,41 +326,15 @@ export function useChat(selectedUserId: string) {
 
     if (!isForThisConversation) return;
 
-    const fromMe = sseFromMe ?? eventType === 'message_echo';
-
-    let messageType: Message['type'] = 'text';
-    let attachmentUrl: string | undefined;
-
-    if (attachments && attachments.length > 0) {
-      const attachment = attachments[0];
-      const payloadUrl = attachment.payload?.url;
-      if (attachment.image_data || attachment.type === 'image') {
-        messageType = 'image';
-        attachmentUrl = attachment.image_data?.url || payloadUrl;
-      } else if (attachment.video_data || attachment.type === 'video') {
-        messageType = 'video';
-        attachmentUrl = attachment.video_data?.url || payloadUrl;
-      } else if (attachment.file_url || payloadUrl || attachment.type === 'audio' || attachment.type === 'file') {
-        const fileUrl = attachment.file_url || payloadUrl;
-        const isAudio = attachment.type === 'audio' || Boolean(fileUrl && (fileUrl.includes('audio') || fileUrl.endsWith('.mp3') || fileUrl.endsWith('.m4a') || fileUrl.endsWith('.ogg')));
-        messageType = isAudio ? 'audio' : 'file';
-        attachmentUrl = fileUrl;
-      }
-    }
-
     const newMessage: Message = {
-      id: messageId,
-      fromMe,
-      type: messageType,
-      text: text || '',
-      duration,
-      timestamp: new Date(timestamp).toISOString(),
-      attachmentUrl,
+      ...mapRealtimePayloadToMessage(eventType, data),
+      pending: false,
+      clientAcked: undefined,
     };
 
     setChatHistory((prev) => {
       const queue = pendingTempIdsRef.current;
-      const queueIdx = fromMe
+      const queueIdx = newMessage.fromMe
         ? queue.findIndex((tempId) => {
             const tempMsg = prev.find((m) => m.id === tempId);
             if (!tempMsg || !tempMsg.pending) return false;
@@ -378,16 +346,17 @@ export function useChat(selectedUserId: string) {
       if (queueIdx !== -1) {
         const matchedTempId = queue[queueIdx];
         queue.splice(queueIdx, 1);
-        const alreadyExists = prev.some((msg) => msg.id === messageId);
+        const alreadyExists = prev.some((msg) => msg.id === newMessage.id);
 
         const updated = alreadyExists
           ? prev
               .filter((msg) => msg.id !== matchedTempId)
               .map((msg) => {
-                if (msg.id !== messageId) return msg;
+                if (msg.id !== newMessage.id) return msg;
                 return {
                   ...msg,
                   pending: false,
+                  clientAcked: undefined,
                   type: newMessage.type !== 'text' ? newMessage.type : msg.type,
                   attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
                   duration: newMessage.duration || msg.duration,
@@ -401,6 +370,7 @@ export function useChat(selectedUserId: string) {
                 attachmentUrl: newMessage.attachmentUrl || msg.attachmentUrl,
                 duration: newMessage.duration || msg.duration,
                 pending: false,
+                clientAcked: undefined,
               };
             });
 
@@ -408,9 +378,9 @@ export function useChat(selectedUserId: string) {
         return updated;
       }
 
-      if (prev.some((msg) => msg.id === messageId)) {
+      if (prev.some((msg) => msg.id === newMessage.id)) {
         const updated = prev.map((msg) => {
-          if (msg.id !== messageId) return msg;
+          if (msg.id !== newMessage.id) return msg;
           return {
             ...msg,
             ...newMessage,
@@ -432,105 +402,12 @@ export function useChat(selectedUserId: string) {
     scheduleConversationDetailsRefresh();
   };
 
-  // SSE
-  useSSE('/api/sse', {
-    onMessage: (message) => {
-      if (message.type === 'new_message' || message.type === 'message_echo') {
-        const sameConversationId = message.data.conversationId === selectedUserId;
-        const sameParticipant =
-          Boolean(user?.recipientId) &&
-          (message.data.senderId === user?.recipientId || message.data.recipientId === user?.recipientId);
-        const sameAccount = !user?.accountId || !message.data.accountId || user.accountId === message.data.accountId;
-        const isForConversation = sameConversationId || (sameParticipant && sameAccount);
-        if (!isForConversation) return;
-
-        applyRealtimeMessageToChat(message.type, message.data);
-        refreshLatestMessages(INITIAL_PAGE_SIZE)
-          .catch((error) => {
-            console.error('Failed to refresh messages from raw realtime SSE:', error);
-          });
-        return;
-      }
-
-      if (message.type === 'messages_synced') {
-        if (message.data.conversationId !== selectedUserId) {
-          const sameParticipant =
-            Boolean(user?.recipientId) &&
-            message.data.recipientId === user?.recipientId;
-          if (!sameParticipant) return;
-        }
-        refreshLatestMessages(INITIAL_PAGE_SIZE).catch((error) =>
-          console.error('Failed to refresh messages after sync event:', error)
-        );
-        scheduleConversationDetailsRefresh();
-      }
-    },
-  });
-
-  useEffect(() => {
-    const REFRESH_INTERVAL_MS = 12000;
-
-    const stop = () => {
-      if (latestRefreshTimerRef.current) {
-        window.clearInterval(latestRefreshTimerRef.current);
-        latestRefreshTimerRef.current = null;
-      }
-    };
-
-    const start = () => {
-      if (latestRefreshTimerRef.current) return;
-      latestRefreshTimerRef.current = window.setInterval(() => {
-        refreshLatestMessages().catch(() => {});
-      }, REFRESH_INTERVAL_MS);
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshLatestMessages().catch(() => {});
-        start();
-        return;
-      }
-      stop();
-    };
-
-    const onFocus = () => {
-      refreshLatestMessages().catch(() => {});
-    };
-
-    if (document.visibilityState === 'visible') {
-      start();
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onFocus);
-      stop();
-    };
-  }, [selectedUserId]);
-
   useEffect(() => {
     const realtimeMessageHandler = (event: Event) => {
       const customEvent = event as CustomEvent<InboxRealtimeMessageDetail>;
       const detail = customEvent.detail;
       if (!detail?.data || !detail?.type) return;
-
-      const sameConversationId = detail.data.conversationId === selectedUserId;
-      const sameParticipant =
-        Boolean(user?.recipientId) &&
-        (detail.data.senderId === user?.recipientId || detail.data.recipientId === user?.recipientId);
-      const sameAccount = !user?.accountId || !detail.data.accountId || user.accountId === detail.data.accountId;
-      const isForConversation = sameConversationId || (sameParticipant && sameAccount);
-      if (!isForConversation) return;
-
-      refreshLatestMessages(INITIAL_PAGE_SIZE)
-        .then(() => {
-          scheduleConversationDetailsRefresh();
-        })
-        .catch((error) => {
-          console.error('Failed to refresh messages from synchronized realtime event:', error);
-          applyRealtimeMessageToChat(detail.type, detail.data);
-        });
+      applyRealtimeMessageToChat(detail.type, detail.data);
     };
 
     window.addEventListener(INBOX_MESSAGE_EVENT, realtimeMessageHandler);
@@ -588,6 +465,7 @@ export function useChat(selectedUserId: string) {
         timestamp: now,
         attachmentUrl: currentPreview || undefined,
         pending: true,
+        clientAcked: false,
       });
     }
 
@@ -602,10 +480,17 @@ export function useChat(selectedUserId: string) {
         text: messageText,
         timestamp: now,
         pending: true,
+        clientAcked: false,
       });
     }
 
-    setChatHistory((prev) => [...prev, ...optimisticMessages]);
+    setChatHistory((prev) => {
+      const updated = [...prev, ...optimisticMessages];
+      setCachedMessages(selectedUserId, updated).catch((e) =>
+        console.error("Cache update failed:", e),
+      );
+      return updated;
+    });
     pendingTempIdsRef.current.push(...tempIds);
     setMessageInput('');
     setAttachmentFile(null);
@@ -649,58 +534,101 @@ export function useChat(selectedUserId: string) {
         if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
       }
 
+      markTempMessagesClientAcked(tempIds);
+
+      const STUCK_PENDING_FALLBACK_MS = 15000;
       const timer = window.setTimeout(() => {
         const hasPending = tempIds.some((tempId) => pendingTempIdsRef.current.includes(tempId));
         if (!hasPending) return;
 
-        fetchLatestMessage()
-          .then((latest) => {
-            if (!latest || !latest.fromMe) return;
+        fetchMessagePage(INITIAL_PAGE_SIZE)
+          .then((page) => {
+            const outgoing = page.messages.filter((message) => message.fromMe);
+            if (outgoing.length === 0) return;
 
             setChatHistory((prev) => {
-              const queue = pendingTempIdsRef.current;
-              const queueIdx = queue.findIndex((tempId) => {
-                const tempMsg = prev.find((m) => m.id === tempId);
-                return Boolean(
-                  tempMsg?.pending &&
-                  ((tempMsg.text && latest.text && tempMsg.text === latest.text) || tempMsg?.type === latest.type)
-                );
-              });
-              if (queueIdx === -1) {
-                if (prev.some((msg) => msg.id === latest.id)) return prev;
-                return prev;
+              let next = prev;
+              const usedIds = new Set<string>();
+              const matchWindowMs = 2 * 60 * 1000;
+
+              const takeMatch = (temp: Message): Message | null => {
+                const tempText = (temp.text || "").trim();
+                const tempTs = Date.parse(temp.timestamp || "");
+                const candidates = outgoing.filter((candidate) => {
+                  if (usedIds.has(candidate.id)) return false;
+                  if (candidate.type !== temp.type) return false;
+                  if (temp.type === "text" && tempText) {
+                    return (candidate.text || "").trim() === tempText;
+                  }
+                  const candidateTs = Date.parse(candidate.timestamp || "");
+                  if (
+                    Number.isFinite(tempTs) &&
+                    Number.isFinite(candidateTs) &&
+                    Math.abs(candidateTs - tempTs) > matchWindowMs
+                  ) {
+                    return false;
+                  }
+                  return true;
+                });
+                const match = candidates[candidates.length - 1];
+                if (!match) return null;
+                usedIds.add(match.id);
+                return match;
+              };
+
+              for (const tempId of tempIds) {
+                if (!pendingTempIdsRef.current.includes(tempId)) continue;
+                const tempMsg = next.find((message) => message.id === tempId);
+                if (!tempMsg?.pending) continue;
+
+                const match = takeMatch(tempMsg);
+                if (!match) continue;
+
+                const alreadyExists = next.some((message) => message.id === match.id);
+                const queueIndex = pendingTempIdsRef.current.indexOf(tempId);
+                if (queueIndex !== -1) {
+                  pendingTempIdsRef.current.splice(queueIndex, 1);
+                }
+
+                next = alreadyExists
+                  ? next
+                      .filter((message) => message.id !== tempId)
+                      .map((message) => {
+                        if (message.id !== match.id) return message;
+                        return {
+                          ...message,
+                          ...match,
+                          pending: false,
+                          clientAcked: undefined,
+                          type: match.type !== "text" ? match.type : message.type,
+                          attachmentUrl: match.attachmentUrl || message.attachmentUrl,
+                          duration: match.duration || message.duration,
+                        };
+                      })
+                  : next.map((message) => {
+                      if (message.id !== tempId) return message;
+                      return {
+                        ...match,
+                        pending: false,
+                        clientAcked: undefined,
+                        type: match.type !== "text" ? match.type : message.type,
+                        attachmentUrl: match.attachmentUrl || message.attachmentUrl,
+                        duration: match.duration || message.duration,
+                      };
+                    });
               }
 
-              const matchedTempId = queue[queueIdx];
-              queue.splice(queueIdx, 1);
-              const alreadyExists = prev.some((msg) => msg.id === latest.id);
-              const updated = alreadyExists
-                ? prev
-                    .filter((msg) => msg.id !== matchedTempId)
-                    .map((msg) => {
-                      if (msg.id !== latest.id) return msg;
-                      return {
-                        ...msg,
-                        pending: false,
-                        type: latest.type !== 'text' ? latest.type : msg.type,
-                        attachmentUrl: latest.attachmentUrl || msg.attachmentUrl,
-                      };
-                    })
-                : prev.map((msg) => {
-                    if (msg.id !== matchedTempId) return msg;
-                    return {
-                      ...latest,
-                      pending: false,
-                      type: latest.type !== 'text' ? latest.type : msg.type,
-                      attachmentUrl: latest.attachmentUrl || msg.attachmentUrl,
-                    };
-                  });
-              setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
-              return updated;
+              if (next === prev) return prev;
+              setCachedMessages(selectedUserId, next).catch((e) =>
+                console.error("Cache update failed:", e),
+              );
+              return next;
             });
           })
-          .catch((err) => console.error('Failed latest message fallback:', err));
-      }, 3500);
+          .catch((err) =>
+            console.error("Failed stuck-pending reconcile fetch:", err),
+          );
+      }, STUCK_PENDING_FALLBACK_MS);
       reconcileTimersRef.current.push(timer);
     } catch (err) {
       console.error('Error sending message:', err);
@@ -737,9 +665,16 @@ export function useChat(selectedUserId: string) {
       attachmentUrl: URL.createObjectURL(blob),
       duration: formatDuration(duration),
       pending: true,
+      clientAcked: false,
     };
 
-    setChatHistory((prev) => [...prev, optimisticMessage]);
+    setChatHistory((prev) => {
+      const updated = [...prev, optimisticMessage];
+      setCachedMessages(selectedUserId, updated).catch((e) =>
+        console.error("Cache update failed:", e),
+      );
+      return updated;
+    });
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
@@ -767,6 +702,7 @@ export function useChat(selectedUserId: string) {
 
       const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to send audio');
+      markTempMessagesClientAcked([tempId]);
       
     } catch (err) {
       console.error('Error sending audio:', err);
