@@ -1,33 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createOTP } from '@/lib/userRepository';
 import { sendOTPEmail } from '@/lib/email';
 import { enforceOtpSendRateLimit, getClientIp } from '@/lib/otpSecurity';
+import { validateOwnerSignupAccessCode } from '@/lib/signupAccessCode';
+import { createOTP } from '@/lib/userRepository';
 import { getAppUserExists } from '@/lib/userAuthRepository';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
-    
-    if (!email || typeof email !== 'string') {
+    const body = await request.json();
+    const email = typeof body?.email === 'string' ? body.email : '';
+    const accessCode = typeof body?.accessCode === 'string' ? body.accessCode : '';
+
+    if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     if (!EMAIL_REGEX.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
-    }
-
-    const hasAccount = await getAppUserExists(normalizedEmail);
-    if (!hasAccount) {
-      return NextResponse.json(
-        {
-          error: 'No account found. Sign up with an access code or ask your owner to invite you.',
-          code: 'ACCOUNT_NOT_FOUND',
-        },
-        { status: 403 },
-      );
     }
 
     const clientIp = getClientIp(request.headers);
@@ -41,15 +33,37 @@ export async function POST(request: Request) {
         },
       );
     }
-    
+
+    const accessDecision = validateOwnerSignupAccessCode(accessCode);
+    if (!accessDecision.ok) {
+      if (accessDecision.reason === 'missing_env') {
+        return NextResponse.json(
+          { error: 'Signup is not configured.', code: 'SIGNUP_DISABLED' },
+          { status: 503 },
+        );
+      }
+
+      return NextResponse.json(
+        { error: 'Invalid access code.', code: 'INVALID_ACCESS_CODE' },
+        { status: 403 },
+      );
+    }
+
+    const alreadyExists = await getAppUserExists(normalizedEmail);
+    if (alreadyExists) {
+      return NextResponse.json(
+        { error: 'Account already exists. Please log in.', code: 'ACCOUNT_EXISTS' },
+        { status: 409 },
+      );
+    }
+
     const otp = await createOTP(normalizedEmail);
-    
-    // Send OTP via email using Resend
     await sendOTPEmail(normalizedEmail, otp);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error sending OTP:', error);
+    console.error('Error sending signup OTP:', error);
     return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
   }
 }
+

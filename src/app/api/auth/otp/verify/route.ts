@@ -6,6 +6,7 @@ import {
   getClientIp,
   resetOtpVerifyEmailLimit,
 } from '@/lib/otpSecurity';
+import { getAppUserExists } from '@/lib/userAuthRepository';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_REGEX = /^\d{6}$/;
@@ -22,6 +23,14 @@ export async function POST(request: Request) {
     const normalizedOtp = typeof otp === 'string' ? otp.trim() : '';
     if (!EMAIL_REGEX.test(normalizedEmail) || !OTP_REGEX.test(normalizedOtp)) {
       return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
+    }
+
+    const hasAccount = await getAppUserExists(normalizedEmail);
+    if (!hasAccount) {
+      return NextResponse.json(
+        { error: 'Account not found.', code: 'ACCOUNT_NOT_FOUND' },
+        { status: 403 },
+      );
     }
 
     const clientIp = getClientIp(request.headers);
