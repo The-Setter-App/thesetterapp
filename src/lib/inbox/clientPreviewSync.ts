@@ -7,6 +7,7 @@ interface ConversationPreviewUpdateParams {
   lastMessage: string;
   time: string;
   updatedAt: string;
+  clearUnread?: boolean;
 }
 
 export interface ConversationPreviewHydrationPayload {
@@ -14,6 +15,7 @@ export interface ConversationPreviewHydrationPayload {
   lastMessage: string;
   time?: string;
   updatedAt?: string;
+  clearUnread?: boolean;
 }
 
 const PENDING_PREVIEW_UPDATES_KEY = "inbox_pending_preview_updates";
@@ -74,6 +76,7 @@ export async function applyConversationPreviewUpdate(
         lastMessage: params.lastMessage,
         time: params.time,
         updatedAt: params.updatedAt,
+        unread: params.clearUnread ? 0 : user.unread,
       };
     });
     await setCachedUsers(updatedUsers);
@@ -84,6 +87,7 @@ export async function applyConversationPreviewUpdate(
     lastMessage: params.lastMessage,
     time: params.time,
     updatedAt: params.updatedAt,
+    clearUnread: params.clearUnread,
   });
 
   window.dispatchEvent(
@@ -93,6 +97,7 @@ export async function applyConversationPreviewUpdate(
         lastMessage: params.lastMessage,
         time: params.time,
         updatedAt: params.updatedAt,
+        clearUnread: params.clearUnread,
       },
     })
   );

@@ -504,6 +504,7 @@ export function useChat(selectedUserId: string) {
       lastMessage: previewText,
       time: previewTime,
       updatedAt: previewUpdatedAt,
+      clearUnread: true,
     }).catch((err) => console.error('Failed to sync preview locally:', err));
     updateConversationPreview(selectedUserId, previewText, previewTime, false, true).catch(err => console.error('Failed to update preview:', err));
 
@@ -684,6 +685,7 @@ export function useChat(selectedUserId: string) {
       lastMessage: 'You sent a voice message',
       time: audioPreviewTime,
       updatedAt: new Date().toISOString(),
+      clearUnread: true,
     }).catch((err) => console.error('Failed to sync preview locally:', err));
     updateConversationPreview(selectedUserId, 'You sent a voice message', audioPreviewTime, false, true)
       .catch(err => console.error('Failed to update preview:', err));

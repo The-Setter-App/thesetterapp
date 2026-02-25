@@ -103,6 +103,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           lastMessage: payload.lastMessage || updated[idx].lastMessage,
           time: payload.time || updated[idx].time,
           updatedAt: payload.updatedAt || updated[idx].updatedAt,
+          unread: payload.clearUnread ? 0 : updated[idx].unread,
         };
         const sorted = sortUsersByRecency(updated);
         setCachedUsers(sorted).catch((err) => console.error(err));
@@ -363,6 +364,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         lastMessage?: string;
         time?: string;
         updatedAt?: string;
+        clearUnread?: boolean;
       }>;
       const payload = customEvent.detail;
       if (!payload?.userId || !payload.lastMessage) return;
@@ -371,6 +373,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         lastMessage: payload.lastMessage,
         time: payload.time,
         updatedAt: payload.updatedAt,
+        clearUnread: payload.clearUnread,
       });
       if (applied) {
         dequeueConversationPreviewHydrations([payload.userId]);
