@@ -98,11 +98,23 @@ export async function updateConversationPreview(
   lastMessage: string,
   time: string,
   incrementUnread: boolean,
-  clearUnreadOnReply = false
+  clearUnreadOnReply = false,
+  eventTimestampIso?: string,
 ): Promise<void> {
   try {
     const ownerEmail = await getOwnerEmail();
-    await updateConversationMetadata(conversationId, ownerEmail, lastMessage, time, incrementUnread, clearUnreadOnReply);
+    const parsedTimestampMs =
+      typeof eventTimestampIso === "string" ? Date.parse(eventTimestampIso) : Number.NaN;
+
+    await updateConversationMetadata(
+      conversationId,
+      ownerEmail,
+      lastMessage,
+      time,
+      incrementUnread,
+      clearUnreadOnReply,
+      Number.isFinite(parsedTimestampMs) ? eventTimestampIso : undefined,
+    );
   } catch (error) {
     if ((error as Error).message.includes('Unauthorized')) return;
     console.error('[InboxActions] Error updating conversation preview:', error);

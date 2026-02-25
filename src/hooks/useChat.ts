@@ -185,7 +185,7 @@ export function useChat(selectedUserId: string) {
       updatedAt: previewUpdatedAt,
     }).catch((e) => console.error('Preview sync failed:', e));
 
-    updateConversationPreview(selectedUserId, previewText, previewTime, false, false).catch((err) =>
+    updateConversationPreview(selectedUserId, previewText, previewTime, false, false, previewUpdatedAt).catch((err) =>
       console.error('Failed to hydrate conversation preview:', err)
     );
   }
@@ -449,7 +449,8 @@ export function useChat(selectedUserId: string) {
     const messageText = messageInput.trim();
     const currentFile = attachmentFile;
     const currentPreview = attachmentPreview;
-    const now = new Date().toISOString();
+    const sendDate = new Date();
+    const nowIso = sendDate.toISOString();
     const tempIds: string[] = [];
     const optimisticMessages: Message[] = [];
 
@@ -462,7 +463,7 @@ export function useChat(selectedUserId: string) {
         fromMe: true,
         type: 'image',
         text: '',
-        timestamp: now,
+        timestamp: nowIso,
         attachmentUrl: currentPreview || undefined,
         pending: true,
         clientAcked: false,
@@ -478,7 +479,7 @@ export function useChat(selectedUserId: string) {
         fromMe: true,
         type: 'text',
         text: messageText,
-        timestamp: now,
+        timestamp: nowIso,
         pending: true,
         clientAcked: false,
       });
@@ -496,9 +497,9 @@ export function useChat(selectedUserId: string) {
     setAttachmentFile(null);
     setAttachmentPreview('');
 
-    const previewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const previewTime = sendDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const previewText = messageText || (hasAttachment ? 'Image' : 'Message');
-    const previewUpdatedAt = new Date().toISOString();
+    const previewUpdatedAt = nowIso;
     applyConversationPreviewUpdate({
       conversationId: selectedUserId,
       lastMessage: previewText,
@@ -506,7 +507,7 @@ export function useChat(selectedUserId: string) {
       updatedAt: previewUpdatedAt,
       clearUnread: true,
     }).catch((err) => console.error('Failed to sync preview locally:', err));
-    updateConversationPreview(selectedUserId, previewText, previewTime, false, true).catch(err => console.error('Failed to update preview:', err));
+    updateConversationPreview(selectedUserId, previewText, previewTime, false, true, previewUpdatedAt).catch(err => console.error('Failed to update preview:', err));
 
     try {
       if (currentFile) {
@@ -653,7 +654,8 @@ export function useChat(selectedUserId: string) {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const now = new Date().toISOString();
+    const sendDate = new Date();
+    const nowIso = sendDate.toISOString();
     const tempId = `temp_${Date.now()}_audio_${Math.random().toString(36).substr(2, 9)}`;
     
     // Create optimistic message
@@ -662,7 +664,7 @@ export function useChat(selectedUserId: string) {
       clientTempId: tempId,
       fromMe: true,
       type: 'audio',
-      timestamp: now,
+      timestamp: nowIso,
       attachmentUrl: URL.createObjectURL(blob),
       duration: formatDuration(duration),
       pending: true,
@@ -679,15 +681,15 @@ export function useChat(selectedUserId: string) {
     pendingTempIdsRef.current.push(tempId);
 
     // Update preview
-    const audioPreviewTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const audioPreviewTime = sendDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     applyConversationPreviewUpdate({
       conversationId: selectedUserId,
       lastMessage: 'You sent a voice message',
       time: audioPreviewTime,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
       clearUnread: true,
     }).catch((err) => console.error('Failed to sync preview locally:', err));
-    updateConversationPreview(selectedUserId, 'You sent a voice message', audioPreviewTime, false, true)
+    updateConversationPreview(selectedUserId, 'You sent a voice message', audioPreviewTime, false, true, nowIso)
       .catch(err => console.error('Failed to update preview:', err));
 
     try {

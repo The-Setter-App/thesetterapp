@@ -13,6 +13,34 @@ function getTimestampMs(value?: string): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function parseClockLabelMs(value?: string): number {
+  if (!value) return 0;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+  if (!match) return 0;
+
+  const hours12 = Number.parseInt(match[1], 10);
+  const minutes = Number.parseInt(match[2], 10);
+  const meridiem = match[3].toUpperCase();
+  if (!Number.isFinite(hours12) || !Number.isFinite(minutes)) return 0;
+  if (hours12 < 1 || hours12 > 12 || minutes < 0 || minutes > 59) return 0;
+
+  const hours24 = (hours12 % 12) + (meridiem === "PM" ? 12 : 0);
+  const now = new Date();
+  const date = new Date(now);
+  date.setHours(hours24, minutes, 0, 0);
+  return date.getTime();
+}
+
+function getUserRecencyMs(user: User): number {
+  const updatedAtMs = getTimestampMs(user.updatedAt);
+  if (updatedAtMs > 0) return updatedAtMs;
+
+  const clockLabelMs = parseClockLabelMs(user.time);
+  if (clockLabelMs > 0) return clockLabelMs;
+
+  return 0;
+}
+
 function isRelativeTimeLabel(value?: string): boolean {
   if (!value) return true;
   const normalized = value.trim().toLowerCase();
@@ -52,7 +80,7 @@ export function normalizeUsersFromBackend(list: User[]): User[] {
 
 export function sortUsersByRecency(list: User[]): User[] {
   return [...list].sort((a, b) => {
-    const timeDiff = getTimestampMs(b.updatedAt) - getTimestampMs(a.updatedAt);
+    const timeDiff = getUserRecencyMs(b) - getUserRecencyMs(a);
     if (timeDiff !== 0) return timeDiff;
 
     const unreadDiff = (b.unread ?? 0) - (a.unread ?? 0);
@@ -70,8 +98,8 @@ export function mergeUsersWithLocalRecency(
   const merged = incoming.map((incomingUser) => {
     const previousUser = previousById.get(incomingUser.id);
     if (!previousUser) return incomingUser;
-    return getTimestampMs(previousUser.updatedAt) >
-      getTimestampMs(incomingUser.updatedAt)
+    return getUserRecencyMs(previousUser) >
+      getUserRecencyMs(incomingUser)
       ? previousUser
       : incomingUser;
   });

@@ -12,6 +12,7 @@ function mapConversation(row: ConversationRow): User {
   return {
     ...row.payload,
     id: row.id,
+    updatedAt: row.payload.updatedAt || row.updated_at,
   };
 }
 

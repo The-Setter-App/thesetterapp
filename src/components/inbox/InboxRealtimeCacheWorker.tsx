@@ -15,30 +15,12 @@ import {
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
 import { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
-import { mergeUsersWithLocalRecency } from "./sidebar/utils";
-import type { Message, SSEEvent, SSEMessageData, User } from "@/types/inbox";
+import { mergeUsersWithLocalRecency, sortUsersByRecency } from "./sidebar/utils";
+import type { Message, SSEEvent, SSEMessageData } from "@/types/inbox";
 import { usePathname } from "next/navigation";
 
 interface InboxRealtimeCacheWorkerProps {
   enabled: boolean;
-}
-
-function getTimestampMs(value?: string): number {
-  if (!value) return 0;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function sortUsersByRecency(list: User[]): User[] {
-  return [...list].sort((a, b) => {
-    const timeDiff = getTimestampMs(b.updatedAt) - getTimestampMs(a.updatedAt);
-    if (timeDiff !== 0) return timeDiff;
-
-    const unreadDiff = (b.unread ?? 0) - (a.unread ?? 0);
-    if (unreadDiff !== 0) return unreadDiff;
-
-    return b.id.localeCompare(a.id);
-  });
 }
 
 export default function InboxRealtimeCacheWorker({
