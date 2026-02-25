@@ -1,4 +1,8 @@
-import { getCachedInboxTags, setCachedInboxTags } from "@/lib/clientCache";
+import {
+  clearCachedInboxTags,
+  getCachedInboxTags,
+  setCachedInboxTags,
+} from "@/lib/clientCache";
 import type { TagRow } from "@/types/tags";
 
 const INBOX_TAGS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -19,15 +23,9 @@ export function buildTagLookup(tags: TagRow[]): Record<string, TagRow> {
   return lookup;
 }
 
-export async function loadInboxTagCatalog(): Promise<TagRow[]> {
-  const cached = await getCachedInboxTags();
-  if (cached?.tags?.length && isCacheFresh(cached.fetchedAt)) {
-    return cached.tags;
-  }
-
+async function fetchInboxTagCatalog(): Promise<TagRow[]> {
   const response = await fetch("/api/inbox/tags", { cache: "no-store" });
   if (!response.ok) {
-    if (cached?.tags?.length) return cached.tags;
     throw new Error("Failed to load inbox tags.");
   }
 
@@ -35,4 +33,26 @@ export async function loadInboxTagCatalog(): Promise<TagRow[]> {
   const tags = Array.isArray(payload.tags) ? payload.tags : [];
   await setCachedInboxTags(tags);
   return tags;
+}
+
+export async function loadInboxTagCatalog(): Promise<TagRow[]> {
+  const cached = await getCachedInboxTags();
+  if (cached?.tags?.length && isCacheFresh(cached.fetchedAt)) {
+    return cached.tags;
+  }
+
+  try {
+    return await fetchInboxTagCatalog();
+  } catch {
+    if (cached?.tags?.length) return cached.tags;
+    throw new Error("Failed to load inbox tags.");
+  }
+}
+
+export async function refreshInboxTagCatalog(): Promise<TagRow[]> {
+  return fetchInboxTagCatalog();
+}
+
+export async function invalidateInboxTagCatalogCache(): Promise<void> {
+  await clearCachedInboxTags();
 }

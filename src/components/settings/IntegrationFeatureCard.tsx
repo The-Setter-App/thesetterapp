@@ -24,11 +24,11 @@ export default function IntegrationFeatureCard({
   return (
     <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(135,113,255,0.1)] text-[#8771FF]">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(135,113,255,0.1)] text-[#8771FF]">
             <Icon size={18} />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-[#101011]">{title}</p>
             <p className="mt-0.5 text-xs text-[#606266]">{description}</p>
           </div>

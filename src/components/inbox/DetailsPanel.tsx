@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSSE } from "@/hooks/useSSE";
-import { loadInboxTagCatalog } from "@/lib/inbox/clientTagCatalog";
+import {
+  loadInboxTagCatalog,
+} from "@/lib/inbox/clientTagCatalog";
+import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   emitConversationTagsSynced,
   syncConversationTagsToClientCache,
@@ -77,6 +80,30 @@ export default function DetailsPanel({
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<TagRow[]>([]);
   const [loadingAvailableTags, setLoadingAvailableTags] = useState(false);
+  const tagCatalogRefreshInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  const refreshAvailableTags = useCallback(async () => {
+    if (tagCatalogRefreshInFlightRef.current) return;
+
+    tagCatalogRefreshInFlightRef.current = true;
+    if (isMountedRef.current) {
+      setLoadingAvailableTags(true);
+    }
+
+    try {
+      const tags = await loadInboxTagCatalog();
+      if (!isMountedRef.current) return;
+      setAvailableTags(tags);
+    } catch (error) {
+      console.error("[DetailsPanel] Failed to load inbox tags:", error);
+    } finally {
+      tagCatalogRefreshInFlightRef.current = false;
+      if (isMountedRef.current) {
+        setLoadingAvailableTags(false);
+      }
+    }
+  }, []);
   const appendStatusTimelineEvent = useCallback(
     (status: StatusType, idPrefix: string) => {
       const now = Date.now();
@@ -252,25 +279,26 @@ export default function DetailsPanel({
   }, [tagIds, detailsLoaded, user.id]);
 
   useEffect(() => {
-    let active = true;
-    setLoadingAvailableTags(true);
+    refreshAvailableTags().catch((error) =>
+      console.error("[DetailsPanel] Failed to initialize tags:", error),
+    );
+  }, [refreshAvailableTags]);
 
-    (async () => {
-      try {
-        const tags = await loadInboxTagCatalog();
-        if (!active) return;
+  useEffect(() => {
+    return subscribeInboxTagCatalogChanged((tags) => {
+      if (Array.isArray(tags)) {
         setAvailableTags(tags);
-      } catch (error) {
-        console.error("[DetailsPanel] Failed to load inbox tags:", error);
-      } finally {
-        if (active) {
-          setLoadingAvailableTags(false);
-        }
+        return;
       }
-    })();
+      refreshAvailableTags().catch((error) =>
+        console.error("[DetailsPanel] Failed to refresh tags after catalog update:", error),
+      );
+    });
+  }, [refreshAvailableTags]);
 
+  useEffect(() => {
     return () => {
-      active = false;
+      isMountedRef.current = false;
     };
   }, []);
 

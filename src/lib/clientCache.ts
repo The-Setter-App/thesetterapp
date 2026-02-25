@@ -265,6 +265,10 @@ export async function setCachedInboxTags(tags: TagRow[]): Promise<void> {
   });
 }
 
+export async function clearCachedInboxTags(): Promise<void> {
+  return inboxCache.delete(INBOX_TAGS_CACHE_KEY);
+}
+
 export async function clearCache(): Promise<void> {
   return inboxCache.clear();
 }

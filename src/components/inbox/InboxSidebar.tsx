@@ -27,6 +27,7 @@ import {
   buildTagLookup,
   loadInboxTagCatalog,
 } from "@/lib/inbox/clientTagCatalog";
+import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   CONVERSATION_TAGS_SYNCED_EVENT,
   type ConversationTagsSyncedDetail,
@@ -89,6 +90,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const refetchInFlightRef = useRef(false);
   const realtimeSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const resolvingDurationKeysRef = useRef<Set<string>>(new Set());
+  const tagCatalogRefreshInFlightRef = useRef(false);
 
   // Filter persistence
   useEffect(() => {
@@ -226,6 +228,20 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     },
     [],
   );
+
+  const refreshTagCatalog = useCallback(async () => {
+    if (tagCatalogRefreshInFlightRef.current) return;
+
+    tagCatalogRefreshInFlightRef.current = true;
+    try {
+      const tags = await loadInboxTagCatalog();
+      setTagLookup(buildTagLookup(tags));
+    } catch (error) {
+      console.error("Failed to load inbox tags:", error);
+    } finally {
+      tagCatalogRefreshInFlightRef.current = false;
+    }
+  }, []);
 
   const applyOptimisticRealtimePreview = useCallback(
     (eventType: "new_message" | "message_echo", data: SSEMessageData) => {
@@ -519,22 +535,22 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, [applyUserStatusUpdate, applyUserTagsUpdate]);
 
   useEffect(() => {
-    let active = true;
+    refreshTagCatalog().catch((error) =>
+      console.error("Failed to initialize inbox tags:", error),
+    );
+  }, [refreshTagCatalog]);
 
-    (async () => {
-      try {
-        const tags = await loadInboxTagCatalog();
-        if (!active) return;
+  useEffect(() => {
+    return subscribeInboxTagCatalogChanged((tags) => {
+      if (Array.isArray(tags)) {
         setTagLookup(buildTagLookup(tags));
-      } catch (error) {
-        console.error("Failed to load inbox tags:", error);
+        return;
       }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+      refreshTagCatalog().catch((error) =>
+        console.error("Failed to refresh inbox tags after catalog update:", error),
+      );
+    });
+  }, [refreshTagCatalog]);
 
   useEffect(() => {
     async function loadUsers() {

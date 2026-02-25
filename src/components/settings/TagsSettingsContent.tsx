@@ -7,6 +7,8 @@ import TagCategoryDropdown from "@/components/settings/TagCategoryDropdown";
 import TagRowActionsMenu from "@/components/settings/TagRowActionsMenu";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { setCachedInboxTags } from "@/lib/clientCache";
+import { broadcastInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   hasDuplicateTagName,
   MAX_TAG_DESCRIPTION_LENGTH,
@@ -128,6 +130,12 @@ export default function TagsSettingsContent({
     );
   }
 
+  async function syncInboxTagCatalogCache(nextCustomTags: TagRow[]) {
+    const nextAssignableTags = [...PRESET_TAG_ROWS, ...nextCustomTags];
+    await setCachedInboxTags(nextAssignableTags);
+    broadcastInboxTagCatalogChanged(nextAssignableTags);
+  }
+
   async function handleAddCustomTag(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
@@ -173,7 +181,8 @@ export default function TagsSettingsContent({
         throw new Error(payload.error || "Failed to create tag.");
       }
 
-      setCustomTags((previous) => [payload.tag as TagRow, ...previous]);
+      const nextCustomTags = [payload.tag as TagRow, ...customTags];
+      setCustomTags(nextCustomTags);
       setTagName("");
       setTagCategory("Custom");
       setTagDescription("");
@@ -182,6 +191,7 @@ export default function TagsSettingsContent({
           currentUser.displayName || currentUser.email
         }.`,
       );
+      await syncInboxTagCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to create tag.",
@@ -244,13 +254,13 @@ export default function TagsSettingsContent({
         throw new Error(payload.error || "Failed to update tag.");
       }
 
-      setCustomTags((previous) =>
-        previous.map((row) =>
-          row.id === activeEditTagId ? (payload.tag as TagRow) : row,
-        ),
+      const nextCustomTags = customTags.map((row) =>
+        row.id === activeEditTagId ? (payload.tag as TagRow) : row,
       );
+      setCustomTags(nextCustomTags);
       setSuccessMessage(`"${payload.tag.name}" was updated.`);
       resetEditState();
+      await syncInboxTagCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to update tag.",
@@ -282,11 +292,13 @@ export default function TagsSettingsContent({
         throw new Error(payload.error || "Failed to delete tag.");
       }
 
-      setCustomTags((previous) => previous.filter((tag) => tag.id !== tagId));
+      const nextCustomTags = customTags.filter((tag) => tag.id !== tagId);
+      setCustomTags(nextCustomTags);
       if (activeEditTagId === tagId) {
         resetEditState();
       }
       setSuccessMessage(`"${target.name}" was deleted.`);
+      await syncInboxTagCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to delete tag.",
@@ -331,7 +343,7 @@ export default function TagsSettingsContent({
           <SummaryMetric
             title="Custom"
             value={customTags.length}
-            subtitle="Saved in Mongo by workspace"
+            subtitle="Custom Tags"
           />
         </div>
 
@@ -410,7 +422,7 @@ export default function TagsSettingsContent({
           </div>
 
           <p className="mt-3 text-xs text-[#606266]">
-            Custom tags are saved in Mongo and available in Inbox tagging.
+            Custom tags are available in Inbox tagging.
           </p>
         </form>
 
