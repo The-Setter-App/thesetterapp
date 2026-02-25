@@ -27,6 +27,11 @@ import {
   buildTagLookup,
   loadInboxTagCatalog,
 } from "@/lib/inbox/clientTagCatalog";
+import {
+  dequeueConversationPreviewHydrations,
+  getQueuedConversationPreviewHydrations,
+  type ConversationPreviewHydrationPayload,
+} from "@/lib/inbox/clientPreviewSync";
 import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   CONVERSATION_TAGS_SYNCED_EVENT,
@@ -85,6 +90,29 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   const refetchInFlightRef = useRef(false);
   const tagCatalogRefreshInFlightRef = useRef(false);
+
+  const applyHydratedPreview = useCallback(
+    (payload: ConversationPreviewHydrationPayload): boolean => {
+      let applied = false;
+      setUsers((prev) => {
+        const idx = prev.findIndex((u) => u.id === payload.userId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessage: payload.lastMessage || updated[idx].lastMessage,
+          time: payload.time || updated[idx].time,
+          updatedAt: payload.updatedAt || updated[idx].updatedAt,
+        };
+        const sorted = sortUsersByRecency(updated);
+        setCachedUsers(sorted).catch((err) => console.error(err));
+        applied = true;
+        return sorted;
+      });
+      return applied;
+    },
+    [],
+  );
 
   // Filter persistence
   useEffect(() => {
@@ -338,21 +366,15 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       }>;
       const payload = customEvent.detail;
       if (!payload?.userId || !payload.lastMessage) return;
-
-      setUsers((prev) => {
-        const idx = prev.findIndex((u) => u.id === payload.userId);
-        if (idx === -1) return prev;
-        const updated = [...prev];
-        updated[idx] = {
-          ...updated[idx],
-          lastMessage: payload.lastMessage || updated[idx].lastMessage,
-          time: payload.time || updated[idx].time,
-          updatedAt: payload.updatedAt || updated[idx].updatedAt,
-        };
-        const sorted = sortUsersByRecency(updated);
-        setCachedUsers(sorted).catch((err) => console.error(err));
-        return sorted;
+      const applied = applyHydratedPreview({
+        userId: payload.userId,
+        lastMessage: payload.lastMessage,
+        time: payload.time,
+        updatedAt: payload.updatedAt,
       });
+      if (applied) {
+        dequeueConversationPreviewHydrations([payload.userId]);
+      }
     };
     const conversationTagsSyncedHandler = (e: Event) => {
       const customEvent = e as CustomEvent<ConversationTagsSyncedDetail>;
@@ -396,7 +418,24 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         conversationTagsSyncedHandler,
       );
     };
-  }, [applyUserStatusUpdate, applyUserTagsUpdate]);
+  }, [applyHydratedPreview, applyUserStatusUpdate, applyUserTagsUpdate]);
+
+  useEffect(() => {
+    if (users.length === 0) return;
+    const queued = getQueuedConversationPreviewHydrations();
+    if (queued.length === 0) return;
+
+    const appliedIds: string[] = [];
+    for (const payload of queued) {
+      if (applyHydratedPreview(payload)) {
+        appliedIds.push(payload.userId);
+      }
+    }
+
+    if (appliedIds.length > 0) {
+      dequeueConversationPreviewHydrations(appliedIds);
+    }
+  }, [users.length, applyHydratedPreview]);
 
   useEffect(() => {
     refreshTagCatalog().catch((error) =>
