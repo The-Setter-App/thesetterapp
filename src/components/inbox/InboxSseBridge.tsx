@@ -18,7 +18,11 @@ import {
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
 import { reconcilePendingMessages } from "@/lib/inbox/realtime/reconcilePending";
-import { normalizeUsersFromBackend, sortUsersByRecency } from "./sidebar/utils";
+import {
+  mergeUsersWithLocalRecency,
+  normalizeUsersFromBackend,
+  sortUsersByRecency,
+} from "./sidebar/utils";
 import type { SSEEvent, SSEMessageData, User } from "@/types/inbox";
 
 function isMessageEvent(
@@ -68,8 +72,12 @@ export default function InboxSseBridge() {
             const normalized = sortUsersByRecency(
               normalizeUsersFromBackend(freshUsers),
             );
-            usersRef.current = normalized;
-            await setCachedUsers(normalized);
+            const merged = mergeUsersWithLocalRecency(
+              usersRef.current ?? [],
+              normalized,
+            );
+            usersRef.current = merged;
+            await setCachedUsers(merged);
           })
           .catch((error) => {
             refreshQueuedRef.current = false;

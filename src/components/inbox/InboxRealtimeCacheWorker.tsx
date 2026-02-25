@@ -15,6 +15,7 @@ import {
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
 import { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
+import { mergeUsersWithLocalRecency } from "./sidebar/utils";
 import type { Message, SSEEvent, SSEMessageData, User } from "@/types/inbox";
 import { usePathname } from "next/navigation";
 
@@ -62,9 +63,10 @@ export default function InboxRealtimeCacheWorker({
       if (!matchedConversation) {
         try {
           const freshUsers = sortUsersByRecency(await getInboxUsers());
-          await setCachedUsers(freshUsers);
-          users = freshUsers;
-          matchedConversation = findConversationForRealtimeMessage(freshUsers, data);
+          const mergedUsers = mergeUsersWithLocalRecency(users, freshUsers);
+          await setCachedUsers(mergedUsers);
+          users = mergedUsers;
+          matchedConversation = findConversationForRealtimeMessage(mergedUsers, data);
         } catch (error) {
           console.error("[InboxRealtimeCacheWorker] Failed to fetch fresh users:", error);
         }

@@ -60,6 +60,7 @@ import SidebarSearchBar from "./sidebar/SidebarSearchBar";
 import SidebarTabs, { type SidebarTab } from "./sidebar/SidebarTabs";
 import {
   buildRealtimePreviewText,
+  mergeUsersWithLocalRecency,
   normalizeUsersFromBackend,
   sortUsersByRecency,
 } from "./sidebar/utils";
@@ -142,9 +143,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     refetchInFlightRef.current = true;
     try {
       const freshUsers = await getInboxUsers();
-      const sorted = sortUsersByRecency(normalizeUsersFromBackend(freshUsers));
-      setUsers(sorted);
-      setCachedUsers(sorted).catch((e) => console.error(e));
+      const normalized = normalizeUsersFromBackend(freshUsers);
+      setUsers((prev) => {
+        const merged = mergeUsersWithLocalRecency(prev, normalized);
+        setCachedUsers(merged).catch((e) => console.error(e));
+        return merged;
+      });
     } finally {
       refetchInFlightRef.current = false;
     }
@@ -478,9 +482,12 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         }
 
         const fresh = await getInboxUsers();
-        const sorted = sortUsersByRecency(normalizeUsersFromBackend(fresh));
-        setUsers(sorted);
-        setCachedUsers(sorted).catch((e) => console.error(e));
+        const normalized = normalizeUsersFromBackend(fresh);
+        setUsers((prev) => {
+          const merged = mergeUsersWithLocalRecency(prev, normalized);
+          setCachedUsers(merged).catch((e) => console.error(e));
+          return merged;
+        });
       } catch (err) {
         console.error("Error loading conversations:", err);
       } finally {
