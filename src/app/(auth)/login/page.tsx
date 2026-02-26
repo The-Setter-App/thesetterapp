@@ -1,70 +1,45 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AuthPanel } from "@/components/auth/AuthPanel";
-import LoginForm from "@/components/auth/LoginForm";
-import SignupForm from "@/components/auth/SignupForm";
 import { resetCache } from "@/lib/clientCache";
 
-type AuthMode = "login" | "signup";
-type LoginStep = "email" | "otp";
-type SignupStep = "accessCode" | "email" | "otp";
-
 export default function LoginPage() {
-  const [mode, setMode] = useState<AuthMode>("login");
-  const [loginStep, setLoginStep] = useState<LoginStep>("email");
-  const [signupStep, setSignupStep] = useState<SignupStep>("accessCode");
-
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [accessCode, setAccessCode] = useState("");
-
+  const [step, setStep] = useState<'email' | 'otp'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const router = useRouter();
 
-  const getErrorMessage = (err: unknown): string => {
-    if (err instanceof Error) return err.message;
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
     return "Something went wrong";
   };
 
-  const resetAuthForm = (nextMode?: AuthMode) => {
-    if (nextMode) setMode(nextMode);
-    setLoginStep("email");
-    setSignupStep("accessCode");
-    setEmail("");
-    setOtp("");
-    setAccessCode("");
-    setError("");
-    setLoading(false);
-  };
-
   useEffect(() => {
+    // Clear cache on mount to ensure clean state
     resetCache().catch(console.error);
   }, []);
 
-  const handleLoginSendOTP = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(
-          typeof data?.error === "string" ? data.error : "Failed to send OTP",
-        );
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to send OTP');
       }
 
-      setLoginStep("otp");
+      setStep('otp');
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
@@ -72,199 +47,147 @@ export default function LoginPage() {
     }
   };
 
-  const handleLoginVerifyOTP = async (e: React.FormEvent) => {
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch("/api/auth/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; requiresOnboarding?: boolean };
       if (!res.ok) {
-        throw new Error(
-          typeof data?.error === "string" ? data.error : "Invalid OTP",
-        );
+        throw new Error(data.error || 'Invalid OTP');
       }
 
+      // Successful login
       try {
         await resetCache();
-      } catch (cacheError) {
-        console.error("Failed to reset cache on login:", cacheError);
+      } catch (e) {
+        console.error("Failed to reset cache on login:", e);
       }
 
-      router.push(data?.requiresOnboarding ? "/onboarding" : "/dashboard");
-      router.refresh();
+      router.push(data.requiresOnboarding ? '/onboarding' : '/dashboard');
+      router.refresh(); // Refresh to update server components with new session
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
-
-  const handleSignupAccessCodeContinue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!accessCode.trim()) {
-      setError("Access code is required");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/signup/access-code/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessCode }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          typeof data?.error === "string" ? data.error : "Invalid access code.",
-        );
-      }
-
-      setSignupStep("email");
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignupSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/auth/signup/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, accessCode }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          typeof data?.error === "string" ? data.error : "Failed to send OTP",
-        );
-      }
-
-      setSignupStep("otp");
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignupVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/auth/signup/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, accessCode }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          typeof data?.error === "string" ? data.error : "Invalid OTP",
-        );
-      }
-
-      try {
-        await resetCache();
-      } catch (cacheError) {
-        console.error("Failed to reset cache on signup:", cacheError);
-      }
-
-      router.push("/onboarding");
-      router.refresh();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const title =
-    mode === "login"
-      ? loginStep === "email"
-        ? "Let's Get Started"
-        : "Check Your Inbox"
-      : signupStep === "accessCode"
-        ? "Owner Access"
-        : signupStep === "email"
-          ? "Create Owner Account"
-          : "Check Your Inbox";
-
-  const description =
-    mode === "login"
-      ? loginStep === "email"
-        ? "Enter your email to join Setter - whether you're new or returning, we'll get you in fast."
-        : `We sent a code to ${email}. Enter it below to verify.`
-      : signupStep === "accessCode"
-        ? "Enter your owner access code first before signing up."
-        : signupStep === "email"
-          ? "Enter your owner email and we'll send a one-time code."
-          : `We sent a code to ${email}. Enter it below to verify.`;
 
   return (
-    <AuthPanel
-      mode={mode}
-      loading={loading}
-      title={title}
-      description={description}
-      error={error}
-      onModeChange={(nextMode) => resetAuthForm(nextMode)}
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.3) 50%, #FFFFFF 100%)'
+      }}
     >
-      {mode === "login" ? (
-        <LoginForm
-          step={loginStep}
-          email={email}
-          otp={otp}
-          loading={loading}
-          onEmailChange={setEmail}
-          onOtpChange={setOtp}
-          onSendOtp={handleLoginSendOTP}
-          onVerifyOtp={handleLoginVerifyOTP}
-          onBackToEmail={() => {
-            setLoginStep("email");
-            setOtp("");
-            setError("");
-          }}
-        />
-      ) : (
-        <SignupForm
-          step={signupStep}
-          accessCode={accessCode}
-          email={email}
-          otp={otp}
-          loading={loading}
-          onAccessCodeChange={setAccessCode}
-          onEmailChange={setEmail}
-          onOtpChange={setOtp}
-          onAccessCodeContinue={handleSignupAccessCodeContinue}
-          onSendOtp={handleSignupSendOTP}
-          onVerifyOtp={handleSignupVerifyOTP}
-          onBackToEmail={() => {
-            setSignupStep("email");
-            setOtp("");
-            setError("");
-          }}
-        />
-      )}
-    </AuthPanel>
+      <div className="bg-white bg-opacity-70 shadow-xl rounded-2xl px-10 py-8 flex flex-col items-center w-full max-w-md">
+        {/* Logo */}
+        <div className="mb-4">
+          <img src="/images/login-icon.png" alt="Login Logo" width={60} height={60} />
+        </div>
+        
+        {/* Title */}
+        <h2
+          className="text-center mt-0 mb-3 text-gray-900 font-bold"
+          style={{ fontFamily: 'Inter, sans-serif', fontSize: 18 }}
+        >
+          {step === 'email' ? "Let's Get Started" : "Check Your Inbox"}
+        </h2>
+        
+        <p
+          className="text-center mb-6 text-gray-700 font-bold"
+          style={{ fontFamily: 'Inter, sans-serif', fontSize: 14 }}
+        >
+          {step === 'email' 
+            ? "Enter your email to join Setter — whether you're new or returning, we'll get you in fast."
+            : `We sent a code to ${email}. Enter it below to verify.`}
+        </p>
+
+        {/* Error Message */}
+        {error && (
+          <div className="w-full bg-red-100 text-red-600 p-2 rounded mb-4 text-sm text-center">
+            {error}
+          </div>
+        )}
+
+        {/* Forms */}
+        {step === 'email' ? (
+          <form onSubmit={handleSendOTP} className="w-full flex flex-col items-center">
+            <label
+              htmlFor="email"
+              className="self-start text-gray-800 mb-1 font-bold"
+              style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}
+            >
+              Enter your email
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="name@gmail.com"
+              className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${email && !loading ? 'bg-[#8771FF] text-white hover:bg-[#6d5ed6]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+              disabled={!email || loading}
+            >
+              {loading ? "Sending..." : "Continue"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="w-full flex flex-col items-center">
+            <label
+              htmlFor="otp"
+              className="self-start text-gray-800 mb-1 font-bold"
+              style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}
+            >
+              Enter OTP Code
+            </label>
+            <input
+              id="otp"
+              type="text"
+              placeholder="123456"
+              className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400 tracking-widest text-center text-lg"
+              value={otp}
+              onChange={e => setOtp(e.target.value)}
+              required
+              disabled={loading}
+              maxLength={6}
+            />
+            <button
+              type="submit"
+              className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${otp.length >= 4 && !loading ? 'bg-[#8771FF] text-white hover:bg-[#6d5ed6]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+              disabled={!otp || loading}
+            >
+              {loading ? "Verifying..." : "Verify & Login"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('email'); setError(""); }}
+              className="text-sm text-gray-500 hover:text-gray-800 mt-2"
+            >
+              Change email
+            </button>
+          </form>
+        )}
+
+        {/* Terms and Privacy */}
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Continue to accept <a href="#" className="underline hover:text-violet-700">terms & conditions</a><br />
+          and <a href="#" className="underline hover:text-violet-700">privacy policy</a>.
+        </p>
+      </div>
+    </div>
   );
 }
