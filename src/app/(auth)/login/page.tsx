@@ -106,7 +106,7 @@ export default function LoginPage() {
           style={{ fontFamily: 'Inter, sans-serif', fontSize: 14 }}
         >
           {step === 'email' 
-            ? "Enter your email to join Setter — whether you're new or returning, we'll get you in fast."
+            ? "Enter your email to access your Setter account — we’ll get you in fast."
             : `We sent a code to ${email}. Enter it below to verify.`}
         </p>
 
