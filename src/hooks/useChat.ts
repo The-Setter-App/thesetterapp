@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
-import { getCachedUsers, getCachedMessages, getCachedConversationDetails, setCachedConversationDetails, setCachedMessages } from '@/lib/clientCache';
+import { getCachedUsers, getCachedMessages, getCachedConversationDetails, getCachedMessagePageMeta, setCachedConversationDetails, setCachedMessagePageMeta, setCachedMessages } from '@/lib/clientCache';
 import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
 import { INBOX_MESSAGE_EVENT, type InboxRealtimeMessageDetail } from '@/lib/inbox/clientRealtimeEvents';
 import type { User, Message, MessagePageResponse, ConversationDetails, SSEMessageData } from '@/types/inbox';
@@ -8,6 +8,7 @@ import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping
 
 export function useChat(selectedUserId: string) {
   const INITIAL_PAGE_SIZE = 20;
+  const PREFETCH_FRESH_MS = 90_000;
   const [user, setUser] = useState<User | null>(null);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -264,9 +265,10 @@ export function useChat(selectedUserId: string) {
         setConversationDetails(null);
         setConversationDetailsSyncedAt(0);
 
-        const [cachedMessages, cachedDetails] = await Promise.all([
+        const [cachedMessages, cachedDetails, cachedMessageMeta] = await Promise.all([
           getCachedMessages(selectedUserId),
           getCachedConversationDetails(selectedUserId),
+          getCachedMessagePageMeta(selectedUserId),
         ]);
         if (gen !== fetchGenRef.current) return;
 
@@ -283,6 +285,38 @@ export function useChat(selectedUserId: string) {
           setConversationDetailsSyncedAt(Date.now());
         }
 
+        if (cachedMessageMeta) {
+          nextCursorRef.current = cachedMessageMeta.nextCursor;
+          setHasMoreMessages(Boolean(cachedMessageMeta.hasMore));
+        }
+
+        const canSkipMessageFetch =
+          hasCachedMessages &&
+          Boolean(cachedMessageMeta) &&
+          Date.now() - (cachedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS;
+
+        if (canSkipMessageFetch) {
+          if (!cachedDetails) {
+            try {
+              const details = await fetchConversationDetails();
+              if (gen !== fetchGenRef.current) return;
+              setConversationDetails(details);
+              setConversationDetailsSyncedAt(Date.now());
+              if (details) {
+                setCachedConversationDetails(selectedUserId, details).catch((e) =>
+                  console.error('Cache update failed:', e),
+                );
+              }
+            } catch (err) {
+              console.error('Error loading conversation details:', err);
+            }
+          }
+
+          setLoading(false);
+          setInitialLoadSettled(true);
+          return;
+        }
+
         const [page, details] = await Promise.all([
           fetchMessagePage(INITIAL_PAGE_SIZE),
           fetchConversationDetails(),
@@ -292,6 +326,11 @@ export function useChat(selectedUserId: string) {
         setChatHistory((prev) => {
           const merged = mergeMessages(page.messages, prev);
           setCachedMessages(selectedUserId, merged).catch(e => console.error('Cache update failed:', e));
+          setCachedMessagePageMeta(selectedUserId, {
+            nextCursor: page.nextCursor,
+            hasMore: page.hasMore,
+            fetchedAt: Date.now(),
+          }).catch((e) => console.error('Cache update failed:', e));
           hydrateSidebarPreviewFromMessages(merged).catch((e) => console.error('Preview hydration failed:', e));
           return merged;
         });
@@ -429,6 +468,11 @@ export function useChat(selectedUserId: string) {
         const older = page.messages.filter((msg) => !seen.has(msg.id));
         const updated = [...older, ...prev];
         setCachedMessages(selectedUserId, updated).catch(e => console.error('Cache update failed:', e));
+        setCachedMessagePageMeta(selectedUserId, {
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+          fetchedAt: Date.now(),
+        }).catch((e) => console.error('Cache update failed:', e));
         return updated;
       });
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import TeamRoleDropdown from '@/components/settings/TeamRoleDropdown';
 import { requireCurrentUser } from '@/lib/currentUser';
+import { sendTeamInvitationEmail } from '@/lib/email';
 import {
   addTeamMemberByOwner,
   getTeamMembersForOwner,
@@ -38,6 +39,12 @@ async function addTeamMemberAction(formData: FormData) {
 
   try {
     await addTeamMemberByOwner(user.email, emailValue, roleValue as TeamMemberRole);
+
+    await sendTeamInvitationEmail({
+      ownerEmail: user.email,
+      memberEmail: emailValue,
+      role: roleValue as TeamMemberRole,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'failed_to_add_member';
     redirect(`/settings/team?error=${encodeURIComponent(message)}`);

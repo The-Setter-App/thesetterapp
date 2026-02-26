@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import LoginForm from "@/components/auth/LoginForm";
 import SignupForm from "@/components/auth/SignupForm";
@@ -59,7 +59,9 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Failed to send OTP");
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Failed to send OTP",
+        );
       }
 
       setLoginStep("otp");
@@ -84,7 +86,9 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Invalid OTP");
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Invalid OTP",
+        );
       }
 
       try {
@@ -93,7 +97,7 @@ export default function LoginPage() {
         console.error("Failed to reset cache on login:", cacheError);
       }
 
-      router.push(Boolean(data?.requiresOnboarding) ? "/onboarding" : "/dashboard");
+      router.push(data?.requiresOnboarding ? "/onboarding" : "/dashboard");
       router.refresh();
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -102,14 +106,35 @@ export default function LoginPage() {
     }
   };
 
-  const handleSignupAccessCodeContinue = (e: React.FormEvent) => {
+  const handleSignupAccessCodeContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!accessCode.trim()) {
       setError("Access code is required");
       return;
     }
-    setSignupStep("email");
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/signup/access-code/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Invalid access code.",
+        );
+      }
+
+      setSignupStep("email");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignupSendOTP = async (e: React.FormEvent) => {
@@ -126,7 +151,9 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Failed to send OTP");
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Failed to send OTP",
+        );
       }
 
       setSignupStep("otp");
@@ -151,7 +178,9 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Invalid OTP");
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Invalid OTP",
+        );
       }
 
       try {

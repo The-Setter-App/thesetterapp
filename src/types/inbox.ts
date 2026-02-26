@@ -85,6 +85,7 @@ export interface User {
   avatar: string | null;
   verified: boolean;
   unread?: number;
+  needsReply?: boolean;
   isActive?: boolean;
   conversationId?: string;
   recipientId?: string;

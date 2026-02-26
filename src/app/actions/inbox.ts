@@ -8,6 +8,7 @@ import {
   getConversationsFromDb,
   saveConversationsToDb,
   getMessagesFromDb,
+  getConversationReplyStateFromDb,
   saveMessagesToDb,
   updateConversationMetadata,
   findConversationById,
@@ -79,6 +80,35 @@ async function bootstrapConversationsFromGraph(ownerEmail: string): Promise<void
   }
 }
 
+async function hydrateConversationReplyState(
+  users: User[],
+  ownerEmail: string,
+): Promise<User[]> {
+  if (users.length === 0) return users;
+
+  const enriched = await Promise.all(
+    users.map(async (user) => {
+      const replyState = await getConversationReplyStateFromDb(user.id, ownerEmail);
+      if (!replyState) {
+        const fallbackNeedsReply = Boolean(user.needsReply ?? (user.unread ?? 0) > 0);
+        return {
+          ...user,
+          needsReply: fallbackNeedsReply,
+          unread: fallbackNeedsReply ? Math.max(1, user.unread ?? 0) : 0,
+        };
+      }
+
+      return {
+        ...user,
+        needsReply: replyState.needsReply,
+        unread: replyState.pendingIncomingCount,
+      };
+    }),
+  );
+
+  return enriched;
+}
+
 export async function getInboxConnectionState(): Promise<{ hasConnectedAccounts: boolean; connectedCount: number }> {
   try {
     const ownerEmail = await getOwnerEmail();
@@ -126,11 +156,12 @@ export async function getInboxUsers(): Promise<User[]> {
     const ownerEmail = await getOwnerEmail();
     const dbUsers = await getConversationsFromDb(ownerEmail);
     if (dbUsers.length > 0) {
-      return dbUsers;
+      return await hydrateConversationReplyState(dbUsers, ownerEmail);
     }
 
     await bootstrapConversationsFromGraph(ownerEmail);
-    return await getConversationsFromDb(ownerEmail);
+    const syncedUsers = await getConversationsFromDb(ownerEmail);
+    return await hydrateConversationReplyState(syncedUsers, ownerEmail);
   } catch (error) {
     console.error('[InboxActions] Error in getInboxUsers:', error);
     return [];

@@ -18,6 +18,7 @@ import {
 import {
   findConversationForRealtimeMessage,
 } from "@/lib/inbox/clientConversationSync";
+import { prefetchConversationMessagePagesToCache } from "@/lib/inbox/clientMessagePrefetch";
 import {
   INBOX_MESSAGE_EVENT,
   INBOX_SSE_EVENT,
@@ -92,6 +93,22 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const refetchInFlightRef = useRef(false);
   const tagCatalogRefreshInFlightRef = useRef(false);
 
+  const prefetchConversationMessages = useCallback((list: User[]) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+
+    prefetchConversationMessagePagesToCache({
+      conversationIds: list.map((user) => user.id),
+      maxConversations: Math.min(list.length, 50),
+      // Keep this short: sidebar refresh can happen on focus/visibility.
+      staleMs: 60 * 1000,
+    }).catch((error) => {
+      console.error(
+        "[InboxSidebar] Failed to prefetch conversation messages:",
+        error,
+      );
+    });
+  }, []);
+
   const applyHydratedPreview = useCallback(
     (payload: ConversationPreviewHydrationPayload): boolean => {
       let applied = false;
@@ -105,6 +122,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           time: payload.time || updated[idx].time,
           updatedAt: payload.updatedAt || updated[idx].updatedAt,
           unread: payload.clearUnread ? 0 : updated[idx].unread,
+          needsReply: payload.clearUnread ? false : updated[idx].needsReply,
         };
         const sorted = sortUsersByRecency(updated);
         setCachedUsers(sorted).catch((err) => console.error(err));
@@ -144,6 +162,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     try {
       const freshUsers = await getInboxUsers();
       const normalized = normalizeUsersFromBackend(freshUsers);
+      prefetchConversationMessages(normalized);
       setUsers((prev) => {
         const merged = mergeUsersWithLocalRecency(prev, normalized);
         setCachedUsers(merged).catch((e) => console.error(e));
@@ -152,7 +171,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     } finally {
       refetchInFlightRef.current = false;
     }
-  }, []);
+  }, [prefetchConversationMessages]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -271,6 +290,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           }),
           updatedAt,
           unread: outgoing ? 0 : (current.unread ?? 0) + 1,
+          needsReply: !outgoing,
         };
 
         return sortUsersByRecency(next);
@@ -483,6 +503,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
         const fresh = await getInboxUsers();
         const normalized = normalizeUsersFromBackend(fresh);
+        prefetchConversationMessages(normalized);
         setUsers((prev) => {
           const merged = mergeUsersWithLocalRecency(prev, normalized);
           setCachedUsers(merged).catch((e) => console.error(e));
@@ -496,7 +517,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       }
     }
     loadUsers();
-  }, [epoch, markSidebarReady]);
+  }, [epoch, markSidebarReady, prefetchConversationMessages]);
 
   const filteredUsers = users.filter((u) => {
     const matchesTab =

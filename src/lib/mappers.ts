@@ -37,6 +37,7 @@ export function mapConversationToUser(
   // Get the last message from the conversation
   const lastMessage = raw.messages?.data?.[0];
   const lastMessageText = lastMessage?.message || 'No messages yet';
+  const needsReply = Boolean(lastMessage && lastMessage.from?.id !== userId);
   
   // Extract username (handle format: @username or username)
   const username = recipient?.username || recipient?.email || `user_${recipient?.id.slice(-6)}`;
@@ -60,7 +61,8 @@ export function mapConversationToUser(
     icon: 'user',
     avatar: null, // Graph API doesn't provide profile pictures in this endpoint
     verified: false,
-    unread: 0, // Would need to track read/unread state separately
+    unread: needsReply ? 1 : 0,
+    needsReply,
     isActive: false,
     conversationId: raw.id,
     recipientId: recipient?.id || '',

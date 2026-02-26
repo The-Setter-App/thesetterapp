@@ -22,11 +22,28 @@ export function SidebarNoConnectedAccountsState() {
 }
 
 export function SidebarLoadingState() {
+  const skeletonRows = Array.from({ length: 7 }, (_, index) => index);
+
   return (
-    <div className="flex h-full items-center justify-center p-6 text-center">
-      <p className="text-sm font-medium text-stone-500">
-        Loading conversations...
-      </p>
+    <div className="h-full bg-white">
+      {skeletonRows.map((row) => (
+        <div
+          key={row}
+          className="flex items-center gap-3 border-b border-[#F0F2F6] px-4 py-3"
+        >
+          <div className="h-10 w-10 animate-pulse rounded-full bg-[#F3F0FF]" />
+
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="h-3 w-24 animate-pulse rounded bg-[#ECE9FF]" />
+              <div className="h-2.5 w-10 animate-pulse rounded bg-[#F0F2F6]" />
+            </div>
+            <div className="h-2.5 w-4/5 animate-pulse rounded bg-[#F4F5F8]" />
+          </div>
+
+          <div className="h-6 w-14 animate-pulse rounded-full bg-[#F8F7FF]" />
+        </div>
+      ))}
     </div>
   );
 }

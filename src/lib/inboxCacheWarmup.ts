@@ -3,11 +3,12 @@
 import { getInboxConnectionState, getInboxUsers } from "@/app/actions/inbox";
 import {
   setCachedLeads,
+  setCachedMessagePageMeta,
   setCachedMessages,
   setCachedUsers,
 } from "@/lib/clientCache";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
-import type { Message, User } from "@/types/inbox";
+import type { MessagePageResponse, User } from "@/types/inbox";
 
 const INTENT_KEY = "inbox_cache_warmup_intent_v1";
 const STATUS_KEY = "inbox_cache_warmup_status_v1";
@@ -121,7 +122,9 @@ export function requestInboxCacheWarmup(): void {
   window.dispatchEvent(new CustomEvent(INBOX_CACHE_WARMUP_REQUEST_EVENT));
 }
 
-async function fetchRecentMessages(conversationId: string): Promise<Message[]> {
+async function fetchRecentMessagesPage(
+  conversationId: string,
+): Promise<MessagePageResponse> {
   const response = await fetch(
     `/api/inbox/conversations/${encodeURIComponent(conversationId)}/messages?limit=${MESSAGE_LIMIT}`,
     {
@@ -136,8 +139,7 @@ async function fetchRecentMessages(conversationId: string): Promise<Message[]> {
     );
   }
 
-  const payload = (await response.json()) as { messages?: Message[] };
-  return payload.messages ?? [];
+  return (await response.json()) as MessagePageResponse;
 }
 
 async function syncConversationMessages(
@@ -157,8 +159,16 @@ async function syncConversationMessages(
 
       const user = users[nextIndex];
       try {
-        const messages = await fetchRecentMessages(user.id);
-        await setCachedMessages(user.id, messages);
+        const page = await fetchRecentMessagesPage(user.id);
+        const messages = Array.isArray(page.messages) ? page.messages : [];
+        await Promise.all([
+          setCachedMessages(user.id, messages),
+          setCachedMessagePageMeta(user.id, {
+            nextCursor: page.nextCursor ?? null,
+            hasMore: Boolean(page.hasMore),
+            fetchedAt: Date.now(),
+          }),
+        ]);
       } catch {
         failed += 1;
       } finally {

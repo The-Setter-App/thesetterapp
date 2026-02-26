@@ -1,5 +1,9 @@
 import type React from "react";
-import { AuthInput, AuthPrimaryButton, AuthTextButton } from "@/components/auth/AuthPanel";
+import {
+  AuthInput,
+  AuthPrimaryButton,
+  AuthTextButton,
+} from "@/components/auth/AuthPanel";
 
 interface SignupFormProps {
   step: "accessCode" | "email" | "otp";
@@ -10,7 +14,7 @@ interface SignupFormProps {
   onAccessCodeChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onOtpChange: (value: string) => void;
-  onAccessCodeContinue: (e: React.FormEvent) => void;
+  onAccessCodeContinue: (e: React.FormEvent) => void | Promise<void>;
   onSendOtp: (e: React.FormEvent) => void;
   onVerifyOtp: (e: React.FormEvent) => void;
   onBackToEmail: () => void;
@@ -51,7 +55,8 @@ export default function SignupForm({
           Continue
         </AuthPrimaryButton>
         <p className="pt-1 text-xs text-[#7A7D85]">
-          Owner signup needs a valid access code. If you are a setter or closer, ask your owner for an invite.
+          Owner signup needs a valid access code. If you are a setter or closer,
+          ask your owner for an invite.
         </p>
       </form>
     );
@@ -70,7 +75,11 @@ export default function SignupForm({
           disabled={loading}
           required
         />
-        <AuthPrimaryButton type="submit" disabled={!email || loading} isActive={Boolean(email) && !loading}>
+        <AuthPrimaryButton
+          type="submit"
+          disabled={!email || loading}
+          isActive={Boolean(email) && !loading}
+        >
           {loading ? "Sending code..." : "Send OTP"}
         </AuthPrimaryButton>
       </form>
@@ -91,10 +100,18 @@ export default function SignupForm({
         required
         className="text-center text-base tracking-[0.35em]"
       />
-      <AuthPrimaryButton type="submit" disabled={!otp || loading} isActive={Boolean(otp) && !loading}>
+      <AuthPrimaryButton
+        type="submit"
+        disabled={!otp || loading}
+        isActive={Boolean(otp) && !loading}
+      >
         {loading ? "Verifying..." : "Verify & Create Account"}
       </AuthPrimaryButton>
-      <AuthTextButton className="mx-auto block pt-1 text-center" disabled={loading} onClick={onBackToEmail}>
+      <AuthTextButton
+        className="mx-auto block pt-1 text-center"
+        disabled={loading}
+        onClick={onBackToEmail}
+      >
         Change email
       </AuthTextButton>
     </form>

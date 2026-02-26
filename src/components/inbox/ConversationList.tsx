@@ -89,6 +89,8 @@ export default function ConversationList({
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
       {users.map((u) => {
+        const unreadCount = u.unread ?? 0;
+        const showReplyBadge = unreadCount > 0 || Boolean(u.needsReply);
         const resolvedTags = (u.tagIds || [])
           .map((tagId) => tagLookup[tagId])
           .filter((tag): tag is TagRow => Boolean(tag));
@@ -112,9 +114,9 @@ export default function ConversationList({
                   alt={u.name}
                   className="w-10 h-10 rounded-full object-cover"
                 />
-                {(u.unread ?? 0) > 0 && (
+                {showReplyBadge && (
                   <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
-                    {(u.unread ?? 0) > 9 ? "9+" : u.unread}
+                    {unreadCount > 0 ? (unreadCount > 9 ? "9+" : unreadCount) : "!"}
                   </span>
                 )}
               </div>

@@ -27,6 +27,12 @@ export interface ConversationSummaryCacheRecord {
   fetchedAt: number;
 }
 
+export interface MessagePageMetaCacheRecord {
+  nextCursor: string | null;
+  hasMore: boolean;
+  fetchedAt: number;
+}
+
 export interface InboxTagsCacheRecord {
   tags: TagRow[];
   fetchedAt: number;
@@ -201,6 +207,21 @@ export async function setCachedMessages(
   return inboxCache.set(`messages_${recipientId}`, messages);
 }
 
+export async function getCachedMessagePageMeta(
+  recipientId: string,
+): Promise<MessagePageMetaCacheRecord | null> {
+  return inboxCache.get<MessagePageMetaCacheRecord>(
+    `messages_page_meta_${recipientId}`,
+  );
+}
+
+export async function setCachedMessagePageMeta(
+  recipientId: string,
+  meta: MessagePageMetaCacheRecord,
+): Promise<void> {
+  return inboxCache.set(`messages_page_meta_${recipientId}`, meta);
+}
+
 export async function updateCachedMessages(
   recipientId: string,
   updater: (msgs: Message[] | null) => Message[],
@@ -297,6 +318,7 @@ export async function removeCachedConversationsByAccount(
   await Promise.all(
     removedConversationIds.flatMap((conversationId) => [
       inboxCache.delete(`messages_${conversationId}`),
+      inboxCache.delete(`messages_page_meta_${conversationId}`),
       inboxCache.delete(`conversation_details_${conversationId}`),
       inboxCache.delete(`conversation_summary_${conversationId}`),
     ]),

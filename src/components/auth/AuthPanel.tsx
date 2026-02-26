@@ -14,7 +14,8 @@ interface AuthInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 }
 
-interface AuthPrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface AuthPrimaryButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isActive: boolean;
 }
 
@@ -37,7 +38,16 @@ export function AuthPanel({
     >
       <div className="absolute inset-x-0 top-4 z-10 px-6 md:top-6">
         <div className="mx-auto flex w-full max-w-[520px] items-center justify-between text-xs font-semibold text-[#101011]">
-          <p className="opacity-80">setter</p>
+          <div className="flex items-center gap-2 opacity-80">
+            <img
+              src="/favicon.svg"
+              alt="Setter favicon"
+              width={16}
+              height={16}
+              className="h-4 w-4"
+            />
+            <p>setter</p>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -68,19 +78,26 @@ export function AuthPanel({
       </div>
 
       <div className="relative mx-auto flex h-full w-full max-w-[640px] items-center justify-center px-6 pb-8 pt-16">
-        <div className="grid h-[492px] w-full max-w-[520px] grid-rows-[auto_auto_auto_auto_auto] px-2 py-2">
+        <div className="grid min-h-[492px] w-full max-w-[520px] grid-rows-[auto_auto_auto_auto_auto] px-2 py-2">
           <div className="mb-2 flex justify-center">
-            <img src="/images/login-icon.png" alt="Login Logo" width={90} height={90} />
+            <img
+              src="/images/login-icon.png"
+              alt="Login Logo"
+              width={90}
+              height={90}
+            />
           </div>
 
           <div className="min-h-[94px] text-center">
-            <h2 className="text-[30px] font-bold tracking-tight text-[#101011] md:text-[34px]">{title}</h2>
+            <h2 className="text-[30px] font-bold tracking-tight text-[#101011] md:text-[34px]">
+              {title}
+            </h2>
             <p className="mx-auto mt-2 max-w-[480px] text-[14px] font-semibold leading-6 text-[#22324C] md:text-[15px]">
               {description}
             </p>
           </div>
 
-          <div className="mx-auto mt-1 min-h-[26px] w-full max-w-[440px]">
+          <div className="mx-auto mt-1 min-h-[56px] w-full max-w-[440px]">
             {error ? (
               <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                 {error}
@@ -88,15 +105,23 @@ export function AuthPanel({
             ) : null}
           </div>
 
-          <div className="mx-auto mt-1 h-[196px] w-full max-w-[440px]">{children}</div>
+          <div className="mx-auto mt-1 min-h-[196px] w-full max-w-[440px]">
+            {children}
+          </div>
 
           <p className="mx-auto mt-1 max-w-[440px] text-center text-[14px] text-[#596783]">
             Continue to accept{" "}
-            <a href="#" className="underline decoration-[#9FA8BD] underline-offset-2 hover:text-[#526892]">
+            <a
+              href="/terms"
+              className="underline decoration-[#9FA8BD] underline-offset-2 hover:text-[#526892]"
+            >
               terms & conditions
             </a>
             {" and "}
-            <a href="#" className="underline decoration-[#9FA8BD] underline-offset-2 hover:text-[#526892]">
+            <a
+              href="/privacy-policy"
+              className="underline decoration-[#9FA8BD] underline-offset-2 hover:text-[#526892]"
+            >
               privacy policy
             </a>
             .
@@ -110,7 +135,9 @@ export function AuthPanel({
 export function AuthInput({ label, className = "", ...props }: AuthInputProps) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[13px] font-bold text-[#0E2342]">{label}</span>
+      <span className="mb-2 block text-[13px] font-bold text-[#0E2342]">
+        {label}
+      </span>
       <input
         className={`h-12 w-full rounded-lg border border-[#CFD6E2] bg-[#FBFCFF] px-4 text-[16px] font-medium text-[#101011] placeholder:text-[#8F97A8] transition focus:border-[#A5B1C8] focus:outline-none ${className}`}
         {...props}

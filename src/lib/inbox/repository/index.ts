@@ -27,8 +27,10 @@ export {
 } from "@/lib/inbox/repository/detailsStore";
 export { purgeInboxDataForInstagramAccount } from "@/lib/inbox/repository/lifecycleStore";
 export {
+  getConversationReplyStateFromDb,
   decodeMessagesCursor,
   encodeMessagesCursor,
+  getLatestMessageFromDb,
   getMessagesFromDb,
   getMessagesPageFromDb,
   saveMessagesToDb,

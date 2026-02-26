@@ -86,6 +86,7 @@ export async function updateConversationMetadata(
 
   const currentUnread = (unreadRow as { unread: number } | null)?.unread ?? 0;
   const nextUnread = clearUnread ? 0 : incrementUnread ? currentUnread + 1 : currentUnread;
+  const nextNeedsReply = clearUnread ? false : incrementUnread ? true : Boolean(existing.needsReply);
 
   const nextPayload: User = {
     ...existing,
@@ -93,6 +94,7 @@ export async function updateConversationMetadata(
     time,
     updatedAt: eventTimestampIso || new Date().toISOString(),
     unread: nextUnread,
+    needsReply: nextNeedsReply,
   };
 
   await supabase

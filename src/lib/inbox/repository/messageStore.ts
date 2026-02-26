@@ -8,6 +8,7 @@ type MessageRow = {
   payload: Message;
   timestamp_text: string | null;
   is_empty: boolean | null;
+  from_me?: boolean | null;
 };
 
 type MessageCursor = {
@@ -66,6 +67,68 @@ export async function getMessagesFromDb(conversationId: string, ownerEmail: stri
     console.error(`[InboxRepo] Error fetching messages for ${conversationId}:`, error);
     return [];
   }
+}
+
+export async function getLatestMessageFromDb(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<Message | null> {
+  const supabase = getInboxSupabase();
+  const { data, error } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("owner_email,id,conversation_id,payload,timestamp_text,is_empty")
+    .eq("conversation_id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .order("timestamp_text", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as MessageRow;
+  if (row.is_empty === true && !hasDisplayableMessageContent(row.payload)) {
+    return null;
+  }
+  return mapMessage(row);
+}
+
+export interface ConversationReplyState {
+  needsReply: boolean;
+  pendingIncomingCount: number;
+}
+
+export async function getConversationReplyStateFromDb(
+  conversationId: string,
+  ownerEmail: string,
+  maxScanMessages = 200,
+): Promise<ConversationReplyState | null> {
+  const supabase = getInboxSupabase();
+  const { data, error } = await supabase
+    .from(MESSAGES_COLLECTION)
+    .select("owner_email,id,conversation_id,payload,timestamp_text,is_empty,from_me")
+    .eq("conversation_id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .not("timestamp_text", "is", null)
+    .order("timestamp_text", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(Math.max(1, Math.min(maxScanMessages, 500)));
+
+  if (error || !data || data.length === 0) return null;
+
+  let pendingIncomingCount = 0;
+  for (const row of data as MessageRow[]) {
+    const mapped = mapMessage(row);
+    if (row.is_empty === true && !hasDisplayableMessageContent(mapped)) {
+      continue;
+    }
+    if (mapped.fromMe) break;
+    pendingIncomingCount += 1;
+  }
+
+  return {
+    needsReply: pendingIncomingCount > 0,
+    pendingIncomingCount,
+  };
 }
 
 export async function saveMessageToDb(message: Message, conversationId: string, ownerEmail: string): Promise<void> {
