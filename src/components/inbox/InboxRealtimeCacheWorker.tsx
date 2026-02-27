@@ -16,7 +16,7 @@ import {
 } from "@/lib/inbox/realtime/messageMapping";
 import { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
 import { mergeUsersWithLocalRecency, sortUsersByRecency } from "./sidebar/utils";
-import type { Message, SSEEvent, SSEMessageData } from "@/types/inbox";
+import type { SSEEvent, SSEMessageData } from "@/types/inbox";
 import { usePathname } from "next/navigation";
 
 interface InboxRealtimeCacheWorkerProps {

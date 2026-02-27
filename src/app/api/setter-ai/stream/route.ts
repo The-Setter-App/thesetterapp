@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import OpenAI from 'openai';
 import {
   AccessError,
   requireInboxWorkspaceContext,
@@ -89,6 +90,11 @@ function coerceSystemToUser(
 
 // Runtime hint: if provider/model rejects system-role format, send coerced instructions first.
 let preferCoercedSystemRole = false;
+
+function getErrorDetails(error: Error | null): string {
+  if (!error) return '';
+  return error.message || '';
+}
 
 export async function POST(request: NextRequest) {
   let sessionEmail = '';
@@ -186,140 +192,114 @@ export async function POST(request: NextRequest) {
       ? coerceSystemToUser(modelMessages)
       : modelMessages;
 
-    const upstreamBodyBase = {
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      stream: true,
-    };
     const baseUrlCandidates = buildBaseUrlCandidates(baseUrl);
     let activeBaseUrl = baseUrlCandidates[0] || normalizeBaseUrl(baseUrl);
-
-    const callUpstream = async (
-      body: Record<string, unknown>,
-    ): Promise<Response> =>
-      fetch(`${activeBaseUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream, application/json',
-        },
-        signal: request.signal,
-        body: JSON.stringify(body),
+    const createStream = async (
+      messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+      maxTokensOverride?: number,
+    ) => {
+      const client = new OpenAI({
+        apiKey,
+        baseURL: activeBaseUrl,
       });
-
-    const upstreamBody = {
-      ...upstreamBodyBase,
-      messages: initialMessages,
+      return client.chat.completions.create(
+        {
+          model,
+          temperature,
+          max_tokens: maxTokensOverride ?? maxTokens,
+          stream: true,
+          messages,
+        },
+        { signal: request.signal },
+      );
     };
 
-    let upstreamResponse = await callUpstream(upstreamBody);
+    let completionStream:
+      | Awaited<ReturnType<typeof createStream>>
+      | null = null;
+    let details = '';
 
-    if (!upstreamResponse.ok) {
-      let details = await upstreamResponse.text().catch(() => '');
+    try {
+      completionStream = await createStream(initialMessages);
+    } catch (error) {
+      details = getErrorDetails(error instanceof Error ? error : null);
+    }
 
-      if (looksLikeHtmlEdgeResponse(details) && baseUrlCandidates.length > 1) {
-        for (const candidate of baseUrlCandidates.slice(1)) {
-          activeBaseUrl = candidate;
-          upstreamResponse = await callUpstream(upstreamBody);
-          if (upstreamResponse.ok) break;
-          details = await upstreamResponse.text().catch(() => '');
+    if (!completionStream && looksLikeHtmlEdgeResponse(details) && baseUrlCandidates.length > 1) {
+      for (const candidate of baseUrlCandidates.slice(1)) {
+        activeBaseUrl = candidate;
+        try {
+          completionStream = await createStream(initialMessages);
+          details = '';
+          break;
+        } catch (error) {
+          details = getErrorDetails(error instanceof Error ? error : null);
         }
-      }
-
-      if (!upstreamResponse.ok && looksLikeSystemRoleUnsupported(details)) {
-        preferCoercedSystemRole = true;
-        const fallbackBody = {
-          ...upstreamBody,
-          messages: coerceSystemToUser(modelMessages),
-        };
-        upstreamResponse = await callUpstream(fallbackBody);
-      } else if (!upstreamResponse.ok && looksLikeContextLengthError(details)) {
-        // Retry with smaller context budget.
-        leadContextBlock = leadContextBlock
-          ? leadContextBlock.slice(0, 3500)
-          : null;
-        modelMessages = await buildModelMessages({
-          maxHistory: 12,
-          leadContextBlock,
-          maxTotalChars: 14000,
-        });
-        const retryBody = { ...upstreamBodyBase, messages: modelMessages };
-        upstreamResponse = await callUpstream(retryBody);
-      } else if (!upstreamResponse.ok && looksLikeHtmlEdgeResponse(details)) {
-        // Retry with a minimal payload when upstream/proxy returns HTML edge pages.
-        modelMessages = await buildModelMessages({
-          maxHistory: 6,
-          leadContextBlock: null,
-          maxTotalChars: 8000,
-        });
-        const retryBody = {
-          ...upstreamBodyBase,
-          max_tokens: Math.min(maxTokens, 600),
-          messages: modelMessages,
-        };
-        upstreamResponse = await callUpstream(retryBody);
-      } else if (!upstreamResponse.ok) {
-        return Response.json(
-          { error: 'Upstream AI request failed.', details: details.slice(0, 500) },
-          { status: 502 },
-        );
       }
     }
 
-    if (!upstreamResponse.ok || !upstreamResponse.body) {
-      const details = await upstreamResponse.text().catch(() => '');
+    if (!completionStream && looksLikeSystemRoleUnsupported(details)) {
+      preferCoercedSystemRole = true;
+      try {
+        completionStream = await createStream(coerceSystemToUser(modelMessages));
+        details = '';
+      } catch (error) {
+        details = getErrorDetails(error instanceof Error ? error : null);
+      }
+    } else if (!completionStream && looksLikeContextLengthError(details)) {
+      // Retry with smaller context budget.
+      leadContextBlock = leadContextBlock
+        ? leadContextBlock.slice(0, 3500)
+        : null;
+      modelMessages = await buildModelMessages({
+        maxHistory: 12,
+        leadContextBlock,
+        maxTotalChars: 14000,
+      });
+      try {
+        completionStream = await createStream(modelMessages);
+        details = '';
+      } catch (error) {
+        details = getErrorDetails(error instanceof Error ? error : null);
+      }
+    } else if (!completionStream && looksLikeHtmlEdgeResponse(details)) {
+      // Retry with a minimal payload when upstream/proxy returns HTML edge pages.
+      modelMessages = await buildModelMessages({
+        maxHistory: 6,
+        leadContextBlock: null,
+        maxTotalChars: 8000,
+      });
+      try {
+        completionStream = await createStream(modelMessages, Math.min(maxTokens, 600));
+        details = '';
+      } catch (error) {
+        details = getErrorDetails(error instanceof Error ? error : null);
+      }
+    }
+
+    if (!completionStream) {
       return Response.json(
         { error: 'Upstream AI request failed.', details: details.slice(0, 500) },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
-    const decoder = new TextDecoder();
     const encoder = new TextEncoder();
-    const reader = upstreamResponse.body.getReader();
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        let buffer = '';
         let assistantText = '';
         let completed = false;
 
         try {
-          streamLoop: while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              completed = true;
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
-
-              const data = trimmed.replace(/^data:\s*/, '');
-              if (data === '[DONE]') {
-                completed = true;
-                break streamLoop;
-              }
-
-              try {
-                const json = JSON.parse(data);
-                const token = json?.choices?.[0]?.delta?.content;
-                if (typeof token === 'string' && token.length > 0) {
-                  assistantText += token;
-                  controller.enqueue(encoder.encode(token));
-                }
-              } catch {
-                continue;
-              }
+          for await (const chunk of completionStream) {
+            const token = chunk.choices?.[0]?.delta?.content;
+            if (typeof token === 'string' && token.length > 0) {
+              assistantText += token;
+              controller.enqueue(encoder.encode(token));
             }
           }
+          completed = true;
 
           if (completed) {
             if (!assistantText.trim()) {
@@ -346,8 +326,6 @@ export async function POST(request: NextRequest) {
             return;
           }
           controller.error(new Error('Streaming failed'));
-        } finally {
-          reader.releaseLock();
         }
       },
     });

@@ -18,7 +18,7 @@ import {
 } from '@/lib/inboxRepository';
 import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
 import { isStatusType } from '@/lib/status/config';
-import type { User, Message, StatusType } from '@/types/inbox';
+import type { User, Message } from '@/types/inbox';
 import type { SSEAttachment } from '@/types/inbox';
 import { requireInboxWorkspaceContext } from '@/lib/workspace';
 
