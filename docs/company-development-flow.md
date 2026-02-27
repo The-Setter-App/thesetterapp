@@ -95,14 +95,13 @@ git push -u origin feat/your-change-name
 
 - Merge only after review approval and passing checks.
 - Prefer `Squash and merge` unless team says otherwise.
-- Delete merged branch from remote to keep repo clean.
+- Do not delete merged branches (remote or local) unless explicitly requested.
 
 ## After Merge
 
 ```bash
 git checkout main
 git pull origin main
-git branch -d feat/your-change-name
 ```
 
 ## If You Need Help
