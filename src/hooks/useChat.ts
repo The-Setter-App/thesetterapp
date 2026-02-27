@@ -296,20 +296,18 @@ export function useChat(selectedUserId: string) {
           Date.now() - (cachedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS;
 
         if (canSkipMessageFetch) {
-          if (!cachedDetails) {
-            try {
-              const details = await fetchConversationDetails();
-              if (gen !== fetchGenRef.current) return;
-              setConversationDetails(details);
-              setConversationDetailsSyncedAt(Date.now());
-              if (details) {
-                setCachedConversationDetails(selectedUserId, details).catch((e) =>
-                  console.error('Cache update failed:', e),
-                );
-              }
-            } catch (err) {
-              console.error('Error loading conversation details:', err);
+          try {
+            const details = await fetchConversationDetails();
+            if (gen !== fetchGenRef.current) return;
+            setConversationDetails(details);
+            setConversationDetailsSyncedAt(Date.now());
+            if (details) {
+              setCachedConversationDetails(selectedUserId, details).catch((e) =>
+                console.error('Cache update failed:', e),
+              );
             }
+          } catch (err) {
+            console.error('Error loading conversation details:', err);
           }
 
           setLoading(false);

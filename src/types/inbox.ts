@@ -92,6 +92,8 @@ export interface User {
   tagIds?: string[];
   notes?: string;
   paymentDetails?: PaymentDetails;
+  timelineEvents?: ConversationTimelineEvent[];
+  contactDetails?: ConversationContactDetails;
 }
 
 export interface PaymentDetails {

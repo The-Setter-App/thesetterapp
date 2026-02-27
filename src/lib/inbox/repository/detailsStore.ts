@@ -6,6 +6,7 @@ import type {
   ConversationTimelineEvent,
   PaymentDetails,
   StatusType,
+  User,
 } from "@/types/inbox";
 
 const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
@@ -29,12 +30,16 @@ export async function getConversationDetails(
 ): Promise<ConversationDetails | null> {
   const supabase = getInboxSupabase();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .select("notes,payment_details,timeline_events,contact_details,tag_ids")
+    .select("notes,payment_details,timeline_events,contact_details,tag_ids,payload")
     .eq("id", conversationId)
     .eq("owner_email", ownerEmail)
     .maybeSingle();
+
+  if (error) {
+    throw new Error(`[InboxDetailsStore] Failed to fetch conversation details: ${error.message}`);
+  }
 
   if (!data) return null;
 
@@ -44,14 +49,25 @@ export async function getConversationDetails(
     timeline_events: ConversationTimelineEvent[] | null;
     contact_details: Partial<ConversationContactDetails> | null;
     tag_ids: string[] | null;
+    payload: User | null;
   };
 
-  const payment = row.payment_details ?? {};
-  const contact = row.contact_details ?? {};
-  const timelineEvents = Array.isArray(row.timeline_events) ? row.timeline_events : [];
+  const payload = row.payload ?? null;
+  const payment = row.payment_details ?? payload?.paymentDetails ?? {};
+  const contact = row.contact_details ?? payload?.contactDetails ?? {};
+  const timelineEvents = Array.isArray(row.timeline_events)
+    ? row.timeline_events
+    : Array.isArray(payload?.timelineEvents)
+      ? payload.timelineEvents
+      : [];
+  const normalizedTagIds = Array.isArray(row.tag_ids)
+    ? normalizeConversationTagIds(row.tag_ids)
+    : Array.isArray(payload?.tagIds)
+      ? normalizeConversationTagIds(payload.tagIds)
+      : [];
 
   return {
-    notes: row.notes ?? "",
+    notes: row.notes ?? payload?.notes ?? "",
     paymentDetails: {
       amount: typeof payment.amount === "string" ? payment.amount : DEFAULT_PAYMENT_DETAILS.amount,
       paymentMethod:
@@ -72,7 +88,7 @@ export async function getConversationDetails(
         typeof contact.phoneNumber === "string" ? contact.phoneNumber : DEFAULT_CONTACT_DETAILS.phoneNumber,
       email: typeof contact.email === "string" ? contact.email : DEFAULT_CONTACT_DETAILS.email,
     },
-    tagIds: Array.isArray(row.tag_ids) ? normalizeConversationTagIds(row.tag_ids) : [],
+    tagIds: normalizedTagIds,
   };
 }
 
@@ -82,6 +98,16 @@ export async function updateConversationDetails(
   details: Partial<ConversationDetails>,
 ): Promise<void> {
   const supabase = getInboxSupabase();
+  const { data: existingRow, error: fetchError } = await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .select("payload")
+    .eq("id", conversationId)
+    .eq("owner_email", ownerEmail)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`[InboxDetailsStore] Failed to load existing payload: ${fetchError.message}`);
+  }
 
   const updates: {
     notes?: string;
@@ -89,38 +115,53 @@ export async function updateConversationDetails(
     timeline_events?: ConversationTimelineEvent[];
     contact_details?: Partial<ConversationContactDetails>;
     tag_ids?: string[];
+    payload?: User;
     updated_at?: string;
   } = {};
+  const existingPayload = ((existingRow as { payload?: User | null } | null)?.payload ?? null) as User | null;
+  if (!existingPayload) return;
+  const nextPayload: User = { ...existingPayload };
 
   if (typeof details.notes === "string") {
     updates.notes = details.notes;
+    nextPayload.notes = details.notes;
   }
 
   if (details.paymentDetails) {
     updates.payment_details = details.paymentDetails;
+    nextPayload.paymentDetails = details.paymentDetails;
   }
 
   if (Array.isArray(details.timelineEvents)) {
     updates.timeline_events = details.timelineEvents;
+    nextPayload.timelineEvents = details.timelineEvents;
   }
 
   if (details.contactDetails) {
     updates.contact_details = details.contactDetails;
+    nextPayload.contactDetails = details.contactDetails;
   }
 
   if (Array.isArray(details.tagIds)) {
-    updates.tag_ids = normalizeConversationTagIds(details.tagIds);
+    const normalizedTagIds = normalizeConversationTagIds(details.tagIds);
+    updates.tag_ids = normalizedTagIds;
+    nextPayload.tagIds = normalizedTagIds;
   }
 
   if (Object.keys(updates).length === 0) return;
 
+  updates.payload = nextPayload;
   updates.updated_at = new Date().toISOString();
 
-  await supabase
+  const { error } = await supabase
     .from(CONVERSATIONS_COLLECTION)
     .update(updates)
     .eq("id", conversationId)
     .eq("owner_email", ownerEmail);
+
+  if (error) {
+    throw new Error(`[InboxDetailsStore] Failed to update conversation details: ${error.message}`);
+  }
 }
 
 export async function addStatusTimelineEvent(

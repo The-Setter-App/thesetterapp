@@ -45,6 +45,21 @@ export function buildConversationSetPayload(
   if (typeof existing?.isPriority === "boolean") {
     basePayload.isPriority = existing.isPriority;
   }
+  if (typeof existing?.notes === "string") {
+    basePayload.notes = existing.notes;
+  }
+  if (existing?.paymentDetails) {
+    basePayload.paymentDetails = existing.paymentDetails;
+  }
+  if (Array.isArray(existing?.timelineEvents)) {
+    basePayload.timelineEvents = existing.timelineEvents;
+  }
+  if (existing?.contactDetails) {
+    basePayload.contactDetails = existing.contactDetails;
+  }
+  if (Array.isArray(existing?.tagIds)) {
+    basePayload.tagIds = existing.tagIds;
+  }
 
   return {
     payload: basePayload,
