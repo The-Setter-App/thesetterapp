@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
+import { setCachedConversationDetails } from "@/lib/clientCache";
 import {
   loadInboxTagCatalog,
 } from "@/lib/inbox/clientTagCatalog";
@@ -44,6 +45,20 @@ const DETAILS_TABS: DetailsTabName[] = [
   "Payments",
   "Calls",
 ];
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[0-9+\-() ]+$/;
+
+function isContactDetailsValid(details: ConversationContactDetails): boolean {
+  const email = details.email.trim();
+  if (email.length > 0 && !EMAIL_REGEX.test(email)) return false;
+
+  const phone = details.phoneNumber.trim();
+  if (phone.length === 0) return true;
+
+  if (!PHONE_REGEX.test(phone)) return false;
+  const digitsCount = phone.replace(/\D/g, "").length;
+  return digitsCount >= 7 && digitsCount <= 16;
+}
 
 interface DetailsPanelProps {
   user: User;
@@ -83,6 +98,26 @@ export default function DetailsPanel({
   const [loadingAvailableTags, setLoadingAvailableTags] = useState(false);
   const tagCatalogRefreshInFlightRef = useRef(false);
   const isMountedRef = useRef(true);
+  const contactSaveAbortRef = useRef<AbortController | null>(null);
+  const lastSavedContactDetailsRef = useRef<string>("");
+  const syncDetailsCache = useCallback(
+    async (overrides?: Partial<ConversationDetails>) => {
+      if (!user.id) return;
+      try {
+        await setCachedConversationDetails(user.id, {
+          notes,
+          paymentDetails,
+          timelineEvents,
+          contactDetails,
+          tagIds,
+          ...overrides,
+        });
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to update details cache:", error);
+      }
+    },
+    [contactDetails, notes, paymentDetails, tagIds, timelineEvents, user.id],
+  );
 
   const refreshAvailableTags = useCallback(async () => {
     if (tagCatalogRefreshInFlightRef.current) return;
@@ -138,6 +173,10 @@ export default function DetailsPanel({
     setDetailsLoaded(false);
 
     const applyDetails = (details: ConversationDetails | null | undefined) => {
+      const nextContactDetails: ConversationContactDetails = {
+        phoneNumber: details?.contactDetails?.phoneNumber ?? "",
+        email: details?.contactDetails?.email ?? "",
+      };
       setNotes(details?.notes ?? "");
       setPaymentDetails({
         amount: details?.paymentDetails?.amount ?? "",
@@ -152,10 +191,8 @@ export default function DetailsPanel({
       setTimelineEvents(
         Array.isArray(details?.timelineEvents) ? details.timelineEvents : [],
       );
-      setContactDetails({
-        phoneNumber: details?.contactDetails?.phoneNumber ?? "",
-        email: details?.contactDetails?.email ?? "",
-      });
+      setContactDetails(nextContactDetails);
+      lastSavedContactDetailsRef.current = JSON.stringify(nextContactDetails);
       setTagIds(Array.isArray(details?.tagIds) ? details.tagIds : []);
     };
 
@@ -187,11 +224,16 @@ export default function DetailsPanel({
   }, [syncedDetails, syncedAt, user.id]);
 
   useEffect(() => {
+    lastSavedContactDetailsRef.current = "";
+    contactSaveAbortRef.current?.abort();
+  }, [user.id]);
+
+  useEffect(() => {
     if (!detailsLoaded || !user.id) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(
+        const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
@@ -199,20 +241,22 @@ export default function DetailsPanel({
             body: JSON.stringify({ notes }),
           },
         );
+        if (!response.ok) return;
+        await syncDetailsCache({ notes });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save notes:", error);
       }
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [notes, detailsLoaded, user.id]);
+  }, [detailsLoaded, notes, syncDetailsCache, user.id]);
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(
+        const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
@@ -220,34 +264,15 @@ export default function DetailsPanel({
             body: JSON.stringify({ paymentDetails }),
           },
         );
+        if (!response.ok) return;
+        await syncDetailsCache({ paymentDetails });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save payment details:", error);
       }
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [paymentDetails, detailsLoaded, user.id]);
-
-  useEffect(() => {
-    if (!detailsLoaded || !user.id) return;
-
-    const timeout = window.setTimeout(async () => {
-      try {
-        await fetch(
-          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contactDetails }),
-          },
-        );
-      } catch (error) {
-        console.error("[DetailsPanel] Failed to save contact details:", error);
-      }
-    }, 450);
-
-    return () => window.clearTimeout(timeout);
-  }, [contactDetails, detailsLoaded, user.id]);
+  }, [detailsLoaded, paymentDetails, syncDetailsCache, user.id]);
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
@@ -263,7 +288,7 @@ export default function DetailsPanel({
       );
 
       try {
-        await fetch(
+        const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
@@ -271,13 +296,15 @@ export default function DetailsPanel({
             body: JSON.stringify({ tagIds: payloadTagIds }),
           },
         );
+        if (!response.ok) return;
+        await syncDetailsCache({ tagIds: payloadTagIds });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save tags:", error);
       }
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [tagIds, detailsLoaded, user.id]);
+  }, [detailsLoaded, syncDetailsCache, tagIds, user.id]);
 
   useEffect(() => {
     refreshAvailableTags().catch((error) =>
@@ -317,6 +344,76 @@ export default function DetailsPanel({
     return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
   }, [appendStatusTimelineEvent, user.id]);
 
+  const commitContactDetails = useCallback(
+    async (next: ConversationContactDetails) => {
+      if (!detailsLoaded || !user.id) return;
+      if (!isContactDetailsValid(next)) return;
+
+      const serialized = JSON.stringify(next);
+      if (serialized === lastSavedContactDetailsRef.current) return;
+
+      contactSaveAbortRef.current?.abort();
+      const controller = new AbortController();
+      contactSaveAbortRef.current = controller;
+
+      try {
+        const response = await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contactDetails: next }),
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) return;
+        lastSavedContactDetailsRef.current = serialized;
+        await syncDetailsCache({ contactDetails: next });
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.error("[DetailsPanel] Failed to save contact details:", error);
+      }
+    },
+    [detailsLoaded, syncDetailsCache, user.id],
+  );
+
+  useEffect(() => {
+    return () => {
+      contactSaveAbortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!detailsLoaded || !user.id || !isContactDetailsValid(contactDetails)) return;
+
+    const serialized = JSON.stringify(contactDetails);
+    if (serialized === lastSavedContactDetailsRef.current) return;
+
+    contactSaveAbortRef.current?.abort();
+    const controller = new AbortController();
+    contactSaveAbortRef.current = controller;
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contactDetails }),
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) return;
+        lastSavedContactDetailsRef.current = serialized;
+        await syncDetailsCache({ contactDetails });
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.error("[DetailsPanel] Failed to save contact details:", error);
+      }
+    })();
+  }, [contactDetails, detailsLoaded, syncDetailsCache, user.id]);
+
   useEffect(() => {
     const handleLocalStatus = (event: Event) => {
       const custom = event as CustomEvent<{
@@ -348,7 +445,7 @@ export default function DetailsPanel({
     if (!user.id) return;
     setTimelineEvents([]);
     try {
-      await fetch(
+      const response = await fetch(
         `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
         {
           method: "PATCH",
@@ -356,10 +453,12 @@ export default function DetailsPanel({
           body: JSON.stringify({ timelineEvents: [] }),
         },
       );
+      if (!response.ok) return;
+      await syncDetailsCache({ timelineEvents: [] });
     } catch (error) {
       console.error("[DetailsPanel] Failed to clear timeline:", error);
     }
-  }, [user.id]);
+  }, [syncDetailsCache, user.id]);
 
   return (
     <aside
@@ -371,6 +470,7 @@ export default function DetailsPanel({
         user={user}
         contactDetails={contactDetails}
         onChangeContactDetails={setContactDetails}
+        onCommitContactDetails={commitContactDetails}
       />
 
       <hr className="border-gray-200" />

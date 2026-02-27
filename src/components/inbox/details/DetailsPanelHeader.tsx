@@ -34,9 +34,15 @@ interface DetailsPanelHeaderProps {
   user: User;
   contactDetails: ConversationContactDetails;
   onChangeContactDetails: (next: ConversationContactDetails) => void;
+  onCommitContactDetails: (next: ConversationContactDetails) => void;
 }
 
-export default function DetailsPanelHeader({ user, contactDetails, onChangeContactDetails }: DetailsPanelHeaderProps) {
+export default function DetailsPanelHeader({
+  user,
+  contactDetails,
+  onChangeContactDetails,
+  onCommitContactDetails,
+}: DetailsPanelHeaderProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
@@ -203,6 +209,10 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
                 phoneNumber: e.target.value.replace(/[^0-9+\-() ]/g, ""),
               })
             }
+            onBlur={() => {
+              if (!phoneValid || !emailValid) return;
+              onCommitContactDetails(contactDetails);
+            }}
             className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
           />
           <button
@@ -220,6 +230,10 @@ export default function DetailsPanelHeader({ user, contactDetails, onChangeConta
             placeholder="Email"
             value={contactDetails.email}
             onChange={(e) => onChangeContactDetails({ ...contactDetails, email: e.target.value })}
+            onBlur={() => {
+              if (!phoneValid || !emailValid) return;
+              onCommitContactDetails(contactDetails);
+            }}
             className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
           />
           <button
