@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface AvatarProps {
   src?: string | null;
   alt?: string;
@@ -21,7 +19,7 @@ export function Avatar({ src, alt, fallback, size = 'md', className = '' }: Avat
     <div className={`relative inline-block rounded-full overflow-hidden bg-gray-100 ${sizes[size]} ${className}`}>
       <img 
         src={src || "/images/no_profile.jpg"} 
-        alt={alt || "Avatar"} 
+        alt={alt || fallback || "Avatar"} 
         className="w-full h-full object-cover"
       />
     </div>
