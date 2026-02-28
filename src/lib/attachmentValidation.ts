@@ -40,6 +40,23 @@ function isAttachmentType(value: string): value is AttachmentType {
   return value === 'image' || value === 'audio' || value === 'video' || value === 'file';
 }
 
+function isAllowedMimeType(
+  normalizedMimeType: string,
+  attachmentType: AttachmentType,
+  allowedMimeTypes: readonly string[],
+): boolean {
+  if (allowedMimeTypes.includes(normalizedMimeType)) {
+    return true;
+  }
+
+  // Browsers can emit audio recorder MIME variants like audio/x-m4a.
+  if (attachmentType === 'audio' && normalizedMimeType.startsWith('audio/')) {
+    return true;
+  }
+
+  return false;
+}
+
 export function parseAttachmentType(rawType: FormDataEntryValue | null): AttachmentType | null {
   if (typeof rawType !== 'string' || rawType.trim().length === 0) {
     return 'image';
@@ -59,6 +76,7 @@ export function validateAttachmentUpload(
 ): AttachmentValidationError | null {
   const rule = ATTACHMENT_VALIDATION_RULES[attachmentType];
   const mimeType = file.type.trim().toLowerCase();
+  const normalizedMimeType = mimeType.split(';', 1)[0]?.trim() ?? '';
 
   if (!mimeType) {
     return {
@@ -67,7 +85,7 @@ export function validateAttachmentUpload(
     };
   }
 
-  if (!rule.allowedMimeTypes.includes(mimeType)) {
+  if (!isAllowedMimeType(normalizedMimeType, attachmentType, rule.allowedMimeTypes)) {
     return {
       error: 'Unsupported file type for attachment',
       status: 415,
