@@ -4,7 +4,7 @@ import { decrypt } from '@/lib/auth';
 
 // 1. Specify protected and public routes
 const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai', '/onboarding'];
-const publicRoutes = ['/login', '/signup', '/'];
+const publicRoutes = ['/login', '/'];
 
 export async function proxy(request: NextRequest) {
   // 2. Check if the current route is protected or public
