@@ -19,6 +19,7 @@ import {
 import { prefetchConversationDetailsBatchToCache } from "@/lib/inbox/clientDetailsPrefetch";
 import { prefetchConversationMessagePagesToCache } from "@/lib/inbox/clientMessagePrefetch";
 import {
+  emitInboxConversationsRefreshed,
   INBOX_MESSAGE_EVENT,
   INBOX_SSE_EVENT,
   type InboxRealtimeMessageDetail,
@@ -60,6 +61,7 @@ import SidebarSearchBar from "./sidebar/SidebarSearchBar";
 import SidebarTabs, { type SidebarTab } from "./sidebar/SidebarTabs";
 import {
   buildRealtimePreviewText,
+  getChangedConversationIds,
   mergeUsersWithLocalRecency,
   normalizeUsersFromBackend,
   sortUsersByRecency,
@@ -243,7 +245,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       prefetchConversationData(normalized);
       setUsers((prev) => {
         const merged = mergeUsersWithLocalRecency(prev, normalized);
+        const changedConversationIds = getChangedConversationIds(prev, merged);
         setCachedUsers(merged).catch((e) => console.error(e));
+        if (changedConversationIds.length > 0) {
+          emitInboxConversationsRefreshed({
+            conversationIds: changedConversationIds,
+          });
+        }
         return merged;
       });
     } finally {

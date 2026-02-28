@@ -113,3 +113,31 @@ export function mergeUsersWithLocalRecency(
 
   return sortUsersByRecency(merged);
 }
+
+export function getChangedConversationIds(
+  previous: User[],
+  nextUsers: User[],
+): string[] {
+  const previousById = new Map(previous.map((user) => [user.id, user]));
+  const changedIds: string[] = [];
+
+  for (const nextUser of nextUsers) {
+    const previousUser = previousById.get(nextUser.id);
+    if (!previousUser) {
+      changedIds.push(nextUser.id);
+      continue;
+    }
+
+    const hasPreviewChanged =
+      previousUser.lastMessage !== nextUser.lastMessage ||
+      previousUser.time !== nextUser.time;
+    const hasRecencyChanged = previousUser.updatedAt !== nextUser.updatedAt;
+    const hasUnreadChanged = (previousUser.unread ?? 0) !== (nextUser.unread ?? 0);
+
+    if (hasPreviewChanged || hasRecencyChanged || hasUnreadChanged) {
+      changedIds.push(nextUser.id);
+    }
+  }
+
+  return changedIds;
+}

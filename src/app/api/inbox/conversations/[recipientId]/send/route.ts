@@ -31,7 +31,9 @@ export async function POST(
     }
 
     const accessToken = decryptData(account.accessToken);
-    await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion);
+    await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion, {
+      tag: 'HUMAN_AGENT',
+    });
 
     return NextResponse.json({ accepted: true, clientTempId: body.clientTempId || null });
   } catch (error) {

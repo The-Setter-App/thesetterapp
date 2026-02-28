@@ -14,13 +14,20 @@ import {
   setCachedMessages,
 } from '@/lib/cache';
 import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
-import { INBOX_MESSAGE_EVENT, type InboxRealtimeMessageDetail } from '@/lib/inbox/clientRealtimeEvents';
+import {
+  INBOX_CONVERSATIONS_REFRESHED_EVENT,
+  INBOX_MESSAGE_EVENT,
+  type InboxConversationsRefreshedDetail,
+  type InboxRealtimeMessageDetail,
+} from '@/lib/inbox/clientRealtimeEvents';
 import type { User, Message, MessagePageResponse, ConversationDetails, SSEMessageData } from '@/types/inbox';
 import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping';
 
+const INITIAL_PAGE_SIZE = 20;
+const PREFETCH_FRESH_MS = 5 * 60 * 1000;
+const SESSION_VALIDATED_CONVERSATIONS = new Set<string>();
+
 export function useChat(selectedUserId: string) {
-  const INITIAL_PAGE_SIZE = 20;
-  const PREFETCH_FRESH_MS = 5 * 60 * 1000;
   const [user, setUser] = useState<User | null>(null);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +47,7 @@ export function useChat(selectedUserId: string) {
   const nextCursorRef = useRef<string | null>(null);
   const reconcileTimersRef = useRef<number[]>([]);
   const detailsRefreshTimerRef = useRef<number | null>(null);
+  const revalidateInFlightRef = useRef(false);
   const NO_MESSAGES_PLACEHOLDER_REGEX = /^no messages yet$/i;
 
   const clearReconcileTimers = () => {
@@ -142,6 +150,40 @@ export function useChat(selectedUserId: string) {
     return data.details ?? null;
   }
 
+  function applyLatestMessagePage(page: MessagePageResponse): void {
+    setChatHistory((prev) => {
+      const merged = mergeMessages(page.messages, prev);
+      setCachedMessages(selectedUserId, merged).catch((e) =>
+        console.error('Cache update failed:', e),
+      );
+      setCachedMessagePageMeta(selectedUserId, {
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        fetchedAt: Date.now(),
+      }).catch((e) => console.error('Cache update failed:', e));
+      hydrateSidebarPreviewFromMessages(merged).catch((e) =>
+        console.error('Preview hydration failed:', e),
+      );
+      return merged;
+    });
+
+    nextCursorRef.current = page.nextCursor;
+    setHasMoreMessages(page.hasMore);
+    SESSION_VALIDATED_CONVERSATIONS.add(selectedUserId);
+  }
+
+  async function refreshLatestMessages(expectedGen?: number): Promise<void> {
+    const page = await fetchMessagePage(INITIAL_PAGE_SIZE);
+    if (
+      typeof expectedGen === 'number' &&
+      expectedGen !== fetchGenRef.current
+    ) {
+      return;
+    }
+
+    applyLatestMessagePage(page);
+  }
+
   async function refreshConversationDetails(expectedGen?: number): Promise<void> {
     try {
       const details = await fetchConversationDetails();
@@ -162,6 +204,25 @@ export function useChat(selectedUserId: string) {
     } catch (error) {
       console.error('Error loading conversation details:', error);
     }
+  }
+
+  function revalidateConversationSnapshot(): void {
+    if (document.visibilityState === 'hidden') return;
+    if (revalidateInFlightRef.current) return;
+
+    const expectedGen = fetchGenRef.current;
+    revalidateInFlightRef.current = true;
+
+    refreshLatestMessages(expectedGen)
+      .then(() => refreshConversationDetails(expectedGen))
+      .catch((error) => {
+        console.error('Failed to refresh latest conversation data:', error);
+      })
+      .finally(() => {
+        if (expectedGen === fetchGenRef.current) {
+          revalidateInFlightRef.current = false;
+        }
+      });
   }
 
   function getMessagePreviewText(message: Message): string {
@@ -205,8 +266,23 @@ export function useChat(selectedUserId: string) {
     const cachedUsers = await getCachedUsers();
     const target = cachedUsers?.find((u) => u.id === selectedUserId);
     const currentPreview = target?.lastMessage?.trim() || user?.lastMessage?.trim() || '';
+    const hasCurrentPreview =
+      Boolean(currentPreview) && !NO_MESSAGES_PLACEHOLDER_REGEX.test(currentPreview);
+    const currentUpdatedAtMs = Date.parse(target?.updatedAt ?? user?.updatedAt ?? '');
+    const previewUpdatedAtMs = Date.parse(previewUpdatedAt);
 
-    if (currentPreview && !NO_MESSAGES_PLACEHOLDER_REGEX.test(currentPreview)) return;
+    if (hasCurrentPreview) {
+      const canCompareUpdatedAt =
+        Number.isFinite(currentUpdatedAtMs) && Number.isFinite(previewUpdatedAtMs);
+
+      if (canCompareUpdatedAt && currentUpdatedAtMs >= previewUpdatedAtMs) {
+        return;
+      }
+
+      if (!canCompareUpdatedAt && currentPreview === previewText) {
+        return;
+      }
+    }
 
     applyConversationPreviewUpdate({
       conversationId: selectedUserId,
@@ -365,10 +441,12 @@ export function useChat(selectedUserId: string) {
           resolvedMessageMeta,
         );
 
+        const hasSessionValidation = SESSION_VALIDATED_CONVERSATIONS.has(selectedUserId);
         const canSkipMessageFetch =
           hasCachedMessages &&
           Boolean(resolvedMessageMeta) &&
-          Date.now() - (resolvedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS;
+          Date.now() - (resolvedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS &&
+          hasSessionValidation;
         const shouldBlockForDetails = !resolvedDetails;
         const detailsRefreshPromise = refreshConversationDetails(gen);
 
@@ -386,22 +464,8 @@ export function useChat(selectedUserId: string) {
           return;
         }
 
-        const page = await fetchMessagePage(INITIAL_PAGE_SIZE);
+        await refreshLatestMessages(gen);
         if (gen !== fetchGenRef.current) return;
-
-        setChatHistory((prev) => {
-          const merged = mergeMessages(page.messages, prev);
-          setCachedMessages(selectedUserId, merged).catch(e => console.error('Cache update failed:', e));
-          setCachedMessagePageMeta(selectedUserId, {
-            nextCursor: page.nextCursor,
-            hasMore: page.hasMore,
-            fetchedAt: Date.now(),
-          }).catch((e) => console.error('Cache update failed:', e));
-          hydrateSidebarPreviewFromMessages(merged).catch((e) => console.error('Preview hydration failed:', e));
-          return merged;
-        });
-        nextCursorRef.current = page.nextCursor;
-        setHasMoreMessages(page.hasMore);
 
         if (shouldBlockForDetails) {
           await detailsRefreshPromise;
@@ -424,6 +488,40 @@ export function useChat(selectedUserId: string) {
     }
     pendingTempIdsRef.current = [];
     loadMessages();
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        revalidateConversationSnapshot();
+      }
+    };
+
+    window.addEventListener('focus', revalidateConversationSnapshot);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', revalidateConversationSnapshot);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      revalidateInFlightRef.current = false;
+    };
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    const sidebarRefreshHandler = (event: Event) => {
+      const customEvent = event as CustomEvent<InboxConversationsRefreshedDetail>;
+      const conversationIds = customEvent.detail?.conversationIds;
+      if (!Array.isArray(conversationIds) || !conversationIds.includes(selectedUserId)) {
+        return;
+      }
+
+      revalidateConversationSnapshot();
+    };
+
+    window.addEventListener(INBOX_CONVERSATIONS_REFRESHED_EVENT, sidebarRefreshHandler);
+    return () => {
+      window.removeEventListener(INBOX_CONVERSATIONS_REFRESHED_EVENT, sidebarRefreshHandler);
+    };
   }, [selectedUserId]);
 
   const applyRealtimeMessageToChat = (eventType: 'new_message' | 'message_echo', data: SSEMessageData) => {

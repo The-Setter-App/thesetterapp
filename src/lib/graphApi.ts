@@ -17,10 +17,17 @@ interface GraphApiError {
 }
 
 const DEFAULT_GRAPH_VERSION = 'v24.0';
+const DEFAULT_MESSAGE_TAG = 'HUMAN_AGENT';
 const GRAPH_MIN_CHUNK = 5;
 const GRAPH_MIN_CONVERSATION_CHUNK = 5;
 const GRAPH_CODE_REDUCE_PAYLOAD = 1;
 const GRAPH_DEBUG = process.env.GRAPH_API_DEBUG === 'true';
+
+type OutboundMessageTag = 'HUMAN_AGENT';
+
+type SendMessageOptions = {
+  tag?: OutboundMessageTag;
+};
 
 function debugLog(...args: unknown[]) {
   if (GRAPH_DEBUG) {
@@ -283,9 +290,11 @@ export async function sendMessage(
   recipientId: string, 
   text: string,
   accessToken: string,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
+  options?: SendMessageOptions
 ): Promise<void> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
+  const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
   const url = new URL(`${baseUrl}/${pageId}/messages`);
   url.searchParams.append('platform', 'instagram');
@@ -294,6 +303,7 @@ export async function sendMessage(
   const payload = {
     recipient: { id: recipientId },
     message: { text },
+    tag,
   };
 
   try {
@@ -328,9 +338,11 @@ export async function sendAttachmentMessage(
   file: File,
   attachmentType: 'image' | 'audio' | 'video' | 'file',
   accessToken: string,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
+  options?: SendMessageOptions
 ): Promise<void> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
+  const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
   const url = new URL(`${baseUrl}/${pageId}/messages`);
   url.searchParams.append('platform', 'instagram');
@@ -349,6 +361,7 @@ export async function sendAttachmentMessage(
   const formData = new FormData();
   formData.append('recipient', recipient);
   formData.append('message', message);
+  formData.append('tag', tag);
   formData.append('filedata', file, file.name);
 
   try {
