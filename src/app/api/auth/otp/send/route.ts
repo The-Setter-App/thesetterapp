@@ -19,17 +19,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
-    const hasAccount = await getAppUserExists(normalizedEmail);
-    if (!hasAccount) {
-      return NextResponse.json(
-        {
-          error: 'Account does not exist.',
-          code: 'ACCOUNT_NOT_FOUND',
-        },
-        { status: 403 },
-      );
-    }
-
     const clientIp = getClientIp(request.headers);
     const rateLimit = await enforceOtpSendRateLimit(normalizedEmail, clientIp);
     if (!rateLimit.allowed) {
@@ -41,13 +30,17 @@ export async function POST(request: Request) {
         },
       );
     }
-    
-    const otp = await createOTP(normalizedEmail);
-    
-    // Send OTP via email using Resend
-    await sendOTPEmail(normalizedEmail, otp);
 
-    return NextResponse.json({ success: true });
+    const hasAccount = await getAppUserExists(normalizedEmail);
+    if (hasAccount) {
+      const otp = await createOTP(normalizedEmail);
+      await sendOTPEmail(normalizedEmail, otp);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'If an account exists, a verification code has been sent.',
+    });
   } catch (error) {
     console.error('Error sending OTP:', error);
     return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });

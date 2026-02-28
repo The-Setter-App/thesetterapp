@@ -21,8 +21,8 @@ import type { SSEEvent, SSEAttachment, Message } from '@/types/inbox';
  * Handles verification and incoming Instagram messages
  */
 
-const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'your_verify_token_here';
-const APP_SECRET = process.env.FB_APP_SECRET || '';
+const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN?.trim() || '';
+const APP_SECRET = process.env.FB_APP_SECRET?.trim() || '';
 const WEBHOOK_DEBUG = process.env.WEBHOOK_DEBUG === 'true';
 
 function webhookDebug(...args: unknown[]) {
@@ -36,6 +36,11 @@ function webhookDebug(...args: unknown[]) {
  * Facebook will send a GET request to verify the webhook
  */
 export async function GET(request: NextRequest) {
+  if (!VERIFY_TOKEN) {
+    console.error('[Webhook] FB_WEBHOOK_VERIFY_TOKEN is not configured');
+    return new NextResponse('Webhook verify token is not configured', { status: 500 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   
   const mode = searchParams.get('hub.mode');
@@ -65,6 +70,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!APP_SECRET) {
+      console.error('[Webhook] FB_APP_SECRET is not configured');
+      return NextResponse.json({ error: 'Webhook app secret is not configured' }, { status: 500 });
+    }
+
     const body = await request.text();
     const signature = request.headers.get('x-hub-signature-256');
 

@@ -25,14 +25,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
     }
 
-    const hasAccount = await getAppUserExists(normalizedEmail);
-    if (!hasAccount) {
-      return NextResponse.json(
-        { error: 'Account does not exist.', code: 'ACCOUNT_NOT_FOUND' },
-        { status: 403 },
-      );
-    }
-
     const clientIp = getClientIp(request.headers);
     const rateLimit = await enforceOtpVerifyRateLimit(normalizedEmail, clientIp);
     if (!rateLimit.allowed) {
@@ -45,8 +37,8 @@ export async function POST(request: Request) {
       );
     }
     
-    // Verify OTP
-    const isValid = await verifyOTP(normalizedEmail, normalizedOtp);
+    const hasAccount = await getAppUserExists(normalizedEmail);
+    const isValid = hasAccount ? await verifyOTP(normalizedEmail, normalizedOtp) : false;
     
     if (!isValid) {
       // Check for a magic bypass code for development ease if strictly requested, 

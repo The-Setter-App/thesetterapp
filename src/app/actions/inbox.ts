@@ -20,7 +20,7 @@ import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
 import { isStatusType } from '@/lib/status/config';
 import type { User, Message } from '@/types/inbox';
 import type { SSEAttachment } from '@/types/inbox';
-import { requireInboxWorkspaceContext } from '@/lib/workspace';
+import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 
 async function getOwnerEmail(): Promise<string> {
   const context = await requireInboxWorkspaceContext();
@@ -163,6 +163,9 @@ export async function getInboxUsers(): Promise<User[]> {
     const syncedUsers = await getConversationsFromDb(ownerEmail);
     return await hydrateConversationReplyState(syncedUsers, ownerEmail);
   } catch (error) {
+    if (error instanceof AccessError) {
+      throw error;
+    }
     console.error('[InboxActions] Error in getInboxUsers:', error);
     return [];
   }

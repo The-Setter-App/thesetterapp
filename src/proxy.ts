@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
+import { buildContentSecurityPolicy } from '@/lib/security/csp';
 
 // 1. Specify protected and public routes
 const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai', '/onboarding'];
 const publicRoutes = ['/login', '/'];
+const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
+
+function applyContentSecurityPolicy(response: NextResponse): NextResponse {
+  response.headers.set(
+    'Content-Security-Policy',
+    buildContentSecurityPolicy({
+      isDevelopment: IS_DEVELOPMENT,
+    }),
+  );
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   // 2. Check if the current route is protected or public
@@ -21,7 +33,7 @@ export async function proxy(request: NextRequest) {
   if (isProtectedRoute && !isAuthenticated) {
     const response = NextResponse.redirect(new URL('/login', request.nextUrl));
     if (cookie) response.cookies.delete('session');
-    return response;
+    return applyContentSecurityPolicy(response);
   }
 
   // 5. Redirect to /dashboard if the user is authenticated
@@ -30,10 +42,12 @@ export async function proxy(request: NextRequest) {
     isAuthenticated &&
     !request.nextUrl.pathname.startsWith('/dashboard')
   ) {
-    return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
+    return applyContentSecurityPolicy(NextResponse.redirect(new URL('/dashboard', request.nextUrl)));
   }
 
-  return NextResponse.next();
+  return applyContentSecurityPolicy(
+    NextResponse.next(),
+  );
 }
 
 // Routes Middleware should not run on

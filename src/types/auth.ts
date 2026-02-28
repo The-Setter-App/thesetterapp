@@ -47,7 +47,7 @@ export interface User {
 
 export interface OTPRecord {
   email: string;
-  otp: string;
+  otpHash: string;
   expiresAt: Date;
   createdAt: Date;
 }
