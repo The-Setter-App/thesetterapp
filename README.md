@@ -8,7 +8,6 @@ This project is configured for server-only Supabase access.
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `JWT_SECRET` (required, minimum 32 chars)
 - `ENCRYPTION_KEY` (required, exactly 32 chars)
-- `OWNER_SIGNUP_ACCESS_CODE` (required to enable owner self-signup)
 - `PROFILE_IMAGE_SIGNED_URL_TTL_SECONDS` (optional, default: `3600`)
 - `OTP_SEND_LIMIT_WINDOW_SECONDS` (optional, default: `600`)
 - `OTP_SEND_MAX_ATTEMPTS` (optional, default: `3`)

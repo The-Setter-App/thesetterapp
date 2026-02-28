@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (!hasAccount) {
       return NextResponse.json(
         {
-          error: 'No account found. Sign up with an access code or ask your owner to invite you.',
+          error: 'Account does not exist.',
           code: 'ACCOUNT_NOT_FOUND',
         },
         { status: 403 },

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const hasAccount = await getAppUserExists(normalizedEmail);
     if (!hasAccount) {
       return NextResponse.json(
-        { error: 'Account not found.', code: 'ACCOUNT_NOT_FOUND' },
+        { error: 'Account does not exist.', code: 'ACCOUNT_NOT_FOUND' },
         { status: 403 },
       );
     }
