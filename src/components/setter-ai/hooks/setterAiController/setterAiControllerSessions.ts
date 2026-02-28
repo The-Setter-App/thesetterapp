@@ -23,7 +23,7 @@ import {
   getCachedSetterAiMessagesTimestamp,
   getCachedSetterAiSessions,
   setSetterAiLastEmail,
-} from "@/lib/setterAiCache";
+} from "@/lib/cache";
 import type { Message } from "@/types/ai";
 
 export async function hydrateDeletedSessionTombstones(

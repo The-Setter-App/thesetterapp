@@ -3,7 +3,7 @@ import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClien
 import {
   getCachedSetterAiSessions,
   getSetterAiLastEmail,
-} from "@/lib/setterAiCache";
+} from "@/lib/cache";
 
 export async function bootstrapSessions(params: {
   setCurrentEmail: Dispatch<SetStateAction<string | null>>;

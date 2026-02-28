@@ -3,7 +3,7 @@ import {
   getCachedUsers,
   setCachedConversationDetails,
   setCachedUsers,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 
 export const CONVERSATION_TAGS_SYNCED_EVENT = "conversationTagsSynced";
 

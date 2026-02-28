@@ -7,7 +7,7 @@ import {
   getCachedLeads,
   getCachedLeadsTimestamp,
   setCachedLeads,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";

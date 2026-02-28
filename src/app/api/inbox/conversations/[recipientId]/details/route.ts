@@ -21,6 +21,17 @@ function hasValidPhoneDigits(value: string): boolean {
   return digits.length >= 7 && digits.length <= 16;
 }
 
+function isClientAbortError(
+  error: Error | { code?: string; message?: string } | null | undefined,
+): boolean {
+  if (!error) return false;
+  const code = "code" in error ? error.code : undefined;
+  if (code === "ECONNRESET") return true;
+  const message =
+    typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return message.includes("aborted");
+}
+
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ recipientId: string }> },
@@ -176,6 +187,13 @@ export async function PATCH(
         { error: error.message },
         { status: error.status },
       );
+    }
+    if (
+      isClientAbortError(
+        error as Error | { code?: string; message?: string } | null | undefined,
+      )
+    ) {
+      return new NextResponse(null, { status: 204 });
     }
     console.error("[InboxDetailsAPI] Failed to update details:", error);
     return NextResponse.json(

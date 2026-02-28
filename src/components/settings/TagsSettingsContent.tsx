@@ -7,7 +7,7 @@ import TagCategoryDropdown from "@/components/settings/TagCategoryDropdown";
 import TagRowActionsMenu from "@/components/settings/TagRowActionsMenu";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { setCachedInboxTags } from "@/lib/clientCache";
+import { setCachedInboxTags } from "@/lib/cache";
 import { broadcastInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   hasDuplicateTagName,

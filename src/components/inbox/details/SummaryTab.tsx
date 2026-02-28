@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConversationSummary, ConversationSummaryResponse, ConversationSummarySection } from "@/types/inbox";
-import { getCachedConversationSummary, setCachedConversationSummary } from "@/lib/clientCache";
+import { getCachedConversationSummary, setCachedConversationSummary } from "@/lib/cache";
 
 interface SummaryTabProps {
   conversationId: string;

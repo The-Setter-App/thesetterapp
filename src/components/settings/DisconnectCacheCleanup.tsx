@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { removeCachedConversationsByAccount } from "@/lib/clientCache";
+import { removeCachedConversationsByAccount } from "@/lib/cache";
 
 export default function DisconnectCacheCleanup({
   disconnectedAccountId,

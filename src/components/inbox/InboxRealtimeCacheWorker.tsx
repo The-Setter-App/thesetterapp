@@ -7,7 +7,7 @@ import {
   getCachedMessages,
   setCachedUsers,
   updateCachedMessages,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
 import {
   buildRealtimePreviewText,

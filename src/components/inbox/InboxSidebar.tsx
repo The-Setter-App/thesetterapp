@@ -4,8 +4,6 @@ import { Inter } from "next/font/google"; // Import Inter
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getInboxConnectionState,
-  getInboxUsers,
   updateConversationPriorityAction,
   updateUserStatusAction,
 } from "@/app/actions/inbox";
@@ -14,10 +12,11 @@ import { useInboxSync } from "@/components/inbox/InboxSyncContext";
 import {
   getCachedUsers,
   setCachedUsers,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import {
   findConversationForRealtimeMessage,
 } from "@/lib/inbox/clientConversationSync";
+import { prefetchConversationDetailsBatchToCache } from "@/lib/inbox/clientDetailsPrefetch";
 import { prefetchConversationMessagePagesToCache } from "@/lib/inbox/clientMessagePrefetch";
 import {
   INBOX_MESSAGE_EVENT,
@@ -69,9 +68,31 @@ import {
 const inter = Inter({ subsets: ["latin"] });
 
 const statusOptions: StatusType[] = STATUS_OPTIONS;
+const SIDEBAR_PREFETCH_MAX_CONVERSATIONS = 12;
+const SIDEBAR_PREFETCH_CONCURRENCY = 2;
+const SIDEBAR_PREFETCH_STALE_MS = 3 * 60 * 1000;
 
 interface InboxSidebarProps {
   width?: number;
+}
+
+interface InboxUsersResponse {
+  users?: User[];
+  error?: string;
+}
+
+interface InboxConnectionStateResponse {
+  hasConnectedAccounts?: boolean;
+  connectedCount?: number;
+  error?: string;
+}
+
+async function parseJsonSafe<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 export default function InboxSidebar({ width }: InboxSidebarProps) {
@@ -93,19 +114,76 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const refetchInFlightRef = useRef(false);
   const tagCatalogRefreshInFlightRef = useRef(false);
 
-  const prefetchConversationMessages = useCallback((list: User[]) => {
+  const fetchInboxUsers = useCallback(async (): Promise<User[]> => {
+    const response = await fetch("/api/inbox/conversations", {
+      method: "GET",
+      cache: "no-store",
+    });
+    const payload = await parseJsonSafe<InboxUsersResponse>(response);
+    if (!response.ok) {
+      throw new Error(
+        payload?.error ??
+          `Failed to load conversations (status ${response.status})`,
+      );
+    }
+    return Array.isArray(payload?.users) ? payload.users : [];
+  }, []);
+
+  const fetchInboxConnectionState = useCallback(async () => {
+    const response = await fetch("/api/inbox/connection-state", {
+      method: "GET",
+      cache: "no-store",
+    });
+    const payload = await parseJsonSafe<InboxConnectionStateResponse>(response);
+    if (!response.ok) {
+      throw new Error(
+        payload?.error ??
+          `Failed to load inbox connection state (status ${response.status})`,
+      );
+    }
+    return {
+      hasConnectedAccounts: Boolean(payload?.hasConnectedAccounts),
+      connectedCount:
+        typeof payload?.connectedCount === "number" ? payload.connectedCount : 0,
+    };
+  }, []);
+
+  const prefetchConversationData = useCallback((list: User[]) => {
     if (!Array.isArray(list) || list.length === 0) return;
 
-    prefetchConversationMessagePagesToCache({
-      conversationIds: list.map((user) => user.id),
-      maxConversations: Math.min(list.length, 50),
-      // Keep this short: sidebar refresh can happen on focus/visibility.
-      staleMs: 60 * 1000,
-    }).catch((error) => {
-      console.error(
-        "[InboxSidebar] Failed to prefetch conversation messages:",
-        error,
-      );
+    const conversationIds = list.map((user) => user.id);
+    const maxConversations = Math.min(
+      list.length,
+      SIDEBAR_PREFETCH_MAX_CONVERSATIONS,
+    );
+
+    Promise.allSettled([
+      prefetchConversationMessagePagesToCache({
+        conversationIds,
+        maxConversations,
+        concurrency: SIDEBAR_PREFETCH_CONCURRENCY,
+        staleMs: SIDEBAR_PREFETCH_STALE_MS,
+      }),
+      prefetchConversationDetailsBatchToCache({
+        conversationIds,
+        maxConversations,
+        concurrency: SIDEBAR_PREFETCH_CONCURRENCY,
+      }),
+    ]).then((results) => {
+      const messageResult = results[0];
+      const detailsResult = results[1];
+      if (messageResult.status === "rejected") {
+        console.error(
+          "[InboxSidebar] Failed to prefetch conversation messages:",
+          messageResult.reason,
+        );
+      }
+      if (detailsResult.status === "rejected") {
+        console.error(
+          "[InboxSidebar] Failed to prefetch conversation details:",
+          detailsResult.reason,
+        );
+      }
     });
   }, []);
 
@@ -160,9 +238,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     if (refetchInFlightRef.current) return;
     refetchInFlightRef.current = true;
     try {
-      const freshUsers = await getInboxUsers();
+      const freshUsers = await fetchInboxUsers();
       const normalized = normalizeUsersFromBackend(freshUsers);
-      prefetchConversationMessages(normalized);
+      prefetchConversationData(normalized);
       setUsers((prev) => {
         const merged = mergeUsersWithLocalRecency(prev, normalized);
         setCachedUsers(merged).catch((e) => console.error(e));
@@ -171,7 +249,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     } finally {
       refetchInFlightRef.current = false;
     }
-  }, [prefetchConversationMessages]);
+  }, [fetchInboxUsers, prefetchConversationData]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -492,7 +570,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           setLoading(false);
         }
 
-        const connectionState = await getInboxConnectionState();
+        const connectionState = await fetchInboxConnectionState();
         setHasConnectedAccounts(connectionState.hasConnectedAccounts);
 
         if (!connectionState.hasConnectedAccounts) {
@@ -501,9 +579,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           return;
         }
 
-        const fresh = await getInboxUsers();
+        const fresh = await fetchInboxUsers();
         const normalized = normalizeUsersFromBackend(fresh);
-        prefetchConversationMessages(normalized);
+        prefetchConversationData(normalized);
         setUsers((prev) => {
           const merged = mergeUsersWithLocalRecency(prev, normalized);
           setCachedUsers(merged).catch((e) => console.error(e));
@@ -517,7 +595,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       }
     }
     loadUsers();
-  }, [epoch, markSidebarReady, prefetchConversationMessages]);
+  }, [
+    epoch,
+    fetchInboxConnectionState,
+    fetchInboxUsers,
+    markSidebarReady,
+    prefetchConversationData,
+  ]);
 
   const filteredUsers = users.filter((u) => {
     const matchesTab =

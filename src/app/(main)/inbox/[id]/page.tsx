@@ -34,7 +34,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     statusUpdate,
     loadOlderMessages,
     conversationDetails,
-    conversationDetailsSyncedAt,
     initialLoadSettled,
   } = useChat(id);
 
@@ -138,7 +137,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               user={user}
               width={rightWidth}
               syncedDetails={conversationDetails}
-              syncedAt={conversationDetailsSyncedAt}
             />
           )}
         </>
