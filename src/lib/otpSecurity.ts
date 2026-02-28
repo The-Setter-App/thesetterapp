@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 type OtpRateLimitAction = 'send' | 'verify';
@@ -33,6 +34,8 @@ const DEFAULT_VERIFY_POLICY: OtpRateLimitPolicy = {
   maxAttempts: 10,
   blockSeconds: 900,
 };
+
+const OTP_HASH_SECRET = process.env.OTP_HASH_SECRET?.trim() || process.env.ENCRYPTION_KEY?.trim() || '';
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -81,6 +84,17 @@ function getRetryAfterSeconds(blockedUntil: Date, now: Date): number {
 
 function buildRateLimitKey(action: OtpRateLimitAction, scope: 'email' | 'ip', value: string): string {
   return `otp:${action}:${scope}:${value}`;
+}
+
+function getOtpHashSecret(): string {
+  if (!OTP_HASH_SECRET || OTP_HASH_SECRET.length < 16) {
+    throw new Error('OTP hash secret is not configured');
+  }
+  return OTP_HASH_SECRET;
+}
+
+export function hashOtp(email: string, otp: string): string {
+  return createHmac('sha256', getOtpHashSecret()).update(`${email}:${otp}`).digest('hex');
 }
 
 export function getClientIp(headers: Headers): string {

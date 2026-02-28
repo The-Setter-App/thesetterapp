@@ -6,6 +6,7 @@ import { findConversationById, saveOrUpdateLocalAudioMessage, saveVoiceNoteBlobT
 import { getRelativeTime } from '@/lib/mappers';
 import { emitWorkspaceSseEvent } from '../sse/route';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
+import { parseAttachmentType, validateAttachmentUpload } from '@/lib/attachmentValidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,12 +15,19 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const conversationId = formData.get('conversationId') as string | null;
-    const attachmentType = (formData.get('type') as string) || 'image';
+    const attachmentType = parseAttachmentType(formData.get('type'));
     const clientTempId = (formData.get('clientTempId') as string | null) || undefined;
     const duration = (formData.get('duration') as string | null) || undefined;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+    if (!attachmentType) {
+      return NextResponse.json({ error: 'Unsupported attachment type' }, { status: 400 });
+    }
+    const uploadValidationError = validateAttachmentUpload(file, attachmentType);
+    if (uploadValidationError) {
+      return NextResponse.json({ error: uploadValidationError.error }, { status: uploadValidationError.status });
     }
     if (!conversationId) {
       return NextResponse.json({ error: 'No conversationId provided' }, { status: 400 });
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
       account.pageId,
       conversation.recipientId,
       file,
-      attachmentType as 'image' | 'audio' | 'video' | 'file',
+      attachmentType,
       accessToken,
       account.graphVersion,
       {
