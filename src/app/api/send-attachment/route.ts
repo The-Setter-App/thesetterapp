@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
       file,
       attachmentType as 'image' | 'audio' | 'video' | 'file',
       accessToken,
-      account.graphVersion
+      account.graphVersion,
+      {
+        tag: 'HUMAN_AGENT',
+      }
     );
 
     if (attachmentType === 'audio') {
