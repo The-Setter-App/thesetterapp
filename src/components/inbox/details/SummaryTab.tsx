@@ -16,11 +16,11 @@ const EMPTY_SECTION: ConversationSummarySection = {
 function SummarySection({ section }: { section: ConversationSummarySection }) {
   return (
     <>
-      <p className="font-bold text-gray-900 text-sm mb-3">{section.title}</p>
-      <ul className="space-y-3 pl-1 text-gray-600">
+      <p className="font-bold text-[#101011] text-sm mb-3">{section.title}</p>
+      <ul className="space-y-3 pl-1 text-[#606266]">
         {section.points.map((point, index) => (
           <li key={`${section.title}-${index}-${point}`} className="flex items-start">
-            <span className="mr-2 text-gray-300 text-[8px] mt-1.5">●</span>
+            <span className="mr-2 text-[#B0B3BA] text-[8px] mt-1.5">●</span>
             <span>{point}</span>
           </li>
         ))}
@@ -120,7 +120,7 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <img src="/icons/Info.svg" alt="Info" className="w-6 h-5 mr-2" />
-          <p className="text-xs text-gray-500 font-medium">Summary is generated using info from this conversation.</p>
+          <p className="text-xs text-[#606266] font-medium">Summary is generated using info from this conversation.</p>
         </div>
         <button
           type="button"
@@ -148,7 +148,7 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-xs leading-relaxed">
+      <div className="bg-white rounded-xl border border-[#F0F2F6] p-5 shadow-sm text-xs leading-relaxed">
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</div>
         ) : null}
@@ -182,7 +182,7 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         ) : null}
 
         {!hasSummary && !loading && !hydrating && !error ? (
-          <p className="text-xs text-gray-500">No summary yet. Click Summarize to generate one from recent messages.</p>
+          <p className="text-xs text-[#606266]">No summary yet. Click Summarize to generate one from recent messages.</p>
         ) : null}
 
         {hasSummary && !loading ? (
@@ -196,3 +196,4 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
     </div>
   );
 }
+

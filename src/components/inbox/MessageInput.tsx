@@ -57,12 +57,12 @@ export default function MessageInput({
   return (
     <div className="p-4 bg-white mx-8 mb-4 flex-shrink-0 relative">
       {attachmentPreview && (
-         <div className="absolute bottom-full left-0 mb-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+         <div className="absolute bottom-full left-0 mb-2 p-2 bg-white border border-[#F0F2F6] rounded-lg shadow-lg z-10">
            <div className="relative group">
-             <img src={attachmentPreview} alt="Attachment" className="h-32 w-auto rounded-md object-contain border border-gray-100 bg-gray-50" />
+             <img src={attachmentPreview} alt="Attachment" className="h-32 w-auto rounded-md object-contain border border-[#F0F2F6] bg-[#F8F7FF]" />
              <button 
                onClick={clearAttachment}
-               className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+               className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-[#F0F2F6] text-[#606266] hover:text-red-500 transition-colors"
              >
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
@@ -78,18 +78,18 @@ export default function MessageInput({
         onChange={handleFileSelect}
       />
 
-      <div className="relative flex items-center border border-gray-200 rounded-lg px-2 shadow-sm min-h-[50px]">
+      <div className="relative flex items-center border border-[#F0F2F6] rounded-lg px-2 shadow-sm min-h-[50px]">
         {isRecording ? (
           <div className="flex-1 flex items-center justify-between py-2 px-2">
             <div className="flex items-center space-x-3 text-red-500 animate-pulse">
               <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
               <span className="font-mono font-medium text-sm">{formatTime(recordingTime)}</span>
-              <span className="text-xs text-gray-400 font-normal">Recording...</span>
+              <span className="text-xs text-[#9A9CA2] font-normal">Recording...</span>
             </div>
             <div className="flex items-center space-x-2">
               <button 
                 onClick={cancelRecording} 
-                className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-50 transition-colors"
+                className="p-2 text-[#9A9CA2] hover:text-red-500 rounded-full hover:bg-[#F8F7FF] transition-colors"
                 title="Cancel"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,10 +109,10 @@ export default function MessageInput({
           </div>
         ) : (
           <>
-            <div className="flex space-x-1 mr-2 text-gray-300">
+            <div className="flex space-x-1 mr-2 text-[#B0B3BA]">
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-2 rounded-full transition-colors ${attachmentFile ? 'text-[#8771FF] bg-[#8771FF]/10' : 'hover:text-gray-500 hover:bg-gray-50'}`}
+                className={`p-2 rounded-full transition-colors ${attachmentFile ? 'text-[#8771FF] bg-[#8771FF]/10' : 'hover:text-[#606266] hover:bg-[#F8F7FF]'}`}
                 title="Attach Image"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +122,7 @@ export default function MessageInput({
               
               <button 
                 onClick={startRecording}
-                className="p-2 rounded-full hover:text-gray-500 hover:bg-gray-50 transition-colors"
+                className="p-2 rounded-full hover:text-[#606266] hover:bg-[#F8F7FF] transition-colors"
                 title="Record Voice Note"
                 disabled={!user}
               >
@@ -163,3 +163,4 @@ export default function MessageInput({
     </div>
   );
 }
+

@@ -22,54 +22,54 @@ export default function TimelineTab({ events, onClear }: TimelineTabProps) {
 
   if (!sorted.length) {
     return (
-      <div className="h-full overflow-y-auto bg-stone-50 p-4 md:p-6">
-        <div className="mb-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="h-full overflow-y-auto bg-[#F8F7FF] p-4 md:p-6">
+        <div className="mb-4 rounded-2xl border border-[#F0F2F6] bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-700">Timeline</p>
-              <h3 className="mt-2 text-sm font-semibold text-stone-900">Conversation Activity</h3>
+              <p className="inline-flex rounded-full bg-[#F4F5F8] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#606266]">Timeline</p>
+              <h3 className="mt-2 text-sm font-semibold text-[#101011]">Conversation Activity</h3>
             </div>
-            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">0 events</span>
+            <span className="rounded-full bg-[#F4F5F8] px-3 py-1 text-xs font-medium text-[#606266]">0 events</span>
           </div>
         </div>
         <div className="mb-3 flex justify-end">
           <button
             type="button"
             onClick={onClear}
-            className="h-11 rounded-full bg-stone-900 px-4 text-xs font-medium text-white transition-all hover:bg-stone-800 active:scale-95"
+            className="h-11 rounded-full bg-[#8771FF] px-4 text-xs font-medium text-white transition-all hover:bg-[#6d5ed6] active:scale-95"
           >
             Clear Timeline
           </button>
         </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-stone-900">No timeline events yet</p>
-          <p className="mt-1 text-xs text-stone-500">Status changes will appear here and are saved per conversation.</p>
+        <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+          <p className="text-sm font-medium text-[#101011]">No timeline events yet</p>
+          <p className="mt-1 text-xs text-[#606266]">Status changes will appear here and are saved per conversation.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-stone-50 p-4 md:p-6">
-      <div className="mb-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+    <div className="h-full overflow-y-auto bg-[#F8F7FF] p-4 md:p-6">
+      <div className="mb-4 rounded-2xl border border-[#F0F2F6] bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-700">Timeline</p>
-            <h3 className="mt-2 text-sm font-semibold text-stone-900">Conversation Activity</h3>
+            <p className="inline-flex rounded-full bg-[#F4F5F8] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#606266]">Timeline</p>
+            <h3 className="mt-2 text-sm font-semibold text-[#101011]">Conversation Activity</h3>
           </div>
-          <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">{sorted.length} events</span>
+          <span className="rounded-full bg-[#F4F5F8] px-3 py-1 text-xs font-medium text-[#606266]">{sorted.length} events</span>
         </div>
       </div>
       <div className="mb-3 flex justify-end">
         <button
           type="button"
           onClick={onClear}
-          className="h-11 rounded-full bg-stone-900 px-4 text-xs font-medium text-white transition-all hover:bg-stone-800 active:scale-95"
+          className="h-11 rounded-full bg-[#8771FF] px-4 text-xs font-medium text-white transition-all hover:bg-[#6d5ed6] active:scale-95"
         >
           Clear Timeline
         </button>
       </div>
-      <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-[#F0F2F6] bg-white p-4 shadow-sm">
         <div className="flex flex-col">
         {sorted.map((event, idx) => (
           <div key={event.id} className="flex gap-x-4">
@@ -77,15 +77,15 @@ export default function TimelineTab({ events, onClear }: TimelineTabProps) {
               <div className="w-8 h-8 flex items-center justify-center z-10">
                 <img src={STATUS_COLOR_ICON_PATHS[event.status] || STATUS_COLOR_ICON_PATHS["New Lead"]} alt={event.status} className="w-5 h-5" />
               </div>
-              {idx !== sorted.length - 1 ? <div className="flex-1 w-px border-l-2 border-stone-200 my-2" /> : null}
+              {idx !== sorted.length - 1 ? <div className="flex-1 w-px border-l-2 border-[#F0F2F6] my-2" /> : null}
             </div>
             <div className={`flex-1 pt-1 ${idx !== sorted.length - 1 ? "pb-8" : ""}`}>
               <div className="flex justify-between items-start gap-3">
                 <div>
-                  <div className="font-semibold text-stone-900 text-sm">{event.title}</div>
-                  <div className="text-xs text-stone-500 mt-0.5">{event.sub}</div>
+                  <div className="font-semibold text-[#101011] text-sm">{event.title}</div>
+                  <div className="text-xs text-[#606266] mt-0.5">{event.sub}</div>
                 </div>
-                <span className="text-xs text-stone-500 text-right min-w-[92px]">{formatEventDate(event.timestamp)}</span>
+                <span className="text-xs text-[#606266] text-right min-w-[92px]">{formatEventDate(event.timestamp)}</span>
               </div>
             </div>
           </div>
@@ -95,3 +95,4 @@ export default function TimelineTab({ events, onClear }: TimelineTabProps) {
     </div>
   );
 }
+

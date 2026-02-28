@@ -3,6 +3,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import React from "react";
+import PageHeader from "@/components/layout/PageHeader";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
 import type { DashboardSnapshot } from "@/types/dashboard";
 
@@ -183,80 +184,59 @@ export default function Dashboard({
         style={{ fontFamily: "Inter, sans-serif" }}
       >
         <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
-          {/* Header - Styled from Figma */}
-          <header className="flex flex-col gap-4 border-b border-[#F0F2F6] px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
-            <div className="flex flex-col gap-1">
-              <div
-                style={{
-                  color: "#101011",
-                  fontSize: "18px",
-                  fontWeight: 500,
-                  lineHeight: "28px",
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                Hi, {displayName}!
-              </div>
-              <div
-                style={{
-                  color: "#606266",
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  lineHeight: "20px",
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                Your Setter Dashboard
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
-              <div className="relative cursor-pointer">
-                <img
-                  src="/dashboardIcons/bell.svg"
-                  alt="Bell"
-                  width={24}
-                  height={24}
-                />
-              </div>
-              <form
-                onSubmit={handleSearchSubmit}
-                style={{
-                  width: "100%",
-                  maxWidth: "260px",
-                  height: "44px",
-                  paddingLeft: "16px",
-                  paddingRight: "16px",
-                  boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "8px",
-                  outline: "1px #F0F2F6 solid",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "white",
-                }}
-              >
-                <img
-                  src="/dashboardIcons/search.svg"
-                  alt="Search"
-                  width={14}
-                  height={14}
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={handleSearchChange}
-                  placeholder="Search"
-                  className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
+          <PageHeader
+            title={`Hi, ${displayName}!`}
+            description="Your Setter Dashboard"
+            actions={
+              <>
+                <div className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#F0F2F6] bg-white">
+                  <img
+                    src="/dashboardIcons/bell.svg"
+                    alt="Bell"
+                    width={24}
+                    height={24}
+                  />
+                </div>
+                <form
+                  onSubmit={handleSearchSubmit}
                   style={{
-                    border: "none",
-                    fontFamily: "Inter, sans-serif",
                     width: "100%",
+                    maxWidth: "260px",
+                    height: "44px",
+                    paddingLeft: "16px",
+                    paddingRight: "16px",
+                    boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
+                    borderRadius: "8px",
+                    outline: "1px #F0F2F6 solid",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: "white",
                   }}
-                  aria-label="Search"
-                />
-              </form>
-            </div>
-          </header>
+                >
+                  <img
+                    src="/dashboardIcons/search.svg"
+                    alt="Search"
+                    width={14}
+                    height={14}
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={handleSearchChange}
+                    placeholder="Search"
+                    className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
+                    style={{
+                      border: "none",
+                      fontFamily: "Inter, sans-serif",
+                      width: "100%",
+                    }}
+                    aria-label="Search"
+                  />
+                </form>
+              </>
+            }
+          />
 
           <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
             {/* Metrics Grid */}

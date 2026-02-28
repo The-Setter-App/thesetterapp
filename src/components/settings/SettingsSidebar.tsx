@@ -49,15 +49,6 @@ export default function SettingsSidebar({ role }: { role: UserRole }) {
   return (
     <aside className="h-screen border-r border-[#F0F2F6] bg-white">
       <div className="flex h-full flex-col p-4 md:p-6">
-        <div className="mb-4 rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#606266]">
-            Settings
-          </p>
-          <p className="mt-1 text-sm font-medium text-[#101011]">
-            Workspace controls
-          </p>
-        </div>
-
         <nav className="flex gap-2 overflow-x-auto md:block md:space-y-2 md:overflow-visible">
           {settingsNavItems.map((item) => {
             const Icon = item.icon;

@@ -325,7 +325,6 @@ export default function TagsSettingsContent({
       ) : null}
 
       <SettingsSectionCard
-        badge="Tags"
         title="Tag management"
         description="Create and manage workspace tags used to label Inbox conversations."
       >

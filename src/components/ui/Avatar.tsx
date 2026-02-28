@@ -16,7 +16,7 @@ export function Avatar({ src, alt, fallback, size = 'md', className = '' }: Avat
   };
 
   return (
-    <div className={`relative inline-block rounded-full overflow-hidden bg-gray-100 ${sizes[size]} ${className}`}>
+    <div className={`relative inline-block rounded-full overflow-hidden bg-[#F4F5F8] ${sizes[size]} ${className}`}>
       <img 
         src={src || "/images/no_profile.jpg"} 
         alt={alt || fallback || "Avatar"} 
@@ -25,3 +25,4 @@ export function Avatar({ src, alt, fallback, size = 'md', className = '' }: Avat
     </div>
   );
 }
+

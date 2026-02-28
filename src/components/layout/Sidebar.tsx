@@ -35,7 +35,7 @@ const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: str
         className={`group flex items-center justify-center relative transition-colors duration-200 ${
           isActive 
             ? 'text-[#8771FF]' 
-            : 'text-gray-400 hover:text-gray-600'
+            : 'text-[#9A9CA2] hover:text-[#606266]'
         }`}
       >
         <div className="relative flex items-center justify-center">
@@ -107,10 +107,10 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
   const navItems = NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.viewer;
 
   return (
-    <div className="w-16 bg-white h-screen flex flex-col items-center py-6 border-r border-gray-100 fixed left-0 top-0 z-50">
+    <div className="w-16 bg-white h-screen flex flex-col items-center py-6 border-r border-[#F0F2F6] fixed left-0 top-0 z-50">
       {/* Profile Icon */}
       <div className="mb-8">
-        <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-100 relative">
+        <div className="w-9 h-9 rounded-full overflow-hidden border border-[#F0F2F6] relative">
            <img 
              src={profileImageBase64 || "/images/no_profile.jpg"}
              alt={`${displayName} avatar`}
@@ -131,7 +131,7 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
       <div className="mt-auto w-full flex justify-center mb-6">
         <button 
           onClick={() => setShowLogoutDialog(true)}
-          className="p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 group relative"
+          className="p-2 text-[#9A9CA2] hover:text-red-500 transition-colors duration-200 group relative"
           title="Logout"
         >
           <LogOut className="w-5 h-5" />
@@ -141,22 +141,22 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
       {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-[340px] overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl border border-[#F0F2F6] w-full max-w-[340px] overflow-hidden">
             {/* Dialog Body */}
             <div className="px-6 pt-7 pb-6 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#f0ecff] to-[#e8e3ff] flex items-center justify-center mb-4">
                 <LogOut className="w-5 h-5 text-[#8771FF]" />
               </div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">Log out of Setter?</h3>
-              <p className="text-sm text-gray-400">
+              <h3 className="text-base font-semibold text-[#101011] mb-1">Log out of Setter?</h3>
+              <p className="text-sm text-[#9A9CA2]">
                 You'll need to sign in again to access your account.
               </p>
             </div>
             {/* Dialog Footer */}
-            <div className="px-6 py-4 bg-[#FAFAFA] border-t border-gray-100 flex gap-3">
+            <div className="px-6 py-4 bg-[#FAFAFA] border-t border-[#F0F2F6] flex gap-3">
               <button 
                 onClick={() => setShowLogoutDialog(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-[#606266] bg-white border border-[#F0F2F6] hover:bg-[#F8F7FF] hover:border-[#F0F2F6] rounded-xl transition-all"
               >
                 Cancel
               </button>
@@ -180,3 +180,4 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
 };
 
 export default Sidebar;
+

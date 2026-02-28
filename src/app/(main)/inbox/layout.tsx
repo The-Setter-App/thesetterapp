@@ -121,7 +121,7 @@ export default function InboxLayout({
       }}
     >
       <InboxSseBridge />
-      <div className="relative flex h-screen overflow-hidden bg-stone-50 font-sans text-stone-900">
+      <div className="relative flex h-screen overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
           <div

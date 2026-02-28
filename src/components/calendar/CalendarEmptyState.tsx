@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function CalendarEmptyState() {
   return (
-    <section className="flex min-h-screen w-full items-center justify-center bg-[#F8F7FF] px-4 py-8 md:px-6 lg:px-8">
+    <section className="flex min-h-0 flex-1 w-full items-center justify-center bg-[#F8F7FF] px-4 py-8 md:px-6 lg:px-8">
       <div className="w-full max-w-3xl rounded-3xl border border-[#F0F2F6] bg-white p-6 shadow-sm md:p-10">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#D8D2FF] bg-[#F3F0FF] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#6d5ed6]">
           <CalendarClock size={14} />

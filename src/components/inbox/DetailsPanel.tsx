@@ -477,7 +477,7 @@ export default function DetailsPanel({
     const isActive = activeTab === tabName;
     return isActive
       ? "px-5 py-1.5 bg-[#8771FF] text-white rounded-full shadow-md text-xs font-semibold"
-      : "px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 cursor-pointer";
+      : "px-3 py-1.5 text-xs font-semibold text-[#606266] hover:text-[#101011] cursor-pointer";
   };
 
   const handleClearTimeline = useCallback(async () => {
@@ -512,10 +512,10 @@ export default function DetailsPanel({
         onCommitContactDetails={commitContactDetails}
       />
 
-      <hr className="border-gray-200" />
+      <hr className="border-[#F0F2F6]" />
 
       {/* Tab Bar */}
-      <div className="flex items-center justify-around px-2 py-2 border-b border-gray-200 text-sm font-semibold text-gray-500">
+      <div className="flex items-center justify-around px-2 py-2 border-b border-[#F0F2F6] text-sm font-semibold text-[#606266]">
         {DETAILS_TABS.map((tab) => (
           <button
             key={tab}
@@ -553,3 +553,4 @@ export default function DetailsPanel({
     </aside>
   );
 }
+

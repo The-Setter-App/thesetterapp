@@ -100,7 +100,6 @@ export default async function SettingsSocialsPage({
       )}
 
       <SettingsSectionCard
-        badge="Socials"
         title="Instagram account connections"
         description="Connect and manage Instagram business accounts used by Inbox."
       >

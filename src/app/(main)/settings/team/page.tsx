@@ -88,7 +88,6 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
   if (user.role === 'viewer') {
     return (
       <SettingsSectionCard
-        badge="Team"
         title="Team access requires an active subscription"
         description="Viewer accounts cannot access team management yet."
       >
@@ -135,7 +134,6 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
       )}
 
       <SettingsSectionCard
-        badge="Team"
         title="Team workspace settings"
         description="Assign Setter and Closer roles for your shared workspace."
       >

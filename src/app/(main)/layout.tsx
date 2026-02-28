@@ -18,7 +18,7 @@ export default async function MainLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-[#F8F7FF]">
       <InboxCacheWarmupWorker />
       <InboxRealtimeCacheWorker enabled={canAccessInbox(user.role)} />
       <LeadsCacheWarmupWorker enabled={canAccessInbox(user.role)} />

@@ -61,16 +61,7 @@ export default function ChatSidebar({
 
   return (
     <aside className="w-full border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 lg:h-full lg:w-[320px] lg:shrink-0 lg:border-b-0 lg:border-r">
-      <div className="mb-3">
-        <h2 className="text-base font-semibold text-[#101011] md:text-lg">
-          Setter AI
-        </h2>
-        <p className="mt-1 text-xs text-[#606266]">
-          Real-time coaching for every lead conversation.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3 lg:h-[calc(100%-58px)]">
+      <div className="flex h-full min-h-0 flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-wide text-[#606266]">
             Your chats

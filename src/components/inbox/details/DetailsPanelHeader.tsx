@@ -141,22 +141,22 @@ export default function DetailsPanelHeader({
       />
 
       {/* Name & Handle */}
-      <h3 className="font-bold text-xl text-gray-900">{displayName}</h3>
-      <p className="text-sm text-gray-500 mb-5">{user.name}</p>
+      <h3 className="font-bold text-xl text-[#101011]">{displayName}</h3>
+      <p className="text-sm text-[#606266] mb-5">{user.name}</p>
 
       {/* Status Button */}
       <div className="relative w-full mb-4">
         <button
           onClick={() => setShowStatusDropdown(!showStatusDropdown)}
           disabled={isUpdating}
-          className="flex items-center justify-center w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center justify-center w-full px-4 py-3 bg-white border border-[#F0F2F6] rounded-xl shadow-sm hover:bg-[#F8F7FF] disabled:opacity-50"
         >
           <StatusIcon status={currentStatus} className="w-5 h-5 mr-2" />
-          <span className="text-sm font-bold text-gray-800">
+          <span className="text-sm font-bold text-[#101011]">
             {currentStatus} {isUpdating ? "..." : "- Update"}
           </span>
           <svg
-            className={`w-4 h-4 text-gray-400 ml-2 transition-transform ${
+            className={`w-4 h-4 text-[#9A9CA2] ml-2 transition-transform ${
               showStatusDropdown ? "rotate-90" : ""
             }`}
             fill="none"
@@ -174,7 +174,7 @@ export default function DetailsPanelHeader({
 
         {/* Status Dropdown Menu */}
         {showStatusDropdown && !isUpdating && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#F0F2F6] rounded-xl shadow-lg z-50 overflow-hidden">
             <div className="max-h-64 overflow-y-auto">
               {STATUS_OPTIONS.map((status) => (
                 <button
@@ -183,7 +183,7 @@ export default function DetailsPanelHeader({
                   className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center ${
                     currentStatus === status
                       ? "bg-[#8771FF] text-white" // No hover for selected
-                      : "text-gray-700 hover:bg-gray-50"
+                      : "text-[#606266] hover:bg-[#F8F7FF]"
                   }`}
                   disabled={isUpdating}
                 >
@@ -198,7 +198,7 @@ export default function DetailsPanelHeader({
 
       {/* Contact Fields */}
       <div className="w-full space-y-0">
-        <div className={`flex items-center justify-between p-3 bg-white rounded-t-xl border border-b-0 group shadow-sm ${phoneValid ? "border-gray-200" : "border-rose-300"}`}>
+        <div className={`flex items-center justify-between p-3 bg-white rounded-t-xl border border-b-0 group shadow-sm ${phoneValid ? "border-[#F0F2F6]" : "border-rose-300"}`}>
           <input
             type="text"
             placeholder="Phone Number"
@@ -213,18 +213,18 @@ export default function DetailsPanelHeader({
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
+            className="text-sm text-[#606266] px-1 w-full bg-transparent outline-none"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.phoneNumber, "phone")}
-            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+            className="ml-2 inline-flex items-center text-[10px] text-[#606266] hover:text-[#606266]"
           >
-            <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+            <CopyIcon className="w-4 h-4 text-[#B0B3BA] group-hover:text-[#606266]" />
             <span className="ml-1">{copiedField === "phone" ? "Copied" : "Copy"}</span>
           </button>
         </div>
-        <div className={`flex items-center justify-between p-3 bg-white rounded-b-xl border group shadow-sm ${emailValid ? "border-gray-200" : "border-rose-300"}`}>
+        <div className={`flex items-center justify-between p-3 bg-white rounded-b-xl border group shadow-sm ${emailValid ? "border-[#F0F2F6]" : "border-rose-300"}`}>
           <input
             type="email"
             placeholder="Email"
@@ -234,14 +234,14 @@ export default function DetailsPanelHeader({
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="text-sm text-gray-700 px-1 w-full bg-transparent outline-none"
+            className="text-sm text-[#606266] px-1 w-full bg-transparent outline-none"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.email, "email")}
-            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+            className="ml-2 inline-flex items-center text-[10px] text-[#606266] hover:text-[#606266]"
           >
-            <CopyIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+            <CopyIcon className="w-4 h-4 text-[#B0B3BA] group-hover:text-[#606266]" />
             <span className="ml-1">{copiedField === "email" ? "Copied" : "Copy"}</span>
           </button>
         </div>
@@ -249,18 +249,18 @@ export default function DetailsPanelHeader({
 
       {/* Setter & Closer Cards */}
       <div className="flex w-full mt-3 space-x-3">
-        <div className="flex-1 p-2 border border-gray-200 rounded-xl flex items-center bg-white shadow-sm">
+        <div className="flex-1 p-2 border border-[#F0F2F6] rounded-xl flex items-center bg-white shadow-sm">
           <div className="flex flex-col ml-1">
-            <div className="text-[10px] text-gray-400 mb-0.5">Setter</div>
+            <div className="text-[10px] text-[#9A9CA2] mb-0.5">Setter</div>
             <div className="flex items-center">
               <img src="https://randomuser.me/api/portraits/men/8.jpg" className="w-6 h-6 rounded-full mr-2" alt="Setter" />
               <div className="text-xs font-bold truncate">Caleb Bruiners</div>
             </div>
           </div>
         </div>
-        <div className="flex-1 p-2 border border-gray-200 rounded-xl flex items-center bg-white shadow-sm">
+        <div className="flex-1 p-2 border border-[#F0F2F6] rounded-xl flex items-center bg-white shadow-sm">
           <div className="flex flex-col ml-1">
-            <div className="text-[10px] text-gray-400 mb-0.5">Closer</div>
+            <div className="text-[10px] text-[#9A9CA2] mb-0.5">Closer</div>
             <div className="flex items-center">
               <img src="https://randomuser.me/api/portraits/men/9.jpg" className="w-6 h-6 rounded-full mr-2" alt="Closer" />
               <div className="text-xs font-bold truncate">Andrew James</div>
@@ -271,3 +271,4 @@ export default function DetailsPanelHeader({
     </div>
   );
 }
+

@@ -103,7 +103,7 @@ export default function ConversationList({
         return (
           <div
             key={u.id}
-            className={`group flex items-center px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 hover:z-50 relative ${
+            className={`group flex items-center px-4 py-3 border-b border-[#F0F2F6] cursor-pointer hover:bg-[#F8F7FF] hover:z-50 relative ${
               selectedUserId === u.id ? "bg-blue-50/50" : ""
             }`}
             onClick={() => onSelectUser(u.id)}
@@ -123,7 +123,7 @@ export default function ConversationList({
 
               <div className="flex-1 min-w-0 ml-3 mr-2">
                 <div className="flex items-center mb-0.5">
-                  <span className="font-bold text-sm text-gray-900 truncate">
+                  <span className="font-bold text-sm text-[#101011] truncate">
                     {u.name?.replace("@", "")}
                   </span>
                   {u.verified && (
@@ -131,15 +131,15 @@ export default function ConversationList({
                       <VerifiedIcon />
                     </span>
                   )}
-                  <span className="text-[10px] text-gray-400 ml-2 whitespace-nowrap">
+                  <span className="text-[10px] text-[#9A9CA2] ml-2 whitespace-nowrap">
                     {u.time}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 truncate">
+                <div className="text-xs text-[#606266] truncate">
                   {u.lastMessage}
                 </div>
                 {u.accountLabel && (
-                  <div className="mt-1 text-[10px] text-stone-500 truncate">
+                  <div className="mt-1 text-[10px] text-[#606266] truncate">
                     Account: {u.accountLabel}
                   </div>
                 )}
@@ -191,9 +191,9 @@ export default function ConversationList({
                     onClick={() => onAction(u.id, "qualified")}
                     tabIndex={-1}
                   >
-                    <StarIcon className="w-4 h-4 text-gray-700 group-hover/act:text-yellow-400" />
+                    <StarIcon className="w-4 h-4 text-[#606266] group-hover/act:text-yellow-400" />
                   </button>
-                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                     Mark as qualified
                   </span>
                 </div>
@@ -205,9 +205,9 @@ export default function ConversationList({
                     onClick={() => onAction(u.id, "delete")}
                     tabIndex={-1}
                   >
-                    <XIcon className="w-4 h-4 text-gray-700 group-hover/act:text-red-500" />
+                    <XIcon className="w-4 h-4 text-[#606266] group-hover/act:text-red-500" />
                   </button>
-                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                     Unqualify and remove user from inbox
                   </span>
                 </div>
@@ -222,10 +222,10 @@ export default function ConversationList({
                     tabIndex={-1}
                   >
                     <FolderMoveIcon
-                      className={`w-4 h-4 text-gray-700 ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
+                      className={`w-4 h-4 text-[#606266] ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
                     />
                   </button>
-                  <span className="pointer-events-none text-[8px] text-gray-300 bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
                     {u.isPriority
                       ? "Remove from priority inbox"
                       : "Move to priority inbox"}
@@ -238,3 +238,4 @@ export default function ConversationList({
     </div>
   );
 }
+

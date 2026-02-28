@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudDownload, Search, Trash2 } from "lucide-react";
+import PageHeader from "@/components/layout/PageHeader";
 
 interface LeadsHeaderProps {
   totalCount: number;
@@ -14,24 +15,16 @@ export default function LeadsHeader({
   onSearchChange,
 }: LeadsHeaderProps) {
   return (
-    <div className="border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 md:py-5 lg:px-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#101011] md:text-2xl">
-              Leads
-            </h1>
-            <span className="rounded-full bg-[#F3F0FF] px-2.5 py-1 text-xs font-semibold text-[#8771FF]">
-              {totalCount}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-[#606266] md:text-sm">
-            One calendar showing all calls, outcomes, and revenue across your
-            team.
-          </p>
-        </div>
-
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+    <PageHeader
+      title="Leads"
+      description="One calendar showing all calls, outcomes, and revenue across your team."
+      titleBadge={
+        <span className="rounded-full bg-[#F3F0FF] px-2.5 py-1 text-xs font-semibold text-[#8771FF]">
+          {totalCount}
+        </span>
+      }
+      actions={
+        <>
           <button
             type="button"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#F0F2F6] bg-white px-4 text-sm font-medium text-[#101011] transition-colors hover:bg-[#F8F7FF]"
@@ -59,8 +52,8 @@ export default function LeadsHeader({
               className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white pl-9 pr-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none transition-colors hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
             />
           </div>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
