@@ -34,7 +34,7 @@ export default function CustomCheckbox({
             ? "border-2 border-[#8771FF] bg-white"
             : checked
               ? "bg-[#8771FF] border-[#8771FF] border-2"
-              : "bg-white border-gray-300 hover:border-gray-400 border-2"
+              : "bg-white border-[#F0F2F6] hover:border-[#F0F2F6] border-2"
         }
       `}
       >
@@ -54,3 +54,4 @@ export default function CustomCheckbox({
     </label>
   );
 }
+

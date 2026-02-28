@@ -17,7 +17,7 @@ const EyeIcon = ({ className }: { className?: string }) => (
 
 export default function ChatHeader({ user, showVisible, onToggleVisible }: ChatHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+    <div className="flex items-center justify-between px-6 py-4 border-b border-[#F0F2F6] flex-shrink-0">
       <div className="flex items-center">
         <img 
           src={user?.avatar || "/images/no_profile.jpg"} 
@@ -25,18 +25,18 @@ export default function ChatHeader({ user, showVisible, onToggleVisible }: ChatH
           className="w-10 h-10 rounded-full object-cover mr-3" 
         />
         <div>
-          <div className="font-bold text-sm text-gray-900">{user?.name?.replace('@', '') || 'Loading...'}</div>
-          <div className="text-xs text-gray-400">{user?.name || ''}</div>
+          <div className="font-bold text-sm text-[#101011]">{user?.name?.replace('@', '') || 'Loading...'}</div>
+          <div className="text-xs text-[#9A9CA2]">{user?.name || ''}</div>
         </div>
       </div>
       <div className="flex items-center">
         <button onClick={onToggleVisible} className="mr-4 focus:outline-none">
           {showVisible ? (
-            <div className="flex items-center justify-center w-7 h-7 rounded-md border border-gray-200">
-              <EyeIcon className="w-4 h-4 text-gray-500" />
+            <div className="flex items-center justify-center w-7 h-7 rounded-md border border-[#F0F2F6]">
+              <EyeIcon className="w-4 h-4 text-[#606266]" />
             </div>
           ) : (
-            <div className="flex items-center justify-center w-7 h-7 rounded-md border border-gray-200">
+            <div className="flex items-center justify-center w-7 h-7 rounded-md border border-[#F0F2F6]">
               <img src="/icons/Hidden.svg" alt="Hidden" className="w-4 h-4" />
             </div>
           )}

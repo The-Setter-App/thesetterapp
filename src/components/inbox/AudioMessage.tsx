@@ -107,7 +107,7 @@ export default function AudioMessage({
   return (
     <div 
       className={`relative isolate flex items-center px-2 py-2 gap-3 w-[226px] h-[48px] rounded-[24px] shadow-[0px_4px_4px_rgba(0,0,0,0.1)] ${
-        isOwn ? 'bg-[#8771FF]' : 'bg-white border border-gray-200'
+        isOwn ? 'bg-[#8771FF]' : 'bg-white border border-[#F0F2F6]'
       }`}
     >
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
@@ -143,12 +143,12 @@ export default function AudioMessage({
       </div>
 
       {/* Timestamp: z-index: 4 */}
-      <div className={`relative z-[4] font-medium text-[12px] leading-[16px] whitespace-nowrap ${isOwn ? 'text-white' : 'text-gray-600'}`} style={{ opacity: 0.8 }}>
+      <div className={`relative z-[4] font-medium text-[12px] leading-[16px] whitespace-nowrap ${isOwn ? 'text-white' : 'text-[#606266]'}`} style={{ opacity: 0.8 }}>
         {isPlaying ? formatDurationDisplay(currentTime) : displayDuration}
       </div>
 
       {/* Volume Icon: z-index: 5 */}
-      <div className={`relative z-[5] flex-shrink-0 ${isOwn ? 'text-white' : 'text-gray-500'}`} style={{ opacity: 0.7 }}>
+      <div className={`relative z-[5] flex-shrink-0 ${isOwn ? 'text-white' : 'text-[#606266]'}`} style={{ opacity: 0.7 }}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
         </svg>
@@ -156,3 +156,4 @@ export default function AudioMessage({
     </div>
   );
 }
+

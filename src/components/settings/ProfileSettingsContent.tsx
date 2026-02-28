@@ -138,7 +138,6 @@ export default function ProfileSettingsContent({ user }: { user: AppUser }) {
       ) : null}
 
       <SettingsSectionCard
-        badge="Profile"
         title="Your account profile"
         description="Set your name and avatar used throughout the workspace."
       >

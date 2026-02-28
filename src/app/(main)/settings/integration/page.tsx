@@ -30,7 +30,6 @@ export default async function SettingsIntegrationPage() {
 
   return (
     <SettingsSectionCard
-      badge="Integration"
       title="Workflow integrations"
       description="Connect the channels and workspace tools that power your lead conversations and pipeline."
     >

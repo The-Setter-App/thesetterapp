@@ -72,20 +72,6 @@ export default function ChatArea({
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col bg-[#F8F7FF]">
-      <header className="border-b border-[#F0F2F6] bg-white px-4 py-3 md:px-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold text-[#101011] md:text-lg">
-              Setter AI
-            </h1>
-            <p className="text-xs text-[#606266] md:text-sm">
-              AI copilot for lead conversations, objection handling, and booking
-              replies.
-            </p>
-          </div>
-        </div>
-      </header>
-
       <div className="min-h-0 flex-1 overflow-hidden px-4 md:px-6">
         <div ref={scrollContainerRef} className="h-full overflow-y-auto">
           <div

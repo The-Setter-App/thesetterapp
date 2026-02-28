@@ -160,9 +160,9 @@ export default function ChatWindow({
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
         {[1, 2, 3].map((i) => (
           <div key={i} className={`flex flex-col ${i % 2 === 0 ? 'items-end' : 'items-start'}`}>
-            <div className={`rounded-2xl p-4 max-w-[60%] animate-pulse ${i % 2 === 0 ? 'bg-[#F3F0FF]' : 'bg-gray-100'}`}>
-              <div className={`h-4 bg-gray-200 rounded mb-2 ${i % 2 === 0 ? 'w-48' : 'w-32'}`}></div>
-              <div className="h-3 w-20 bg-gray-200 rounded"></div>
+            <div className={`rounded-2xl p-4 max-w-[60%] animate-pulse ${i % 2 === 0 ? 'bg-[#F3F0FF]' : 'bg-[#F4F5F8]'}`}>
+              <div className={`h-4 bg-[#F0F2F6] rounded mb-2 ${i % 2 === 0 ? 'w-48' : 'w-32'}`}></div>
+              <div className="h-3 w-20 bg-[#F0F2F6] rounded"></div>
             </div>
           </div>
         ))}
@@ -187,12 +187,12 @@ export default function ChatWindow({
                 type="button"
                 onClick={onLoadMore}
                 disabled={loadingOlder}
-                className="h-11 rounded-full bg-stone-100 px-4 text-xs font-medium text-stone-800 transition-colors hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-11 rounded-full bg-[#F4F5F8] px-4 text-xs font-medium text-[#101011] transition-colors hover:bg-[#F0F2F6] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loadingOlder ? 'Loading older messages...' : 'Load more messages'}
               </button>
             ) : (
-              <div className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
+              <div className="rounded-full bg-[#F4F5F8] px-3 py-1 text-xs text-[#606266]">
                 No more messages
               </div>
             )}
@@ -209,7 +209,7 @@ export default function ChatWindow({
               <div key={msg.id}>
                 {showSeparator && separatorLabel && (
                   <div className="my-3 flex justify-center">
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-medium text-stone-600">
+                    <span className="rounded-full bg-[#F4F5F8] px-3 py-1 text-[11px] font-medium text-[#606266]">
                       {separatorLabel}
                     </span>
                   </div>
@@ -233,10 +233,10 @@ export default function ChatWindow({
                     {msg.type === 'image' && msg.attachmentUrl && (
                       <div>
                         <div
-                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
                         >
                           {!loadedMediaByMessageId[msg.id] && (
-                            <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
                           )}
                           <img
                             src={msg.attachmentUrl}
@@ -250,23 +250,23 @@ export default function ChatWindow({
                           />
                         </div>
                         {msg.text && (
-                          <p className={`mt-1 text-xs ${msg.fromMe ? 'text-stone-200 text-right' : 'text-stone-600 text-left'}`}>
+                          <p className={`mt-1 text-xs ${msg.fromMe ? 'text-[#ECE9FF] text-right' : 'text-[#606266] text-left'}`}>
                             {msg.text}
                           </p>
                         )}
                       </div>
                     )}
                     {msg.type === 'image' && !msg.attachmentUrl && (
-                      <div className="px-3 py-2 text-xs text-stone-600">Image unavailable</div>
+                      <div className="px-3 py-2 text-xs text-[#606266]">Image unavailable</div>
                     )}
 
                     {msg.type === 'video' && msg.attachmentUrl && (
                       <div>
                         <div
-                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-stone-100 ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? '' : 'min-h-[220px]'}`}
                         >
                           {!loadedMediaByMessageId[msg.id] && (
-                            <div className="absolute inset-0 animate-pulse bg-stone-200/70" />
+                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
                           )}
                           <video
                             src={msg.attachmentUrl}
@@ -303,9 +303,9 @@ export default function ChatWindow({
                     )}
                   </div>
                   {msg.pending && !msg.clientAcked && msg.fromMe && (
-                    <div className="mt-1 mr-1 text-[10px] text-stone-500">Sending...</div>
+                    <div className="mt-1 mr-1 text-[10px] text-[#606266]">Sending...</div>
                   )}
-                  {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
+                  {msg.status === 'Read' && <div className="text-[10px] text-[#9A9CA2] mt-1 mr-1">Read</div>}
                 </div>
               </div>
             );
@@ -324,7 +324,7 @@ export default function ChatWindow({
           <button
             type="button"
             aria-label="Close image preview"
-            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-stone-900 transition-colors hover:bg-white"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#101011] transition-colors hover:bg-white"
             onClick={() => setSelectedImage(null)}
           >
             <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -343,3 +343,4 @@ export default function ChatWindow({
     </div>
   );
 }
+

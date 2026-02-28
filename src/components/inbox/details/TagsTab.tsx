@@ -75,8 +75,8 @@ export default function TagsTab({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
-      <div className="border-b border-gray-200 px-4 py-3">
-        <div className="mb-2 text-xs font-semibold text-gray-500">
+      <div className="border-b border-[#F0F2F6] px-4 py-3">
+        <div className="mb-2 text-xs font-semibold text-[#606266]">
           Selected tags ({selectedTagIds.length}/{MAX_CONVERSATION_TAGS})
         </div>
 
@@ -95,7 +95,7 @@ export default function TagsTab({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-gray-400">No tags assigned yet.</p>
+          <p className="text-xs text-[#9A9CA2]">No tags assigned yet.</p>
         )}
 
         <div className="relative mt-3">
@@ -120,11 +120,11 @@ export default function TagsTab({
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {loading ? (
-          <div className="px-2 py-6 text-center text-xs font-medium text-gray-500">
+          <div className="px-2 py-6 text-center text-xs font-medium text-[#606266]">
             Loading tags...
           </div>
         ) : filteredTags.length === 0 ? (
-          <div className="px-2 py-6 text-center text-xs font-medium text-gray-500">
+          <div className="px-2 py-6 text-center text-xs font-medium text-[#606266]">
             No tags found.
           </div>
         ) : (
@@ -166,3 +166,4 @@ export default function TagsTab({
     </div>
   );
 }
+

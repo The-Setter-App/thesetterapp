@@ -118,7 +118,7 @@ export default function FilterModal({
                 <Image src="/all-team.svg" alt="All team" width={16} height={16} />
                 All team members
               </span>
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+              <ChevronDownIcon className="w-4 h-4 text-[#9A9CA2]" />
             </div>
           </div>
           <div className="space-y-1">
@@ -177,3 +177,4 @@ export default function FilterModal({
     </div>
   );
 }
+

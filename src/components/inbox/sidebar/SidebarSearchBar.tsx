@@ -18,7 +18,7 @@ export default function SidebarSearchBar({
       <div className="flex gap-2">
         <div className="relative flex-1">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <SearchIcon className="h-4 w-4 text-gray-400" />
+            <SearchIcon className="h-4 w-4 text-[#9A9CA2]" />
           </span>
           <input
             className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white pl-9 pr-3 text-sm font-medium text-[#101011] placeholder:text-[#9A9CA2] outline-none transition-colors hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
@@ -31,7 +31,7 @@ export default function SidebarSearchBar({
         <button
           type="button"
           onClick={onOpenFilters}
-          className="px-3 py-2 bg-white border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 flex items-center"
+          className="px-3 py-2 bg-white border border-[#F0F2F6] rounded-lg text-sm font-semibold text-[#606266] shadow-sm hover:bg-[#F8F7FF] flex items-center"
         >
           <FilterIcon className="w-4 h-4 mr-1.5" />
           Filter
@@ -45,3 +45,4 @@ export default function SidebarSearchBar({
     </div>
   );
 }
+

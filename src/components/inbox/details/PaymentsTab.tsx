@@ -60,7 +60,7 @@ function formatCurrency(amount: number): string {
 }
 
 function Hint({ text }: { text: string }) {
-  return <p className="mt-1 text-[11px] text-gray-400">{text}</p>;
+  return <p className="mt-1 text-[11px] text-[#9A9CA2]">{text}</p>;
 }
 
 export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
@@ -74,9 +74,9 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
     <div className="p-6 overflow-y-auto pb-20">
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Amount</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Amount</label>
           <input
-            className={`h-11 border rounded-lg px-3 bg-white text-sm font-medium text-gray-900 w-full outline-none ${amountValid ? "border-gray-200" : "border-rose-300"}`}
+            className={`h-11 border rounded-lg px-3 bg-white text-sm font-medium text-[#101011] w-full outline-none ${amountValid ? "border-[#F0F2F6]" : "border-rose-300"}`}
             value={value.amount}
             placeholder="Ex: 4000 or $4,000"
             onChange={(e) => onChange({ ...value, amount: e.target.value })}
@@ -84,7 +84,7 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
           <Hint text={amountValid ? "Type total deal amount in USD." : "Amount must be numeric."} />
         </div>
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Method</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Payment Method</label>
           <FieldDropdown
             value={value.paymentMethod}
             options={PAYMENT_METHOD_OPTIONS}
@@ -97,7 +97,7 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Pay Option</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Pay Option</label>
           <FieldDropdown
             value={value.payOption}
             options={PAY_OPTION_OPTIONS}
@@ -107,7 +107,7 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
           <Hint text="Pick one-time or installment count." />
         </div>
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Frequency</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Payment Frequency</label>
           <FieldDropdown
             value={value.paymentFrequency}
             options={PAYMENT_FREQUENCY_OPTIONS}
@@ -120,15 +120,15 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Setter Commission</label>
-          <div className="h-11 border border-gray-200 rounded-lg px-3 bg-stone-50 text-sm text-gray-700 flex items-center">
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Setter Commission</label>
+          <div className="h-11 border border-[#F0F2F6] rounded-lg px-3 bg-[#F8F7FF] text-sm text-[#606266] flex items-center">
             {formatCurrency(setterCommission)}
           </div>
           <Hint text="Auto-calculated at 5% of amount." />
         </div>
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Closer Commission</label>
-          <div className="h-11 border border-gray-200 rounded-lg px-3 bg-stone-50 text-sm text-gray-700 flex items-center">
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Closer Commission</label>
+          <div className="h-11 border border-[#F0F2F6] rounded-lg px-3 bg-[#F8F7FF] text-sm text-[#606266] flex items-center">
             {formatCurrency(closerCommission)}
           </div>
           <Hint text="Auto-calculated at 5% of amount." />
@@ -137,7 +137,7 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Setter Paid</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Setter Paid</label>
           <FieldDropdown
             value={value.setterPaid}
             options={PAID_OPTIONS}
@@ -147,7 +147,7 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
           <Hint text="Mark if setter commission was paid." />
         </div>
         <div>
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Closer Paid</label>
+          <label className="text-xs text-[#606266] font-medium mb-1 block">Closer Paid</label>
           <FieldDropdown
             value={value.closerPaid}
             options={PAID_OPTIONS}
@@ -159,9 +159,9 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
       </div>
 
       <div className="mb-4">
-        <label className="text-xs text-gray-600 font-medium mb-1 block">Payment Notes</label>
+        <label className="text-xs text-[#606266] font-medium mb-1 block">Payment Notes</label>
         <textarea
-          className="border border-gray-200 rounded-lg p-2.5 bg-white text-sm text-gray-800 h-28 w-full resize-none outline-none"
+          className="border border-[#F0F2F6] rounded-lg p-2.5 bg-white text-sm text-[#101011] h-28 w-full resize-none outline-none"
           value={value.paymentNotes}
           placeholder="Add transaction context, receipts, or follow-up notes"
           onChange={(e) => onChange({ ...value, paymentNotes: e.target.value })}
@@ -171,3 +171,4 @@ export default function PaymentsTab({ value, onChange }: PaymentsTabProps) {
     </div>
   );
 }
+

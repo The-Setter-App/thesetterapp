@@ -4,15 +4,15 @@ export function SidebarNoConnectedAccountsState() {
   return (
     <div className="h-full flex items-center justify-center p-6">
       <div className="text-center">
-        <p className="text-sm font-semibold text-gray-800">
+        <p className="text-sm font-semibold text-[#101011]">
           No connected accounts yet
         </p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="mt-1 text-xs text-[#606266]">
           Connect an Instagram account in Settings to start syncing.
         </p>
         <Link
           href="/settings"
-          className="inline-flex mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800"
+          className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-[#8771FF] px-4 text-sm font-medium text-white transition-colors hover:bg-[#6d5ed6]"
         >
           Go to Settings
         </Link>
@@ -57,7 +57,7 @@ export function SidebarEmptyState({
 }: SidebarEmptyStateProps) {
   return (
     <div className="flex h-full items-center justify-center p-6 text-center">
-      <p className="text-sm font-medium text-stone-500">
+      <p className="text-sm font-medium text-[#606266]">
         {hasActiveFilters
           ? "No conversations match your filters."
           : "No conversations yet."}

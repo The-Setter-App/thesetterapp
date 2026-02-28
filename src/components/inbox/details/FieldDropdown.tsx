@@ -36,27 +36,27 @@ export default function FieldDropdown({ value, options, placeholder, onChange }:
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
-        className="h-11 w-full border border-gray-200 rounded-lg px-3 bg-white text-sm text-gray-900 flex items-center justify-between"
+        className="h-11 w-full border border-[#F0F2F6] rounded-lg px-3 bg-white text-sm text-[#101011] flex items-center justify-between"
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <span className="flex items-center min-w-0">
           {selected?.iconSrc ? <img src={selected.iconSrc} alt={selected.label} className="w-4 h-4 mr-2 shrink-0" /> : null}
-          <span className={`truncate ${selected ? "text-gray-900" : "text-gray-400"}`}>
+          <span className={`truncate ${selected ? "text-[#101011]" : "text-[#9A9CA2]"}`}>
             {selected?.label || placeholder || "Select an option"}
           </span>
         </span>
-        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4 text-[#9A9CA2] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {isOpen ? (
-        <div className="absolute z-20 mt-1 w-full bg-white rounded-lg shadow-md max-h-64 overflow-auto border border-gray-200">
+        <div className="absolute z-20 mt-1 w-full bg-white rounded-lg shadow-md max-h-64 overflow-auto border border-[#F0F2F6]">
           {options.map((option) => (
             <button
               key={option.value}
               type="button"
-              className="w-full text-left flex items-center justify-between p-2.5 hover:bg-gray-50"
+              className="w-full text-left flex items-center justify-between p-2.5 hover:bg-[#F8F7FF]"
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);
@@ -64,7 +64,7 @@ export default function FieldDropdown({ value, options, placeholder, onChange }:
             >
               <span className="flex items-center min-w-0">
                 {option.iconSrc ? <img src={option.iconSrc} alt={option.label} className="w-4 h-4 mr-2 shrink-0" /> : null}
-                <span className="text-sm text-gray-900 truncate">{option.label}</span>
+                <span className="text-sm text-[#101011] truncate">{option.label}</span>
               </span>
               {value === option.value ? (
                 <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
@@ -78,3 +78,4 @@ export default function FieldDropdown({ value, options, placeholder, onChange }:
     </div>
   );
 }
+
