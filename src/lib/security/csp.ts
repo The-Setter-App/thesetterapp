@@ -5,6 +5,7 @@ const BASE_DIRECTIVES: Record<string, string[]> = {
   "frame-ancestors": ["'none'"],
   "object-src": ["'none'"],
   "img-src": ["'self'", "data:", "blob:", "https:"],
+  "media-src": ["'self'", "blob:", "https:"],
   "font-src": ["'self'", "data:"],
   "connect-src": [
     "'self'",
