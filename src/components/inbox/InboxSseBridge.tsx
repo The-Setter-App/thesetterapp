@@ -6,7 +6,7 @@ import {
   getCachedUsers,
   setCachedUsers,
   updateCachedMessages,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import {
   emitInboxRealtimeMessage,
   emitInboxSseEvent,

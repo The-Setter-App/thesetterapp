@@ -1,6 +1,6 @@
 'use client';
 
-import { getCachedUsers, setCachedUsers } from '@/lib/clientCache';
+import { getCachedUsers, setCachedUsers } from '@/lib/cache';
 
 interface ConversationPreviewUpdateParams {
   conversationId: string;

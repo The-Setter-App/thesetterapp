@@ -1,7 +1,7 @@
 'use client';
 
 import { getInboxConnectionState, getInboxUsers } from "@/app/actions/inbox";
-import { getCachedLeads, getCachedLeadsTimestamp, setCachedLeads } from "@/lib/clientCache";
+import { getCachedLeads, getCachedLeadsTimestamp, setCachedLeads } from "@/lib/cache";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 
 export const LEADS_CACHE_TTL_MS = 2 * 60 * 1000;

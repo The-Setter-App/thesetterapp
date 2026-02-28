@@ -5,7 +5,7 @@ import {
   setCachedSetterAiMessages,
   setCachedSetterAiSessions,
   unmarkDeletedSetterAiSessionId,
-} from "@/lib/setterAiCache";
+} from "@/lib/cache";
 import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
 import type { Message } from "@/types/ai";
 

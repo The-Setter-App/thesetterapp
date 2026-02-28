@@ -6,7 +6,7 @@ import {
   setCachedMessagePageMeta,
   setCachedMessages,
   setCachedUsers,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import type { MessagePageResponse, User } from "@/types/inbox";
 

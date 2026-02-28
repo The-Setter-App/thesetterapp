@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { setCachedConversationDetails } from "@/lib/cache";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
-import { setCachedConversationDetails } from "@/lib/clientCache";
-import {
-  loadInboxTagCatalog,
-} from "@/lib/inbox/clientTagCatalog";
+import { loadInboxTagCatalog } from "@/lib/inbox/clientTagCatalog";
 import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
 import {
   emitConversationTagsSynced,
@@ -16,10 +14,10 @@ import type {
   ConversationDetails,
   ConversationTimelineEvent,
   PaymentDetails,
+  SSEEvent,
   StatusType,
   User,
 } from "@/types/inbox";
-import type { SSEEvent } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 import CallsTab from "./details/CallsTab";
 import DetailsPanelHeader from "./details/DetailsPanelHeader";
@@ -47,6 +45,7 @@ const DETAILS_TABS: DetailsTabName[] = [
 ];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-() ]+$/;
+const CONTACT_AUTOSAVE_DEBOUNCE_MS = 180;
 
 function isContactDetailsValid(details: ConversationContactDetails): boolean {
   const email = details.email.trim();
@@ -64,14 +63,12 @@ interface DetailsPanelProps {
   user: User;
   width?: number;
   syncedDetails?: ConversationDetails | null;
-  syncedAt?: number;
 }
 
 export default function DetailsPanel({
   user,
   width,
   syncedDetails,
-  syncedAt,
 }: DetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailsTabName>("Summary");
   const [notes, setNotes] = useState("");
@@ -99,7 +96,11 @@ export default function DetailsPanel({
   const tagCatalogRefreshInFlightRef = useRef(false);
   const isMountedRef = useRef(true);
   const contactSaveAbortRef = useRef<AbortController | null>(null);
+  const contactSaveTimerRef = useRef<number | null>(null);
+  const lastSavedNotesRef = useRef<string>("");
+  const lastSavedPaymentDetailsRef = useRef<string>("");
   const lastSavedContactDetailsRef = useRef<string>("");
+  const lastSavedTagIdsRef = useRef<string>("");
   const syncDetailsCache = useCallback(
     async (overrides?: Partial<ConversationDetails>) => {
       if (!user.id) return;
@@ -173,12 +174,8 @@ export default function DetailsPanel({
     setDetailsLoaded(false);
 
     const applyDetails = (details: ConversationDetails | null | undefined) => {
-      const nextContactDetails: ConversationContactDetails = {
-        phoneNumber: details?.contactDetails?.phoneNumber ?? "",
-        email: details?.contactDetails?.email ?? "",
-      };
-      setNotes(details?.notes ?? "");
-      setPaymentDetails({
+      const nextNotes = details?.notes ?? "";
+      const nextPaymentDetails: PaymentDetails = {
         amount: details?.paymentDetails?.amount ?? "",
         paymentMethod: details?.paymentDetails?.paymentMethod ?? "Fanbasis",
         payOption: details?.paymentDetails?.payOption ?? "One Time",
@@ -187,19 +184,28 @@ export default function DetailsPanel({
         setterPaid: details?.paymentDetails?.setterPaid ?? "No",
         closerPaid: details?.paymentDetails?.closerPaid ?? "No",
         paymentNotes: details?.paymentDetails?.paymentNotes ?? "",
-      });
+      };
+      const nextTagIds = Array.isArray(details?.tagIds) ? details.tagIds : [];
+      const nextContactDetails: ConversationContactDetails = {
+        phoneNumber: details?.contactDetails?.phoneNumber ?? "",
+        email: details?.contactDetails?.email ?? "",
+      };
+      setNotes(nextNotes);
+      setPaymentDetails(nextPaymentDetails);
       setTimelineEvents(
         Array.isArray(details?.timelineEvents) ? details.timelineEvents : [],
       );
       setContactDetails(nextContactDetails);
+      lastSavedNotesRef.current = nextNotes;
+      lastSavedPaymentDetailsRef.current = JSON.stringify(nextPaymentDetails);
       lastSavedContactDetailsRef.current = JSON.stringify(nextContactDetails);
-      setTagIds(Array.isArray(details?.tagIds) ? details.tagIds : []);
+      lastSavedTagIdsRef.current = JSON.stringify(nextTagIds);
+      setTagIds(nextTagIds);
     };
 
     if (syncedDetails) {
       applyDetails(syncedDetails);
       setDetailsLoaded(true);
-      return;
     }
 
     (async () => {
@@ -221,15 +227,25 @@ export default function DetailsPanel({
     return () => {
       active = false;
     };
-  }, [syncedDetails, syncedAt, user.id]);
+  }, [syncedDetails, user.id]);
 
   useEffect(() => {
+    if (!user.id) return;
+    lastSavedNotesRef.current = "";
+    lastSavedPaymentDetailsRef.current = "";
     lastSavedContactDetailsRef.current = "";
+    lastSavedTagIdsRef.current = "";
+    if (contactSaveTimerRef.current) {
+      window.clearTimeout(contactSaveTimerRef.current);
+      contactSaveTimerRef.current = null;
+    }
     contactSaveAbortRef.current?.abort();
   }, [user.id]);
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
+    if (notes === lastSavedNotesRef.current) return;
+    const nextNotes = notes;
 
     const timeout = window.setTimeout(async () => {
       try {
@@ -238,11 +254,12 @@ export default function DetailsPanel({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ notes }),
+            body: JSON.stringify({ notes: nextNotes }),
           },
         );
         if (!response.ok) return;
-        await syncDetailsCache({ notes });
+        lastSavedNotesRef.current = nextNotes;
+        await syncDetailsCache({ notes: nextNotes });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save notes:", error);
       }
@@ -253,6 +270,9 @@ export default function DetailsPanel({
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
+    const serialized = JSON.stringify(paymentDetails);
+    if (serialized === lastSavedPaymentDetailsRef.current) return;
+    const nextPaymentDetails = paymentDetails;
 
     const timeout = window.setTimeout(async () => {
       try {
@@ -261,11 +281,12 @@ export default function DetailsPanel({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentDetails }),
+            body: JSON.stringify({ paymentDetails: nextPaymentDetails }),
           },
         );
         if (!response.ok) return;
-        await syncDetailsCache({ paymentDetails });
+        lastSavedPaymentDetailsRef.current = serialized;
+        await syncDetailsCache({ paymentDetails: nextPaymentDetails });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save payment details:", error);
       }
@@ -276,9 +297,12 @@ export default function DetailsPanel({
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
+    const serialized = JSON.stringify(tagIds);
+    if (serialized === lastSavedTagIdsRef.current) return;
 
     const timeout = window.setTimeout(async () => {
       const payloadTagIds = [...tagIds];
+      const payloadSerialized = JSON.stringify(payloadTagIds);
       emitConversationTagsSynced({
         conversationId: user.id,
         tagIds: payloadTagIds,
@@ -297,6 +321,7 @@ export default function DetailsPanel({
           },
         );
         if (!response.ok) return;
+        lastSavedTagIdsRef.current = payloadSerialized;
         await syncDetailsCache({ tagIds: payloadTagIds });
       } catch (error) {
         console.error("[DetailsPanel] Failed to save tags:", error);
@@ -319,7 +344,10 @@ export default function DetailsPanel({
         return;
       }
       refreshAvailableTags().catch((error) =>
-        console.error("[DetailsPanel] Failed to refresh tags after catalog update:", error),
+        console.error(
+          "[DetailsPanel] Failed to refresh tags after catalog update:",
+          error,
+        ),
       );
     });
   }, [refreshAvailableTags]);
@@ -344,7 +372,7 @@ export default function DetailsPanel({
     return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
   }, [appendStatusTimelineEvent, user.id]);
 
-  const commitContactDetails = useCallback(
+  const persistContactDetails = useCallback(
     async (next: ConversationContactDetails) => {
       if (!detailsLoaded || !user.id) return;
       if (!isContactDetailsValid(next)) return;
@@ -377,42 +405,53 @@ export default function DetailsPanel({
     [detailsLoaded, syncDetailsCache, user.id],
   );
 
+  const commitContactDetails = useCallback(
+    async (next: ConversationContactDetails) => {
+      if (contactSaveTimerRef.current) {
+        window.clearTimeout(contactSaveTimerRef.current);
+        contactSaveTimerRef.current = null;
+      }
+      await persistContactDetails(next);
+    },
+    [persistContactDetails],
+  );
+
   useEffect(() => {
     return () => {
+      if (contactSaveTimerRef.current) {
+        window.clearTimeout(contactSaveTimerRef.current);
+        contactSaveTimerRef.current = null;
+      }
       contactSaveAbortRef.current?.abort();
     };
   }, []);
 
   useEffect(() => {
-    if (!detailsLoaded || !user.id || !isContactDetailsValid(contactDetails)) return;
+    if (!detailsLoaded || !user.id || !isContactDetailsValid(contactDetails))
+      return;
 
     const serialized = JSON.stringify(contactDetails);
     if (serialized === lastSavedContactDetailsRef.current) return;
 
-    contactSaveAbortRef.current?.abort();
-    const controller = new AbortController();
-    contactSaveAbortRef.current = controller;
+    if (contactSaveTimerRef.current) {
+      window.clearTimeout(contactSaveTimerRef.current);
+      contactSaveTimerRef.current = null;
+    }
 
-    (async () => {
-      try {
-        const response = await fetch(
-          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contactDetails }),
-            signal: controller.signal,
-          },
-        );
-        if (!response.ok) return;
-        lastSavedContactDetailsRef.current = serialized;
-        await syncDetailsCache({ contactDetails });
-      } catch (error) {
-        if ((error as Error).name === "AbortError") return;
+    contactSaveTimerRef.current = window.setTimeout(() => {
+      persistContactDetails(contactDetails).catch((error) => {
         console.error("[DetailsPanel] Failed to save contact details:", error);
+      });
+      contactSaveTimerRef.current = null;
+    }, CONTACT_AUTOSAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (contactSaveTimerRef.current) {
+        window.clearTimeout(contactSaveTimerRef.current);
+        contactSaveTimerRef.current = null;
       }
-    })();
-  }, [contactDetails, detailsLoaded, syncDetailsCache, user.id]);
+    };
+  }, [contactDetails, detailsLoaded, persistContactDetails, user.id]);
 
   useEffect(() => {
     const handleLocalStatus = (event: Event) => {
@@ -480,6 +519,7 @@ export default function DetailsPanel({
         {DETAILS_TABS.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
             className={getTabButtonClass(tab)}
           >

@@ -6,7 +6,7 @@ import {
   getCachedMessages,
   setCachedMessagePageMeta,
   setCachedMessages,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_MAX_CONVERSATIONS = 30;

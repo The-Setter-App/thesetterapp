@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { resetCache } from "@/lib/clientCache";
+import { resetCache } from "@/lib/cache";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sendCooldownSeconds, setSendCooldownSeconds] = useState(0);
   const router = useRouter();
 
   const getErrorMessage = (error: unknown): string => {
@@ -22,8 +23,44 @@ export default function LoginPage() {
     resetCache().catch(console.error);
   }, []);
 
+  useEffect(() => {
+    if (sendCooldownSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setSendCooldownSeconds((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [sendCooldownSeconds]);
+
+  const parseResponseError = async (res: Response, fallback: string) => {
+    try {
+      const data = (await res.json()) as { error?: string };
+      return data.error || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const parseResponseJsonSafe = async <T,>(res: Response): Promise<T | null> => {
+    try {
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
+  };
+
+  const formatCooldown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins <= 0) return `${secs}s`;
+    return `${mins}m ${secs}s`;
+  };
+
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sendCooldownSeconds > 0) {
+      setError(`Please wait ${formatCooldown(sendCooldownSeconds)} before retrying.`);
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -35,8 +72,13 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to send OTP');
+        if (res.status === 429) {
+          const retryAfter = Number.parseInt(res.headers.get("Retry-After") || "60", 10);
+          const cooldown = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+          setSendCooldownSeconds(cooldown);
+          throw new Error(`Too many attempts. Try again in ${formatCooldown(cooldown)}.`);
+        }
+        throw new Error(await parseResponseError(res, "Failed to send OTP"));
       }
 
       setStep('otp');
@@ -59,9 +101,14 @@ export default function LoginPage() {
         body: JSON.stringify({ email, otp }),
       });
 
-      const data = (await res.json()) as { error?: string; requiresOnboarding?: boolean };
+      const data = await parseResponseJsonSafe<{ error?: string; requiresOnboarding?: boolean }>(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Invalid OTP');
+        if (res.status === 429) {
+          const retryAfter = Number.parseInt(res.headers.get("Retry-After") || "60", 10);
+          const cooldown = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+          throw new Error(`Too many verification attempts. Try again in ${formatCooldown(cooldown)}.`);
+        }
+        throw new Error(data?.error || 'Invalid OTP');
       }
 
       // Successful login
@@ -71,7 +118,7 @@ export default function LoginPage() {
         console.error("Failed to reset cache on login:", e);
       }
 
-      router.push(data.requiresOnboarding ? '/onboarding' : '/dashboard');
+      router.push(data?.requiresOnboarding ? '/onboarding' : '/dashboard');
       router.refresh(); // Refresh to update server components with new session
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -140,9 +187,13 @@ export default function LoginPage() {
             <button
               type="submit"
               className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${email && !loading ? 'bg-[#8771FF] text-white hover:bg-[#6d5ed6]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-              disabled={!email || loading}
+              disabled={!email || loading || sendCooldownSeconds > 0}
             >
-              {loading ? "Sending..." : "Continue"}
+              {loading
+                ? "Sending..."
+                : sendCooldownSeconds > 0
+                  ? `Retry in ${formatCooldown(sendCooldownSeconds)}`
+                  : "Continue"}
             </button>
           </form>
         ) : (

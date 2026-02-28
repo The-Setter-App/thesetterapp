@@ -8,7 +8,7 @@ import {
   isLocalSessionId,
   isPlaceholderTitle,
 } from "@/components/setter-ai/lib/setterAiClientSessionUtils";
-import { replaceCachedSetterAiSessionId } from "@/lib/setterAiCache";
+import { replaceCachedSetterAiSessionId } from "@/lib/cache";
 
 export async function syncLocalSessionToServer(params: {
   localSessionId: string;

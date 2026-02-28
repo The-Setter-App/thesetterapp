@@ -6,7 +6,7 @@ import { useState } from 'react';
 // 1. Import the new icons from lucide-react
 import { LayoutDashboard, Inbox, Calendar as CalendarIconLucide, LogOut, type LucideIcon } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
-import { resetCache } from '@/lib/clientCache';
+import { resetCache } from '@/lib/cache';
 import type { UserRole } from '@/types/auth';
 
 // 2. CSS Filter for the remaining image-based icons (Leads, SetterAI, Settings)

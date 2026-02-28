@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
-import { getCachedUsers, getCachedMessages, getCachedConversationDetails, getCachedMessagePageMeta, setCachedConversationDetails, setCachedMessagePageMeta, setCachedMessages } from '@/lib/clientCache';
+import {
+  getCachedConversationDetails,
+  getCachedMessagePageMeta,
+  getCachedMessages,
+  getCachedUsers,
+  getHotCachedConversationDetails,
+  getHotCachedMessagePageMeta,
+  getHotCachedMessages,
+  getHotCachedUsers,
+  setCachedConversationDetails,
+  setCachedMessagePageMeta,
+  setCachedMessages,
+} from '@/lib/cache';
 import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
 import { INBOX_MESSAGE_EVENT, type InboxRealtimeMessageDetail } from '@/lib/inbox/clientRealtimeEvents';
 import type { User, Message, MessagePageResponse, ConversationDetails, SSEMessageData } from '@/types/inbox';
@@ -8,7 +20,7 @@ import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping
 
 export function useChat(selectedUserId: string) {
   const INITIAL_PAGE_SIZE = 20;
-  const PREFETCH_FRESH_MS = 90_000;
+  const PREFETCH_FRESH_MS = 5 * 60 * 1000;
   const [user, setUser] = useState<User | null>(null);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,12 +108,7 @@ export function useChat(selectedUserId: string) {
     }
     detailsRefreshTimerRef.current = window.setTimeout(async () => {
       try {
-        const details = await fetchConversationDetails();
-        setConversationDetails(details);
-        setConversationDetailsSyncedAt(Date.now());
-        if (details) {
-          setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
-        }
+        await refreshConversationDetails();
       } catch (err) {
         console.error('Failed to refresh conversation details:', err);
       }
@@ -133,6 +140,28 @@ export function useChat(selectedUserId: string) {
     }
     const data = await response.json();
     return data.details ?? null;
+  }
+
+  async function refreshConversationDetails(expectedGen?: number): Promise<void> {
+    try {
+      const details = await fetchConversationDetails();
+      if (
+        typeof expectedGen === 'number' &&
+        expectedGen !== fetchGenRef.current
+      ) {
+        return;
+      }
+
+      setConversationDetails(details);
+      setConversationDetailsSyncedAt(Date.now());
+      if (details) {
+        setCachedConversationDetails(selectedUserId, details).catch((e) =>
+          console.error('Cache update failed:', e),
+        );
+      }
+    } catch (error) {
+      console.error('Error loading conversation details:', error);
+    }
   }
 
   function getMessagePreviewText(message: Message): string {
@@ -232,15 +261,63 @@ export function useChat(selectedUserId: string) {
     });
   };
 
+  const applyConversationSnapshot = (
+    messages: Message[] | null,
+    details: ConversationDetails | null,
+    messageMeta:
+      | {
+          nextCursor: string | null;
+          hasMore: boolean;
+          fetchedAt: number;
+        }
+      | null,
+  ): boolean => {
+    const hasCachedMessages = Boolean(messages && messages.length > 0);
+    setLoading(!hasCachedMessages);
+    setLoadingOlder(false);
+    setHasMoreMessages(messageMeta ? Boolean(messageMeta.hasMore) : true);
+    nextCursorRef.current = messageMeta?.nextCursor ?? null;
+
+    if (hasCachedMessages && messages) {
+      setChatHistory(messages.slice(-INITIAL_PAGE_SIZE));
+    } else {
+      setChatHistory([]);
+    }
+
+    if (details) {
+      setConversationDetails(details);
+      setConversationDetailsSyncedAt(Date.now());
+    } else {
+      setConversationDetails(null);
+      setConversationDetailsSyncedAt(0);
+    }
+
+    return hasCachedMessages;
+  };
+
   // Load User
   useEffect(() => {
+    let cancelled = false;
+
     async function loadUser() {
       try {
-        const cachedUsers = await getCachedUsers();
-        const foundUser = cachedUsers?.find((u) => u.id === selectedUserId);
-        if (foundUser) setUser(foundUser);
+        const hotCachedUsers = getHotCachedUsers();
+        const hotFoundUser = hotCachedUsers?.find((u) => u.id === selectedUserId);
+        if (hotFoundUser) {
+          setUser(hotFoundUser);
+        }
 
+        const cachedUsers = await getCachedUsers();
+        if (cancelled) return;
+        const foundUser = cachedUsers?.find((u) => u.id === selectedUserId);
+        if (foundUser) {
+          setUser(foundUser);
+          return;
+        }
+
+        if (hotFoundUser) return;
         const users = await getInboxUsers();
+        if (cancelled) return;
         const target = users.find((u) => u.id === selectedUserId);
         if (target) setUser(target);
       } catch (err) {
@@ -248,22 +325,29 @@ export function useChat(selectedUserId: string) {
       }
     }
     loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedUserId]);
 
   // Load Messages
   useEffect(() => {
     const gen = ++fetchGenRef.current;
+
     async function loadMessages() {
       try {
         setInitialLoadSettled(false);
-        setLoading(false);
-        setLoadingOlder(false);
-        setHasMoreMessages(true);
-        nextCursorRef.current = null;
         clearReconcileTimers();
-        setChatHistory([]);
-        setConversationDetails(null);
-        setConversationDetailsSyncedAt(0);
+
+        const hotCachedMessages = getHotCachedMessages(selectedUserId);
+        const hotCachedDetails = getHotCachedConversationDetails(selectedUserId);
+        const hotCachedMessageMeta = getHotCachedMessagePageMeta(selectedUserId);
+        applyConversationSnapshot(
+          hotCachedMessages,
+          hotCachedDetails,
+          hotCachedMessageMeta,
+        );
 
         const [cachedMessages, cachedDetails, cachedMessageMeta] = await Promise.all([
           getCachedMessages(selectedUserId),
@@ -272,53 +356,37 @@ export function useChat(selectedUserId: string) {
         ]);
         if (gen !== fetchGenRef.current) return;
 
-        const hasCachedMessages = Boolean(cachedMessages && cachedMessages.length > 0);
-        if (!hasCachedMessages) {
-          setLoading(true);
-        }
-        if (cachedMessages && cachedMessages.length > 0) {
-          setChatHistory(cachedMessages.slice(-INITIAL_PAGE_SIZE));
-          setLoading(false);
-        }
-        if (cachedDetails) {
-          setConversationDetails(cachedDetails);
-          setConversationDetailsSyncedAt(Date.now());
-        }
-
-        if (cachedMessageMeta) {
-          nextCursorRef.current = cachedMessageMeta.nextCursor;
-          setHasMoreMessages(Boolean(cachedMessageMeta.hasMore));
-        }
+        const resolvedMessages = cachedMessages ?? hotCachedMessages;
+        const resolvedDetails = cachedDetails ?? hotCachedDetails;
+        const resolvedMessageMeta = cachedMessageMeta ?? hotCachedMessageMeta;
+        const hasCachedMessages = applyConversationSnapshot(
+          resolvedMessages,
+          resolvedDetails,
+          resolvedMessageMeta,
+        );
 
         const canSkipMessageFetch =
           hasCachedMessages &&
-          Boolean(cachedMessageMeta) &&
-          Date.now() - (cachedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS;
+          Boolean(resolvedMessageMeta) &&
+          Date.now() - (resolvedMessageMeta?.fetchedAt ?? 0) < PREFETCH_FRESH_MS;
+        const shouldBlockForDetails = !resolvedDetails;
+        const detailsRefreshPromise = refreshConversationDetails(gen);
 
         if (canSkipMessageFetch) {
-          try {
-            const details = await fetchConversationDetails();
+          if (shouldBlockForDetails) {
+            await detailsRefreshPromise;
             if (gen !== fetchGenRef.current) return;
-            setConversationDetails(details);
-            setConversationDetailsSyncedAt(Date.now());
-            if (details) {
-              setCachedConversationDetails(selectedUserId, details).catch((e) =>
-                console.error('Cache update failed:', e),
-              );
-            }
-          } catch (err) {
-            console.error('Error loading conversation details:', err);
+          } else {
+            detailsRefreshPromise.catch((error) => {
+              console.error('Error loading conversation details:', error);
+            });
           }
-
           setLoading(false);
           setInitialLoadSettled(true);
           return;
         }
 
-        const [page, details] = await Promise.all([
-          fetchMessagePage(INITIAL_PAGE_SIZE),
-          fetchConversationDetails(),
-        ]);
+        const page = await fetchMessagePage(INITIAL_PAGE_SIZE);
         if (gen !== fetchGenRef.current) return;
 
         setChatHistory((prev) => {
@@ -332,13 +400,18 @@ export function useChat(selectedUserId: string) {
           hydrateSidebarPreviewFromMessages(merged).catch((e) => console.error('Preview hydration failed:', e));
           return merged;
         });
-        setConversationDetails(details);
-        setConversationDetailsSyncedAt(Date.now());
         nextCursorRef.current = page.nextCursor;
         setHasMoreMessages(page.hasMore);
-        if (details) {
-          setCachedConversationDetails(selectedUserId, details).catch(e => console.error('Cache update failed:', e));
+
+        if (shouldBlockForDetails) {
+          await detailsRefreshPromise;
+          if (gen !== fetchGenRef.current) return;
+        } else {
+          detailsRefreshPromise.catch((error) => {
+            console.error('Error loading conversation details:', error);
+          });
         }
+
         setLoading(false);
         setInitialLoadSettled(true);
       } catch (err) {

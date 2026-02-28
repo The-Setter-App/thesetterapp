@@ -118,39 +118,52 @@ export async function updateConversationDetails(
     payload?: User;
     updated_at?: string;
   } = {};
-  const existingPayload = ((existingRow as { payload?: User | null } | null)?.payload ?? null) as User | null;
-  if (!existingPayload) return;
-  const nextPayload: User = { ...existingPayload };
+  const row = (existingRow as { payload?: User | null } | null) ?? null;
+  if (!row) return;
+  const existingPayload = row.payload ?? null;
+  const nextPayload = existingPayload ? ({ ...existingPayload } as User) : null;
 
   if (typeof details.notes === "string") {
     updates.notes = details.notes;
-    nextPayload.notes = details.notes;
+    if (nextPayload) {
+      nextPayload.notes = details.notes;
+    }
   }
 
   if (details.paymentDetails) {
     updates.payment_details = details.paymentDetails;
-    nextPayload.paymentDetails = details.paymentDetails;
+    if (nextPayload) {
+      nextPayload.paymentDetails = details.paymentDetails;
+    }
   }
 
   if (Array.isArray(details.timelineEvents)) {
     updates.timeline_events = details.timelineEvents;
-    nextPayload.timelineEvents = details.timelineEvents;
+    if (nextPayload) {
+      nextPayload.timelineEvents = details.timelineEvents;
+    }
   }
 
   if (details.contactDetails) {
     updates.contact_details = details.contactDetails;
-    nextPayload.contactDetails = details.contactDetails;
+    if (nextPayload) {
+      nextPayload.contactDetails = details.contactDetails;
+    }
   }
 
   if (Array.isArray(details.tagIds)) {
     const normalizedTagIds = normalizeConversationTagIds(details.tagIds);
     updates.tag_ids = normalizedTagIds;
-    nextPayload.tagIds = normalizedTagIds;
+    if (nextPayload) {
+      nextPayload.tagIds = normalizedTagIds;
+    }
   }
 
   if (Object.keys(updates).length === 0) return;
 
-  updates.payload = nextPayload;
+  if (nextPayload) {
+    updates.payload = nextPayload;
+  }
   updates.updated_at = new Date().toISOString();
 
   const { error } = await supabase

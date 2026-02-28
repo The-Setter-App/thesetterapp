@@ -2,7 +2,7 @@ import {
   clearCachedInboxTags,
   getCachedInboxTags,
   setCachedInboxTags,
-} from "@/lib/clientCache";
+} from "@/lib/cache";
 import type { TagRow } from "@/types/tags";
 
 const INBOX_TAGS_CACHE_TTL_MS = 5 * 60 * 1000;

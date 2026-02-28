@@ -1,6 +1,6 @@
 "use client";
 
-import { getCachedLeads, getCachedUsers, setCachedLeads, setCachedUsers } from "@/lib/clientCache";
+import { getCachedLeads, getCachedUsers, setCachedLeads, setCachedUsers } from "@/lib/cache";
 import { INBOX_STATUS_COLOR_CLASS_MAP } from "@/lib/status/config";
 import type { StatusType } from "@/types/status";
 

@@ -1,92 +1,19 @@
 "use client";
 
+import { createLayeredCache } from "@/lib/cache/core/layeredCache";
+import { APP_CACHE_STORES } from "@/lib/cache/idb/appDb";
 import type { ChatSession, Message } from "@/types/ai";
 
-const DB_NAME = "setter_ai_cache_db";
-const DB_VERSION = 1;
-const STORE_NAME = "key_value_store";
 const LAST_EMAIL_KEY = "setter_ai_last_email";
 const DELETED_SESSIONS_TOMBSTONE_TTL_MS = 24 * 60 * 60 * 1000;
 
-class SetterAiCache {
-  private dbPromise: Promise<IDBDatabase> | null = null;
+type DeletedSessionTombstones = Record<string, number>;
 
-  private openDB(): Promise<IDBDatabase> {
-    if (typeof window === "undefined") {
-      return Promise.reject(new Error("IndexedDB unavailable on server."));
-    }
-
-    if (this.dbPromise) return this.dbPromise;
-
-    this.dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME);
-        }
-      };
-
-      request.onsuccess = (event) =>
-        resolve((event.target as IDBOpenDBRequest).result);
-      request.onerror = (event) =>
-        reject((event.target as IDBOpenDBRequest).error);
-    });
-
-    return this.dbPromise;
-  }
-
-  async get<T>(key: string): Promise<T | null> {
-    try {
-      const db = await this.openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, "readonly");
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.get(key);
-
-        request.onsuccess = () => resolve((request.result as T) ?? null);
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return null;
-    }
-  }
-
-  async set<T>(key: string, value: T): Promise<void> {
-    try {
-      const db = await this.openDB();
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.put(value, key);
-
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async delete(key: string): Promise<void> {
-    try {
-      const db = await this.openDB();
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.delete(key);
-
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return;
-    }
-  }
-}
-
-const setterAiCache = new SetterAiCache();
+const setterAiCache = createLayeredCache({
+  storeName: APP_CACHE_STORES.setterAi,
+  logLabel: "SetterAiCache",
+  writeDebounceMs: 50,
+});
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -112,8 +39,6 @@ function deletedSessionsKey(email: string): string {
   return `setter_ai_deleted_sessions:${normalizeEmail(email)}`;
 }
 
-type DeletedSessionTombstones = Record<string, number>;
-
 function pruneDeletedTombstones(
   tombstones: DeletedSessionTombstones,
 ): DeletedSessionTombstones {
@@ -129,7 +54,7 @@ export async function getSetterAiLastEmail(): Promise<string | null> {
 }
 
 export async function setSetterAiLastEmail(email: string): Promise<void> {
-  await setterAiCache.set(LAST_EMAIL_KEY, normalizeEmail(email));
+  await setterAiCache.set<string>(LAST_EMAIL_KEY, normalizeEmail(email));
 }
 
 export async function getCachedSetterAiSessions(
@@ -142,8 +67,10 @@ export async function setCachedSetterAiSessions(
   email: string,
   sessions: ChatSession[],
 ): Promise<void> {
-  await setterAiCache.set(sessionsKey(email), sessions);
-  await setterAiCache.set(sessionsTimestampKey(email), Date.now());
+  await Promise.all([
+    setterAiCache.set<ChatSession[]>(sessionsKey(email), sessions),
+    setterAiCache.set<number>(sessionsTimestampKey(email), Date.now()),
+  ]);
 }
 
 export async function getCachedSetterAiSessionsTimestamp(
@@ -164,8 +91,13 @@ export async function setCachedSetterAiMessages(
   sessionId: string,
   messages: Message[],
 ): Promise<void> {
-  await setterAiCache.set(messagesKey(email, sessionId), messages);
-  await setterAiCache.set(messagesTimestampKey(email, sessionId), Date.now());
+  await Promise.all([
+    setterAiCache.set<Message[]>(messagesKey(email, sessionId), messages),
+    setterAiCache.set<number>(
+      messagesTimestampKey(email, sessionId),
+      Date.now(),
+    ),
+  ]);
 }
 
 export async function getCachedSetterAiMessagesTimestamp(
@@ -195,9 +127,7 @@ export async function removeCachedSetterAiSession(
     clearCachedSetterAiMessages(normalizedEmail, sessionId),
   ]);
 
-  if (!sessions) {
-    return;
-  }
+  if (!sessions) return;
 
   const nextSessions = sessions.filter((session) => session.id !== sessionId);
   await setCachedSetterAiSessions(normalizedEmail, nextSessions);
@@ -221,30 +151,34 @@ export async function replaceCachedSetterAiSessionId(
     const hasTarget = sessions.some((session) => session.id === toSession.id);
     const nextSessions = sessions
       .map((session) => (session.id === fromSessionId ? toSession : session))
-      .filter((session, index, arr) => {
+      .filter((session, index, list) => {
         if (session.id !== toSession.id) return true;
-        const firstIndex = arr.findIndex((item) => item.id === toSession.id);
+        const firstIndex = list.findIndex((entry) => entry.id === toSession.id);
         return index === firstIndex || !hasTarget;
       });
     await setCachedSetterAiSessions(normalizedEmail, nextSessions);
   }
 
   if (fromMessages) {
-    await setterAiCache.set(
-      messagesKey(normalizedEmail, toSession.id),
-      fromMessages,
-    );
-    await setterAiCache.delete(messagesKey(normalizedEmail, fromSessionId));
+    await Promise.all([
+      setterAiCache.set<Message[]>(
+        messagesKey(normalizedEmail, toSession.id),
+        fromMessages,
+      ),
+      setterAiCache.delete(messagesKey(normalizedEmail, fromSessionId)),
+    ]);
   }
 
-  if (fromMessagesTimestamp) {
-    await setterAiCache.set(
-      messagesTimestampKey(normalizedEmail, toSession.id),
-      fromMessagesTimestamp,
-    );
-    await setterAiCache.delete(
-      messagesTimestampKey(normalizedEmail, fromSessionId),
-    );
+  if (typeof fromMessagesTimestamp === "number") {
+    await Promise.all([
+      setterAiCache.set<number>(
+        messagesTimestampKey(normalizedEmail, toSession.id),
+        fromMessagesTimestamp,
+      ),
+      setterAiCache.delete(
+        messagesTimestampKey(normalizedEmail, fromSessionId),
+      ),
+    ]);
   }
 }
 
@@ -252,14 +186,13 @@ export async function getDeletedSetterAiSessionIds(
   email: string,
 ): Promise<string[]> {
   const normalizedEmail = normalizeEmail(email);
+  const key = deletedSessionsKey(normalizedEmail);
   const tombstones =
-    (await setterAiCache.get<DeletedSessionTombstones>(
-      deletedSessionsKey(normalizedEmail),
-    )) || {};
+    (await setterAiCache.get<DeletedSessionTombstones>(key)) ?? {};
   const pruned = pruneDeletedTombstones(tombstones);
 
   if (Object.keys(pruned).length !== Object.keys(tombstones).length) {
-    await setterAiCache.set(deletedSessionsKey(normalizedEmail), pruned);
+    await setterAiCache.set<DeletedSessionTombstones>(key, pruned);
   }
 
   return Object.keys(pruned);
@@ -270,13 +203,12 @@ export async function markDeletedSetterAiSessionId(
   sessionId: string,
 ): Promise<void> {
   const normalizedEmail = normalizeEmail(email);
-  const tombstones =
-    (await setterAiCache.get<DeletedSessionTombstones>(
-      deletedSessionsKey(normalizedEmail),
-    )) || {};
-  const pruned = pruneDeletedTombstones(tombstones);
-  pruned[sessionId] = Date.now();
-  await setterAiCache.set(deletedSessionsKey(normalizedEmail), pruned);
+  const key = deletedSessionsKey(normalizedEmail);
+  await setterAiCache.update<DeletedSessionTombstones>(key, (current) => {
+    const pruned = pruneDeletedTombstones(current ?? {});
+    pruned[sessionId] = Date.now();
+    return pruned;
+  });
 }
 
 export async function unmarkDeletedSetterAiSessionId(
@@ -284,14 +216,10 @@ export async function unmarkDeletedSetterAiSessionId(
   sessionId: string,
 ): Promise<void> {
   const normalizedEmail = normalizeEmail(email);
-  const tombstones =
-    (await setterAiCache.get<DeletedSessionTombstones>(
-      deletedSessionsKey(normalizedEmail),
-    )) || {};
-  if (!tombstones[sessionId]) {
-    return;
-  }
-  const pruned = pruneDeletedTombstones(tombstones);
-  delete pruned[sessionId];
-  await setterAiCache.set(deletedSessionsKey(normalizedEmail), pruned);
+  const key = deletedSessionsKey(normalizedEmail);
+  await setterAiCache.update<DeletedSessionTombstones>(key, (current) => {
+    const pruned = pruneDeletedTombstones(current ?? {});
+    delete pruned[sessionId];
+    return pruned;
+  });
 }
