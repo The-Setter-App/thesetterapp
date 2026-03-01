@@ -11,14 +11,14 @@ export default async function SettingsLayout({
   const { user } = await requireCurrentSettingsUser();
 
   return (
-    <div className="h-full overflow-y-auto bg-white text-[#101011]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white text-[#101011]">
       <SettingsPageHeader role={user.role} />
-      <div className="grid min-h-0 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="md:sticky md:top-0 md:h-screen">
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="shrink-0 md:h-full">
           <SettingsSidebar role={user.role} />
         </div>
 
-        <section className="bg-white">
+        <section className="min-h-0 overflow-y-auto bg-white">
           <div className="w-full px-4 py-6 md:px-8 md:py-8 lg:px-10">
             {children}
           </div>

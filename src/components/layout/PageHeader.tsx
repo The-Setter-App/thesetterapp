@@ -14,7 +14,7 @@ export default function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <header className="border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 md:py-5 lg:px-8">
+    <header className="sticky top-0 z-20 border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 md:py-5 lg:px-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
