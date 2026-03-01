@@ -93,6 +93,7 @@ export interface User {
   paymentDetails?: PaymentDetails;
   timelineEvents?: ConversationTimelineEvent[];
   contactDetails?: ConversationContactDetails;
+  detailsUpdatedAtByField?: ConversationDetailsUpdatedAtByField;
 }
 
 export interface PaymentDetails {
@@ -124,6 +125,21 @@ export interface ConversationDetails {
   paymentDetails: PaymentDetails;
   timelineEvents: ConversationTimelineEvent[];
   contactDetails: ConversationContactDetails;
+}
+
+export type ConversationDetailsField =
+  | "notes"
+  | "paymentDetails"
+  | "timelineEvents"
+  | "contactDetails";
+
+export type ConversationDetailsUpdatedAtByField = Partial<
+  Record<ConversationDetailsField, string>
+>;
+
+export interface ConversationDetailsPatchRequest
+  extends Partial<ConversationDetails> {
+  updatedAtByField?: ConversationDetailsUpdatedAtByField;
 }
 
 export interface Message {

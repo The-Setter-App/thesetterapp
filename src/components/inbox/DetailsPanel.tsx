@@ -297,12 +297,16 @@ export default function DetailsPanel({
 
     const timeout = window.setTimeout(async () => {
       try {
+        const mutationAt = new Date().toISOString();
         const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ notes: nextNotes }),
+            body: JSON.stringify({
+              notes: nextNotes,
+              updatedAtByField: { notes: mutationAt },
+            }),
           },
         );
         if (!response.ok) return;
@@ -332,12 +336,16 @@ export default function DetailsPanel({
 
     const timeout = window.setTimeout(async () => {
       try {
+        const mutationAt = new Date().toISOString();
         const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentDetails: nextPaymentDetails }),
+            body: JSON.stringify({
+              paymentDetails: nextPaymentDetails,
+              updatedAtByField: { paymentDetails: mutationAt },
+            }),
           },
         );
         if (!response.ok) return;
@@ -386,12 +394,16 @@ export default function DetailsPanel({
       contactSaveAbortRef.current = controller;
 
       try {
+        const mutationAt = new Date().toISOString();
         const response = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contactDetails: next }),
+            body: JSON.stringify({
+              contactDetails: next,
+              updatedAtByField: { contactDetails: mutationAt },
+            }),
             signal: controller.signal,
           },
         );
@@ -495,12 +507,16 @@ export default function DetailsPanel({
     setTimelineEvents([]);
     await updateDetailsCacheLocal({ timelineEvents: [] });
     try {
+      const mutationAt = new Date().toISOString();
       const response = await fetch(
         `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timelineEvents: [] }),
+          body: JSON.stringify({
+            timelineEvents: [],
+            updatedAtByField: { timelineEvents: mutationAt },
+          }),
         },
       );
       if (!response.ok) return;

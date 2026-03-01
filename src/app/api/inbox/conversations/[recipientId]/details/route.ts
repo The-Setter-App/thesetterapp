@@ -4,7 +4,7 @@ import {
   updateConversationDetails,
 } from "@/lib/inboxRepository";
 import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
-import type { ConversationDetails } from "@/types/inbox";
+import type { ConversationDetails, ConversationDetailsPatchRequest } from "@/types/inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -87,8 +87,13 @@ export async function PATCH(
     const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
 
     const { recipientId: conversationId } = await context.params;
-    const body = (await request.json()) as Partial<ConversationDetails>;
-    const nextBody: Partial<ConversationDetails> = { ...body };
+    const body = (await request.json()) as ConversationDetailsPatchRequest;
+    const nextBody: Partial<ConversationDetails> = {
+      notes: body.notes,
+      paymentDetails: body.paymentDetails,
+      timelineEvents: body.timelineEvents,
+      contactDetails: body.contactDetails,
+    };
 
     if (typeof nextBody.notes === "string" && nextBody.notes.length > 4000) {
       return NextResponse.json({ error: "Notes too long" }, { status: 400 });
@@ -139,13 +144,14 @@ export async function PATCH(
       );
     }
 
-    await updateConversationDetails(
+    const result = await updateConversationDetails(
       conversationId,
       workspaceOwnerEmail,
       nextBody,
+      { updatedAtByField: body.updatedAtByField },
     );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, applied: result.applied });
   } catch (error) {
     if (error instanceof AccessError) {
       return NextResponse.json(
