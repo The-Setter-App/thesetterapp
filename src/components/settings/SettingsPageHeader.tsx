@@ -31,8 +31,9 @@ const ROUTE_COPY: Record<
     ownerDescription: "Connect and manage Instagram business accounts used by Inbox.",
   },
   "/settings/tags": {
-    ownerDescription: "Manage preset and custom tags used across Inbox and Leads.",
-    teamDescription: "Manage tags used across Inbox and Leads.",
+    ownerDescription:
+      "Manage default and custom status tags used across Inbox and Leads.",
+    teamDescription: "Manage workspace statuses used across Inbox and Leads.",
   },
   "/settings/integration": {
     ownerDescription:

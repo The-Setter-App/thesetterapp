@@ -2,15 +2,18 @@
 
 import LeadMobileCard from "@/components/leads/LeadMobileCard";
 import type { LeadRow } from "@/types/leads";
+import type { TagRow } from "@/types/tags";
 
 interface LeadsListMobileProps {
   rows: LeadRow[];
+  statusOptions: TagRow[];
   isSelected: (id: string) => boolean;
   onToggleSelect: (id: string) => void;
 }
 
 export default function LeadsListMobile({
   rows,
+  statusOptions,
   isSelected,
   onToggleSelect,
 }: LeadsListMobileProps) {
@@ -20,6 +23,7 @@ export default function LeadsListMobile({
         <LeadMobileCard
           key={lead.id}
           lead={lead}
+          statusOptions={statusOptions}
           selected={isSelected(lead.id)}
           onToggleSelect={onToggleSelect}
         />

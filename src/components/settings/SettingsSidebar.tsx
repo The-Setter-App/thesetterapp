@@ -22,14 +22,14 @@ const ownerSettingsNavItems: SettingsNavItem[] = [
   { href: "/settings/profile", label: "Profile", icon: UserRound },
   { href: "/settings/team", label: "Team", icon: Users2 },
   { href: "/settings/socials", label: "Socials", icon: Instagram },
-  { href: "/settings/tags", label: "Tags", icon: Tags },
+  { href: "/settings/tags", label: "Status Tags", icon: Tags },
   { href: "/settings/integration", label: "Integration", icon: PlugZap },
 ];
 
 const teamMemberSettingsNavItems: SettingsNavItem[] = [
   { href: "/settings/profile", label: "Profile", icon: UserRound },
   { href: "/settings/team", label: "Team", icon: Users2 },
-  { href: "/settings/tags", label: "Tags", icon: Tags },
+  { href: "/settings/tags", label: "Status Tags", icon: Tags },
 ];
 
 const viewerSettingsNavItems: SettingsNavItem[] = [

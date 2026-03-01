@@ -1,3 +1,5 @@
+import { LuCalendar, LuGlobe, LuVideo } from "react-icons/lu";
+
 interface CallEvent {
   date: string;
   tz: string;
@@ -12,21 +14,21 @@ const calls: CallEvent[] = [
 
 export default function CallsTab() {
   return (
-    <div className="p-6 bg-[#F8F7FF] space-y-4 h-full overflow-y-auto">
+    <div className="p-6 bg-gray-50 space-y-4 h-full overflow-y-auto">
       {calls.map((c, i) => (
-        <div key={i} className="bg-white rounded-lg p-4 border border-[#F0F2F6] shadow-sm relative">
-          <h4 className="font-bold text-[#101011] text-sm mb-3">Apply to Work 1-on-1 With Us</h4>
+        <div key={i} className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm relative">
+          <h4 className="font-bold text-gray-800 text-sm mb-3">Apply to Work 1-on-1 With Us</h4>
 
-          <div className="flex items-center text-sm text-[#606266] mb-2">
-            <img src="/icons/CalendarTab.svg" alt="Calendar" className="w-5 h-5 mr-3" />
+          <div className="flex items-center text-sm text-gray-600 mb-2">
+            <LuCalendar className="mr-3 h-5 w-5" aria-label="Calendar" />
             {c.date}
           </div>
-          <div className="flex items-center text-sm text-[#606266] mb-2">
-            <img src="/icons/World.svg" alt="World" className="w-5 h-5 mr-3" />
+          <div className="flex items-center text-sm text-gray-600 mb-2">
+            <LuGlobe className="mr-3 h-5 w-5" aria-label="World" />
             {c.tz}
           </div>
-          <div className="flex items-center text-sm text-[#606266] mb-4">
-            <img src="/icons/Video.svg" alt="Video" className="w-5 h-5 mr-3" />
+          <div className="flex items-center text-sm text-gray-600 mb-4">
+            <LuVideo className="mr-3 h-5 w-5" aria-label="Video" />
             {c.platform}
           </div>
 

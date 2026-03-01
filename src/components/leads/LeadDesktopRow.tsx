@@ -1,19 +1,23 @@
 "use client";
 
 import { MoreVertical } from "lucide-react";
+import { LuMessageCircle } from "react-icons/lu";
 import CustomCheckbox from "@/components/leads/CustomCheckbox";
 import StatusBadge from "@/components/leads/StatusBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import type { LeadRow } from "@/types/leads";
+import type { TagRow } from "@/types/tags";
 
 interface LeadDesktopRowProps {
   lead: LeadRow;
+  statusOptions: TagRow[];
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }
 
 export default function LeadDesktopRow({
   lead,
+  statusOptions,
   selected,
   onToggleSelect,
 }: LeadDesktopRowProps) {
@@ -37,11 +41,7 @@ export default function LeadDesktopRow({
               </span>
               {lead.messageCount ? (
                 <span className="inline-flex h-5 items-center gap-1 rounded-full bg-[#8771FF] px-1.5 text-[10px] font-semibold text-white">
-                  <img
-                    src="/icons/MessageCount.svg"
-                    alt="Unread"
-                    className="h-3 w-3"
-                  />
+                  <LuMessageCircle className="h-3 w-3" aria-label="Unread" />
                   {lead.messageCount}
                 </span>
               ) : null}
@@ -53,7 +53,7 @@ export default function LeadDesktopRow({
         {lead.handle || <span className="italic text-[#9A9CA2]">N/A</span>}
       </td>
       <td className="px-4 py-3 md:px-6">
-        <StatusBadge status={lead.status} />
+        <StatusBadge status={lead.status} statusOptions={statusOptions} />
       </td>
       <td className="px-4 py-3 text-[#606266] md:px-6">{lead.cash}</td>
       <td className="px-4 py-3 text-[#606266] md:px-6">{lead.assignedTo}</td>

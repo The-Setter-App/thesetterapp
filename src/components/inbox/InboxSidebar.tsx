@@ -25,29 +25,25 @@ import {
   type InboxRealtimeMessageDetail,
 } from "@/lib/inbox/clientRealtimeEvents";
 import {
-  buildTagLookup,
-  loadInboxTagCatalog,
-} from "@/lib/inbox/clientTagCatalog";
+  buildStatusLookup,
+  loadInboxStatusCatalog,
+} from "@/lib/inbox/clientStatusCatalog";
 import {
   dequeueConversationPreviewHydrations,
   getQueuedConversationPreviewHydrations,
   type ConversationPreviewHydrationPayload,
 } from "@/lib/inbox/clientPreviewSync";
-import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
-import {
-  CONVERSATION_TAGS_SYNCED_EVENT,
-  type ConversationTagsSyncedDetail,
-} from "@/lib/inbox/clientTagSync";
+import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import {
   CONVERSATION_STATUS_SYNCED_EVENT,
   emitConversationStatusSynced,
   syncConversationStatusToClientCache,
 } from "@/lib/status/clientSync";
 import {
-  INBOX_STATUS_COLOR_CLASS_MAP,
+  getInboxStatusColorClass,
   isStatusType,
-  STATUS_OPTIONS,
 } from "@/lib/status/config";
+import { PRESET_TAG_ROWS } from "@/lib/tags/config";
 import type { SSEEvent, SSEMessageData, StatusType, User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 import FilterModal from "./FilterModal";
@@ -68,8 +64,6 @@ import {
 } from "./sidebar/utils";
 
 const inter = Inter({ subsets: ["latin"] });
-
-const statusOptions: StatusType[] = STATUS_OPTIONS;
 const SIDEBAR_PREFETCH_MAX_CONVERSATIONS = 12;
 const SIDEBAR_PREFETCH_CONCURRENCY = 2;
 const SIDEBAR_PREFETCH_STALE_MS = 3 * 60 * 1000;
@@ -111,10 +105,13 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [tagLookup, setTagLookup] = useState<Record<string, TagRow>>({});
+  const [statusCatalog, setStatusCatalog] = useState<TagRow[]>(PRESET_TAG_ROWS);
+  const [statusLookup, setStatusLookup] = useState<Record<string, TagRow>>(
+    () => buildStatusLookup(PRESET_TAG_ROWS),
+  );
 
   const refetchInFlightRef = useRef(false);
-  const tagCatalogRefreshInFlightRef = useRef(false);
+  const statusCatalogRefreshInFlightRef = useRef(false);
 
   const fetchInboxUsers = useCallback(async (): Promise<User[]> => {
     const response = await fetch("/api/inbox/conversations", {
@@ -283,7 +280,8 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, [refetchConversations]);
 
   const applyUserStatusUpdate = useCallback(
-    (userId: string, status: StatusType) => {
+    (userId: string, status: StatusType, updatedAt?: string) => {
+      const nextUpdatedAt = updatedAt ?? new Date().toISOString();
       setUsers((prev) => {
         const idx = prev.findIndex((u) => u.id === userId);
         if (idx === -1) return prev;
@@ -291,7 +289,8 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         updated[idx] = {
           ...updated[idx],
           status,
-          statusColor: INBOX_STATUS_COLOR_CLASS_MAP[status],
+          statusColor: getInboxStatusColorClass(status),
+          updatedAt: nextUpdatedAt,
         };
         setCachedUsers(updated).catch((e) => console.error(e));
         return updated;
@@ -317,34 +316,18 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     [],
   );
 
-  const applyUserTagsUpdate = useCallback(
-    (userId: string, tagIds: string[]) => {
-      setUsers((prev) => {
-        const idx = prev.findIndex((u) => u.id === userId);
-        if (idx === -1) return prev;
-        const updated = [...prev];
-        updated[idx] = {
-          ...updated[idx],
-          tagIds,
-        };
-        setCachedUsers(updated).catch((error) => console.error(error));
-        return updated;
-      });
-    },
-    [],
-  );
+  const refreshStatusCatalog = useCallback(async () => {
+    if (statusCatalogRefreshInFlightRef.current) return;
 
-  const refreshTagCatalog = useCallback(async () => {
-    if (tagCatalogRefreshInFlightRef.current) return;
-
-    tagCatalogRefreshInFlightRef.current = true;
+    statusCatalogRefreshInFlightRef.current = true;
     try {
-      const tags = await loadInboxTagCatalog();
-      setTagLookup(buildTagLookup(tags));
+      const statuses = await loadInboxStatusCatalog();
+      setStatusCatalog(statuses);
+      setStatusLookup(buildStatusLookup(statuses));
     } catch (error) {
-      console.error("Failed to load inbox tags:", error);
+      console.error("Failed to load inbox statuses:", error);
     } finally {
-      tagCatalogRefreshInFlightRef.current = false;
+      statusCatalogRefreshInFlightRef.current = false;
     }
   }, []);
 
@@ -410,6 +393,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           applyUserStatusUpdate(
             message.data.conversationId,
             message.data.status,
+            message.timestamp,
           );
           syncConversationStatusToClientCache(
             message.data.conversationId,
@@ -420,6 +404,10 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
           emitConversationStatusSynced({
             conversationId: message.data.conversationId,
             status: message.data.status,
+            updatedAt:
+              typeof message.timestamp === "string"
+                ? message.timestamp
+                : undefined,
           });
         }
         return;
@@ -442,6 +430,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       const customEvent = e as CustomEvent<{
         userId?: string;
         status?: StatusType;
+        updatedAt?: string;
       }>;
       if (
         !customEvent.detail?.userId ||
@@ -451,12 +440,14 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       applyUserStatusUpdate(
         customEvent.detail.userId,
         customEvent.detail.status,
+        customEvent.detail.updatedAt,
       );
     };
     const statusSyncedHandler = (e: Event) => {
       const customEvent = e as CustomEvent<{
         conversationId?: string;
         status?: StatusType;
+        updatedAt?: string;
       }>;
       if (
         !customEvent.detail?.conversationId ||
@@ -466,6 +457,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
       applyUserStatusUpdate(
         customEvent.detail.conversationId,
         customEvent.detail.status,
+        customEvent.detail.updatedAt,
       );
     };
     const previewHydratedHandler = (e: Event) => {
@@ -489,19 +481,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         dequeueConversationPreviewHydrations([payload.userId]);
       }
     };
-    const conversationTagsSyncedHandler = (e: Event) => {
-      const customEvent = e as CustomEvent<ConversationTagsSyncedDetail>;
-      if (
-        !customEvent.detail?.conversationId ||
-        !Array.isArray(customEvent.detail?.tagIds)
-      ) {
-        return;
-      }
-      applyUserTagsUpdate(
-        customEvent.detail.conversationId,
-        customEvent.detail.tagIds,
-      );
-    };
 
     window.addEventListener("userStatusUpdated", legacyHandler);
     window.addEventListener(
@@ -511,10 +490,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     window.addEventListener(
       "conversationPreviewHydrated",
       previewHydratedHandler,
-    );
-    window.addEventListener(
-      CONVERSATION_TAGS_SYNCED_EVENT,
-      conversationTagsSyncedHandler,
     );
     return () => {
       window.removeEventListener("userStatusUpdated", legacyHandler);
@@ -526,12 +501,8 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         "conversationPreviewHydrated",
         previewHydratedHandler,
       );
-      window.removeEventListener(
-        CONVERSATION_TAGS_SYNCED_EVENT,
-        conversationTagsSyncedHandler,
-      );
     };
-  }, [applyHydratedPreview, applyUserStatusUpdate, applyUserTagsUpdate]);
+  }, [applyHydratedPreview, applyUserStatusUpdate]);
 
   useEffect(() => {
     if (users.length === 0) return;
@@ -551,22 +522,26 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   }, [users.length, applyHydratedPreview]);
 
   useEffect(() => {
-    refreshTagCatalog().catch((error) =>
-      console.error("Failed to initialize inbox tags:", error),
+    refreshStatusCatalog().catch((error) =>
+      console.error("Failed to initialize inbox statuses:", error),
     );
-  }, [refreshTagCatalog]);
+  }, [refreshStatusCatalog]);
 
   useEffect(() => {
-    return subscribeInboxTagCatalogChanged((tags) => {
-      if (Array.isArray(tags)) {
-        setTagLookup(buildTagLookup(tags));
+    return subscribeInboxStatusCatalogChanged((statuses) => {
+      if (Array.isArray(statuses)) {
+        setStatusCatalog(statuses);
+        setStatusLookup(buildStatusLookup(statuses));
         return;
       }
-      refreshTagCatalog().catch((error) =>
-        console.error("Failed to refresh inbox tags after catalog update:", error),
+      refreshStatusCatalog().catch((error) =>
+        console.error(
+          "Failed to refresh inbox statuses after catalog update:",
+          error,
+        ),
       );
     });
-  }, [refreshTagCatalog]);
+  }, [refreshStatusCatalog]);
 
   useEffect(() => {
     async function loadUsers() {
@@ -658,6 +633,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         emitConversationStatusSynced({
           conversationId: userId,
           status: nextStatus,
+          updatedAt: new Date().toISOString(),
         });
         syncConversationStatusToClientCache(userId, nextStatus).catch((error) =>
           console.error("Failed to sync status cache:", error),
@@ -672,6 +648,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             emitConversationStatusSynced({
               conversationId: userId,
               status: previousStatus,
+              updatedAt: new Date().toISOString(),
             });
             syncConversationStatusToClientCache(userId, previousStatus).catch(
               (cacheError) =>
@@ -731,7 +708,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             selectedUserId={selectedUserId}
             onSelectUser={(id) => router.push(`/inbox/${id}`)}
             onAction={handleConversationAction}
-            tagLookup={tagLookup}
+            statusLookup={statusLookup}
           />
         ) : loading ? (
           <SidebarLoadingState />
@@ -753,7 +730,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         onClose={() => setShowFilterModal(false)}
         selectedStatuses={selectedStatuses}
         setSelectedStatuses={setSelectedStatuses}
-        statusOptions={statusOptions}
+        statusOptions={statusCatalog}
         accountOptions={accountOptions}
         selectedAccountIds={selectedAccountIds}
         setSelectedAccountIds={setSelectedAccountIds}

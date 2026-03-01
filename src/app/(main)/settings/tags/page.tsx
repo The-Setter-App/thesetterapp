@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import TagsSettingsContent from "@/components/settings/TagsSettingsContent";
 import { canAccessTagsSettings } from "@/lib/permissions";
-import { listWorkspaceCustomTags } from "@/lib/tagsRepository";
+import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
 import { requireWorkspaceContext } from "@/lib/workspace";
 
 export default async function SettingsTagsPage() {
@@ -10,7 +10,7 @@ export default async function SettingsTagsPage() {
     redirect("/settings/profile");
   }
 
-  const initialCustomTags = await listWorkspaceCustomTags(
+  const initialTags = await listWorkspaceAssignableTags(
     context.workspaceOwnerEmail,
   );
 
@@ -20,7 +20,7 @@ export default async function SettingsTagsPage() {
         email: context.user.email,
         displayName: context.user.displayName,
       }}
-      initialCustomTags={initialCustomTags}
+      initialTags={initialTags}
     />
   );
 }

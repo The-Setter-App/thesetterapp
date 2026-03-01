@@ -8,12 +8,16 @@ import {
   getCachedLeadsTimestamp,
   setCachedLeads,
 } from "@/lib/cache";
+import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
+import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";
 import { isStatusType } from "@/lib/status/config";
+import { PRESET_TAG_ROWS } from "@/lib/tags/config";
 import type { LeadRow, SortConfig } from "@/types/leads";
 import type { StatusType } from "@/types/status";
+import type { TagRow } from "@/types/tags";
 
 const SELECTED_IDS_STORAGE_KEY = "leads-selected-ids";
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
@@ -91,6 +95,7 @@ function sortRows(rows: LeadRow[], sortConfig: SortConfig): LeadRow[] {
 
 export function useLeadsController() {
   const [baseRows, setBaseRows] = useState<LeadRow[]>([]);
+  const [statusCatalog, setStatusCatalog] = useState<TagRow[]>(PRESET_TAG_ROWS);
   const [loading, setLoading] = useState(false);
   const [initialLoadSettled, setInitialLoadSettled] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +177,26 @@ export function useLeadsController() {
   useEffect(() => {
     loadRows();
   }, [loadRows]);
+
+  useEffect(() => {
+    loadInboxStatusCatalog()
+      .then((statuses) => {
+        if (Array.isArray(statuses) && statuses.length > 0) {
+          setStatusCatalog(statuses);
+        }
+      })
+      .catch((error) =>
+        console.error("[Leads] Failed to load status catalog:", error),
+      );
+  }, []);
+
+  useEffect(() => {
+    return subscribeInboxStatusCatalogChanged((statuses) => {
+      if (Array.isArray(statuses) && statuses.length > 0) {
+        setStatusCatalog(statuses);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -508,6 +533,7 @@ export function useLeadsController() {
     search,
     setSearch: onSearchChange,
     selectedStatuses,
+    statusCatalog,
     onToggleStatus,
     dateRangeFilter,
     onDateRangeFilterChange,

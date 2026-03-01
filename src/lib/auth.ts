@@ -31,13 +31,26 @@ export async function decrypt(input: string): Promise<JWTPayload> {
   return payload as unknown as JWTPayload;
 }
 
-export async function getSession(): Promise<JWTPayload | null> {
+interface GetSessionOptions {
+  validateUser?: boolean;
+}
+
+export async function getSession(options?: GetSessionOptions): Promise<JWTPayload | null> {
   const cookieStore = await cookies();
   const session = cookieStore.get('session')?.value;
   if (!session) return null;
+
+  const validateUser = options?.validateUser ?? true;
   try {
     const payload = await decrypt(session);
     if (!payload.email) return null;
+
+    if (!validateUser) {
+      return {
+        email: payload.email,
+        role: payload.role,
+      };
+    }
 
     const user = await getUser(payload.email);
     if (!user) return null;

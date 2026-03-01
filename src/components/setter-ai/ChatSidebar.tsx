@@ -35,6 +35,7 @@ export default function ChatSidebar({
     null,
   );
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
+  const hasNoSessions = !isLoading && sessions.length === 0;
 
   useEffect(() => {
     function handleDocumentPointerDown(event: PointerEvent) {
@@ -87,7 +88,7 @@ export default function ChatSidebar({
           className="inline-flex h-11 w-full min-w-[44px] items-center justify-center gap-2 rounded-xl border border-[#F0F2F6] bg-[#F3F0FF] text-sm font-medium text-[#8771FF] transition-colors hover:bg-[#EBE5FF] outline-none focus-visible:outline-none"
           title={
             disableNewChat
-              ? "You're already in a new empty chat."
+              ? "You're already on a new chat."
               : "Create new conversation"
           }
         >
@@ -105,6 +106,20 @@ export default function ChatSidebar({
                 <div className="h-3 w-40 rounded bg-[#F0F2F6]" />
               </div>
             ))}
+          {hasNoSessions && (
+            <div className="rounded-2xl border border-[#F0F2F6] bg-white px-4 py-6 text-center shadow-sm">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F0FF] text-[#8771FF]">
+                <MessageSquare size={16} />
+              </div>
+              <h3 className="text-sm font-semibold text-[#101011]">
+                No conversations yet
+              </h3>
+              <p className="mt-1 text-xs text-[#606266]">
+                Send your first message to start a chat. Your history will show
+                up here.
+              </p>
+            </div>
+          )}
           {!isLoading &&
             sessions.map((session) => (
               <div

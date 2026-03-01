@@ -1,9 +1,7 @@
 import { Crown, Lock } from 'lucide-react';
-import { getInboxConnectionState, getInboxUsers } from '@/app/actions/inbox';
 import { Avatar } from '@/components/ui/Avatar';
 import DashboardClient from '@/components/dashboard/DashboardClient';
-import { buildDashboardSnapshot, createEmptyDashboardSnapshot } from '@/lib/dashboard/buildSnapshot';
-import { getDashboardMessageStats } from '@/lib/dashboard/messageMetrics';
+import { getCachedDashboardSnapshot } from '@/lib/dashboard/snapshotCache';
 import { requireCurrentUser } from '@/lib/currentUser';
 import { getUserDisplayName } from '@/lib/userRepository';
 import { requireInboxWorkspaceContext } from '@/lib/workspace';
@@ -77,23 +75,8 @@ export default async function DashboardPage() {
     );
   }
 
-  const connection = await getInboxConnectionState();
-  if (!connection.hasConnectedAccounts) {
-    return (
-      <DashboardClient
-        displayName={displayName}
-        snapshot={createEmptyDashboardSnapshot(false)}
-      />
-    );
-  }
-
-  const conversations = await getInboxUsers();
   const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
-  const messageStats = await getDashboardMessageStats(
-    workspaceOwnerEmail,
-    conversations.map((conversation) => conversation.id),
-  );
-  const snapshot = buildDashboardSnapshot(conversations, messageStats, true);
+  const snapshot = await getCachedDashboardSnapshot(workspaceOwnerEmail);
 
   return <DashboardClient displayName={displayName} snapshot={snapshot} />;
 }

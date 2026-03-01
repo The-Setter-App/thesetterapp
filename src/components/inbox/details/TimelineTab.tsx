@@ -1,4 +1,4 @@
-import { STATUS_COLOR_ICON_PATHS } from "@/lib/status/config";
+import { StatusIcon } from "@/components/icons/StatusIcon";
 import type { ConversationTimelineEvent } from "@/types/inbox";
 
 interface TimelineTabProps {
@@ -75,7 +75,7 @@ export default function TimelineTab({ events, onClear }: TimelineTabProps) {
           <div key={event.id} className="flex gap-x-4">
             <div className="flex flex-col items-center">
               <div className="w-8 h-8 flex items-center justify-center z-10">
-                <img src={STATUS_COLOR_ICON_PATHS[event.status] || STATUS_COLOR_ICON_PATHS["New Lead"]} alt={event.status} className="w-5 h-5" />
+                <StatusIcon status={event.status} className="w-5 h-5" />
               </div>
               {idx !== sorted.length - 1 ? <div className="flex-1 w-px border-l-2 border-[#F0F2F6] my-2" /> : null}
             </div>

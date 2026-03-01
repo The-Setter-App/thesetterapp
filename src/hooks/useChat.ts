@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getInboxUsers, updateConversationPreview } from '@/app/actions/inbox';
 import {
   getCachedConversationDetails,
@@ -17,10 +17,13 @@ import { applyConversationPreviewUpdate } from '@/lib/inbox/clientPreviewSync';
 import {
   INBOX_CONVERSATIONS_REFRESHED_EVENT,
   INBOX_MESSAGE_EVENT,
+  INBOX_SSE_EVENT,
   type InboxConversationsRefreshedDetail,
   type InboxRealtimeMessageDetail,
 } from '@/lib/inbox/clientRealtimeEvents';
-import type { User, Message, MessagePageResponse, ConversationDetails, SSEMessageData } from '@/types/inbox';
+import { CONVERSATION_STATUS_SYNCED_EVENT } from '@/lib/status/clientSync';
+import { getInboxStatusColorClass, isStatusType } from '@/lib/status/config';
+import type { User, Message, MessagePageResponse, ConversationDetails, SSEEvent, SSEMessageData } from '@/types/inbox';
 import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping';
 
 const INITIAL_PAGE_SIZE = 20;
@@ -49,6 +52,22 @@ export function useChat(selectedUserId: string) {
   const detailsRefreshTimerRef = useRef<number | null>(null);
   const revalidateInFlightRef = useRef(false);
   const NO_MESSAGES_PLACEHOLDER_REGEX = /^no messages yet$/i;
+
+  const applyUserStatusSnapshot = useCallback((
+    status: User["status"],
+    updatedAt?: string,
+  ) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const nextUpdatedAt = updatedAt ?? new Date().toISOString();
+      return {
+        ...prev,
+        status,
+        statusColor: getInboxStatusColorClass(status),
+        updatedAt: nextUpdatedAt,
+      };
+    });
+  }, []);
 
   const clearReconcileTimers = () => {
     for (const timer of reconcileTimersRef.current) {
@@ -931,17 +950,71 @@ export function useChat(selectedUserId: string) {
   // Listen for local status updates
   useEffect(() => {
     const handler = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail && customEvent.detail.userId === selectedUserId) {
+      const customEvent = e as CustomEvent<{
+        userId?: string;
+        status?: User["status"];
+        updatedAt?: string;
+      }>;
+      if (customEvent.detail && customEvent.detail.userId === selectedUserId && isStatusType(customEvent.detail.status)) {
         setStatusUpdate({
           status: customEvent.detail.status,
-          timestamp: new Date()
+          timestamp: customEvent.detail.updatedAt ?? new Date()
         });
+        applyUserStatusSnapshot(
+          customEvent.detail.status,
+          customEvent.detail.updatedAt,
+        );
       }
     };
     window.addEventListener('userStatusUpdated', handler);
     return () => window.removeEventListener('userStatusUpdated', handler);
-  }, [selectedUserId]);
+  }, [applyUserStatusSnapshot, selectedUserId]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        conversationId?: string;
+        status?: User["status"];
+        updatedAt?: string;
+      }>;
+      if (
+        customEvent.detail?.conversationId !== selectedUserId ||
+        !isStatusType(customEvent.detail?.status)
+      ) {
+        return;
+      }
+      setStatusUpdate({
+        status: customEvent.detail.status,
+        timestamp: customEvent.detail.updatedAt ?? new Date(),
+      });
+      applyUserStatusSnapshot(
+        customEvent.detail.status,
+        customEvent.detail.updatedAt,
+      );
+    };
+
+    window.addEventListener(CONVERSATION_STATUS_SYNCED_EVENT, handler);
+    return () =>
+      window.removeEventListener(CONVERSATION_STATUS_SYNCED_EVENT, handler);
+  }, [applyUserStatusSnapshot, selectedUserId]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent>;
+      const message = customEvent.detail;
+      if (!message || message.type !== 'user_status_updated') return;
+      if (message.data.conversationId !== selectedUserId) return;
+      if (!isStatusType(message.data.status)) return;
+      setStatusUpdate({
+        status: message.data.status,
+        timestamp: message.timestamp ?? new Date(),
+      });
+      applyUserStatusSnapshot(message.data.status, message.timestamp);
+    };
+
+    window.addEventListener(INBOX_SSE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
+  }, [applyUserStatusSnapshot, selectedUserId]);
 
   useEffect(() => {
     return () => {

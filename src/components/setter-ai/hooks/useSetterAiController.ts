@@ -3,10 +3,9 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  createAndSelectLocalDraft,
-  ensureBasePageDraftSession,
   removeEmptyLocalDraft,
   resolvePreferredSessionId,
+  updateBaseChatUrl,
   updateChatUrl,
 } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerDraft";
 import { bootstrapSessions } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerEffects";
@@ -28,6 +27,10 @@ import {
   unmarkSessionAsDeleted,
 } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerSessions";
 import {
+  getHotCachedSetterAiSessions,
+  getHotSetterAiLastEmail,
+} from "@/lib/cache";
+import {
   handleDeleteSession,
   handleNewChat,
   handleSelectSession,
@@ -47,21 +50,32 @@ export function useSetterAiController({
 }: UseSetterAiControllerArgs) {
   const pathname = usePathname();
   const prefersDraftStart = initialChatId === null;
-  const [chatSessions, setChatSessions] = useState<ClientChatSession[]>([]);
+  const hotCachedEmail = getHotSetterAiLastEmail();
+  const normalizedHotEmail = hotCachedEmail
+    ? hotCachedEmail.trim().toLowerCase()
+    : null;
+  const initialHotSessions = normalizedHotEmail
+    ? getHotCachedSetterAiSessions(normalizedHotEmail)
+    : null;
+  const hasHotSessionData = Boolean(initialHotSessions?.length);
+  const [chatSessions, setChatSessions] = useState<ClientChatSession[]>(
+    initialHotSessions ?? [],
+  );
   const [activeSessionId, setActiveSessionId] = useState<string | null>(
     initialChatId,
   );
   const activeSessionIdRef = useRef<string | null>(initialChatId);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isBootLoading, setIsBootLoading] = useState(true);
+  const [isBootLoading, setIsBootLoading] = useState(!hasHotSessionData);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [currentEmail, setCurrentEmail] = useState<string | null>(
+    normalizedHotEmail,
+  );
   const currentEmailRef = useRef<string | null>(null);
   const activeMessageLoadRef = useRef(0);
   const bootstrapRanRef = useRef(false);
-  const ensuringDraftRef = useRef(false);
   const streamAbortControllerRef = useRef<AbortController | null>(null);
   const chatSessionsRef = useRef<ClientChatSession[]>([]);
   const sessionSyncPromisesRef = useRef<Map<string, Promise<string | null>>>(
@@ -147,38 +161,6 @@ export function useSetterAiController({
       });
     },
     [currentEmail, persistSessionListCb],
-  );
-
-  const createAndSelectLocalDraftCb = useCallback(
-    async (options?: {
-      mode?: "push" | "replace";
-      existingSessions?: ClientChatSession[];
-    }): Promise<string | null> =>
-      createAndSelectLocalDraft({
-        mode: options?.mode,
-        existingSessions: options?.existingSessions,
-        currentEmail,
-        chatSessionsRef,
-        setChatSessions,
-        setActiveSessionId,
-        setSearchTerm,
-        persistSessionList: persistSessionListCb,
-      }),
-    [currentEmail, persistSessionListCb],
-  );
-
-  const ensureBasePageDraftSessionCb = useCallback(
-    async (mode: "push" | "replace" = "replace"): Promise<string | null> =>
-      ensureBasePageDraftSession({
-        mode,
-        prefersDraftStart,
-        activeSessionIdRef,
-        chatSessionsRef,
-        setActiveSessionId,
-        ensuringDraftRef,
-        createAndSelectLocalDraftFn: createAndSelectLocalDraftCb,
-      }),
-    [createAndSelectLocalDraftCb, prefersDraftStart],
   );
 
   const resolvePreferredSessionIdCb = useCallback(
@@ -282,19 +264,6 @@ export function useSetterAiController({
   ]);
 
   useEffect(() => {
-    if (pathname !== "/setter-ai") return;
-    if (!prefersDraftStart) return;
-    if (isBootLoading) return;
-
-    void ensureBasePageDraftSessionCb("replace");
-  }, [
-    ensureBasePageDraftSessionCb,
-    isBootLoading,
-    pathname,
-    prefersDraftStart,
-  ]);
-
-  useEffect(() => {
     if (!activeSessionId || !currentEmail) return;
     loadSessionMessagesCb(activeSessionId, { fromSelect: true }).catch(
       () => null,
@@ -315,7 +284,8 @@ export function useSetterAiController({
         setInput,
         setIsStreaming,
         setChatSessions,
-        ensureBasePageDraftSessionFn: ensureBasePageDraftSessionCb,
+        setActiveSessionId,
+        updateChatUrlFn: updateChatUrl,
         syncLocalSessionToServerFn: syncLocalSessionToServerCb,
         loadSessionMessagesFn: loadSessionMessagesCb,
         refreshSessionsFn: refreshSessionsCb,
@@ -323,7 +293,6 @@ export function useSetterAiController({
     },
     [
       activeSession,
-      ensureBasePageDraftSessionCb,
       input,
       isStreaming,
       loadSessionMessagesCb,
@@ -371,18 +340,11 @@ export function useSetterAiController({
   const handleNewChatCb = useCallback(async () => {
     await handleNewChat({
       isStreaming,
-      activeSession,
-      prefersDraftStart,
-      ensureBasePageDraftSessionFn: ensureBasePageDraftSessionCb,
-      createAndSelectLocalDraftFn: createAndSelectLocalDraftCb,
+      activeSessionId,
+      setActiveSessionId,
+      updateBaseChatUrlFn: updateBaseChatUrl,
     });
-  }, [
-    activeSession,
-    createAndSelectLocalDraftCb,
-    ensureBasePageDraftSessionCb,
-    isStreaming,
-    prefersDraftStart,
-  ]);
+  }, [activeSessionId, isStreaming]);
 
   const handleDeleteSessionCb = useCallback(
     async (sessionId: string) => {
@@ -393,16 +355,17 @@ export function useSetterAiController({
         chatSessions,
         activeSessionId,
         setChatSessions,
+        setActiveSessionId,
+        updateChatUrlFn: updateChatUrl,
+        updateBaseChatUrlFn: updateBaseChatUrl,
         markSessionAsDeletedFn: markSessionAsDeletedCb,
         unmarkSessionAsDeletedFn: unmarkSessionAsDeletedCb,
         persistSessionListFn: persistSessionListCb,
-        createAndSelectLocalDraftFn: createAndSelectLocalDraftCb,
       });
     },
     [
       activeSessionId,
       chatSessions,
-      createAndSelectLocalDraftCb,
       currentEmail,
       isStreaming,
       markSessionAsDeletedCb,
@@ -416,9 +379,6 @@ export function useSetterAiController({
   }, []);
 
   const displayedMessages = activeSession?.messages || [];
-  const isActiveSessionNewEmpty = Boolean(
-    activeSession && activeSession.messages.length === 0,
-  );
   const isLoading = isBootLoading || isStreaming;
   const isSessionListLoading = isBootLoading && chatSessions.length === 0;
   const isChatHistoryLoading =
@@ -431,7 +391,7 @@ export function useSetterAiController({
       onSelectSession: handleSelectSessionCb,
       onNewChat: handleNewChatCb,
       onDeleteSession: handleDeleteSessionCb,
-      disableNewChat: isActiveSessionNewEmpty,
+      disableNewChat: !activeSessionId,
       isLoading: isSessionListLoading,
       searchTerm,
       setSearchTerm,

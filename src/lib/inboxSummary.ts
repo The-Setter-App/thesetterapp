@@ -1,4 +1,5 @@
 import type { Message, ConversationSummary, ConversationSummarySection } from '@/types/inbox';
+import { toNvidiaChatCompletionsUrl } from '@/lib/nvidiaBaseUrl';
 
 interface NvidiaChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -24,10 +25,6 @@ interface SummaryPayload {
     title?: string;
     points?: string[];
   };
-}
-
-function normalizeBaseUrl(raw: string): string {
-  return raw.replace(/\/+$/, '');
 }
 
 function extractText(message: Message): string {
@@ -159,7 +156,7 @@ export async function generateConversationSummary(messages: Message[]): Promise<
     },
   ];
 
-  const upstream = await fetch(`${normalizeBaseUrl(baseUrl)}/v1/chat/completions`, {
+  const upstream = await fetch(toNvidiaChatCompletionsUrl(baseUrl), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,

@@ -24,6 +24,17 @@ export function updateChatUrl(
   window.history.pushState(window.history.state, "", nextPath);
 }
 
+export function updateBaseChatUrl(mode: "push" | "replace" = "push"): void {
+  if (typeof window === "undefined") return;
+  const nextPath = "/setter-ai";
+  if (window.location.pathname === nextPath) return;
+  if (mode === "replace") {
+    window.history.replaceState(window.history.state, "", nextPath);
+    return;
+  }
+  window.history.pushState(window.history.state, "", nextPath);
+}
+
 export function createLocalDraftSession(): ClientChatSession {
   const nowIso = new Date().toISOString();
   return {

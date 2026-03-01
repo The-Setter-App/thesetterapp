@@ -11,9 +11,11 @@ import LeadsInlineSelect, {
 import RowsPerPageDropdown from "@/components/leads/RowsPerPageDropdown";
 import StatusMultiSelect from "@/components/leads/StatusMultiSelect";
 import type { StatusType } from "@/types/status";
+import type { TagRow } from "@/types/tags";
 
 interface LeadsFilterBarProps {
   selectedStatuses: StatusType[];
+  statusOptions: TagRow[];
   onToggleStatus: (status: StatusType) => void;
   getStatusCount: (status: StatusType) => number;
   dateRangeFilter: DateRangeFilter;
@@ -33,6 +35,7 @@ interface LeadsFilterBarProps {
 
 export default function LeadsFilterBar({
   selectedStatuses,
+  statusOptions,
   onToggleStatus,
   getStatusCount,
   dateRangeFilter,
@@ -95,6 +98,7 @@ export default function LeadsFilterBar({
           />
           <StatusMultiSelect
             selectedStatuses={selectedStatuses}
+            statusOptions={statusOptions}
             onToggleStatus={onToggleStatus}
             getStatusCount={getStatusCount}
           />

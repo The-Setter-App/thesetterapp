@@ -1,7 +1,7 @@
 import ProfileSettingsContent from '@/components/settings/ProfileSettingsContent';
-import { requireCurrentUser } from '@/lib/currentUser';
+import { requireCurrentSettingsUser } from '@/lib/currentSettingsUser';
 
 export default async function SettingsProfilePage() {
-  const { user } = await requireCurrentUser();
+  const { user } = await requireCurrentSettingsUser();
   return <ProfileSettingsContent user={user} />;
 }

@@ -1,19 +1,15 @@
-export type TagCategory =
-  | "Lead Stage"
-  | "Priority"
-  | "Intent"
-  | "Follow Up"
-  | "Custom";
+export type TagSource = "Default" | "Custom";
 
-export type TagSource = "Preset" | "Custom";
+export type TagIconPack = "lu" | "fa6";
 
 export interface TagRow {
   id: string;
   name: string;
-  category: TagCategory;
   description: string;
   source: TagSource;
-  inboxStatus: "Not wired yet";
+  colorHex: string;
+  iconPack: TagIconPack;
+  iconName: string;
   createdBy: string;
   createdAt: string;
 }
@@ -23,10 +19,11 @@ export interface WorkspaceCustomTag {
   workspaceOwnerEmail: string;
   normalizedName: string;
   name: string;
-  category: TagCategory;
   description: string;
   source: "Custom";
-  inboxStatus: "Not wired yet";
+  colorHex: string;
+  iconPack: TagIconPack;
+  iconName: string;
   createdByEmail: string;
   createdByLabel: string;
   createdAt: Date;

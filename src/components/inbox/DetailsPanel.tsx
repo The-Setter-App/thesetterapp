@@ -3,12 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setCachedConversationDetails } from "@/lib/cache";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
-import { loadInboxTagCatalog } from "@/lib/inbox/clientTagCatalog";
-import { subscribeInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
-import {
-  emitConversationTagsSynced,
-  syncConversationTagsToClientCache,
-} from "@/lib/inbox/clientTagSync";
 import type {
   ConversationContactDetails,
   ConversationDetails,
@@ -18,31 +12,23 @@ import type {
   StatusType,
   User,
 } from "@/types/inbox";
-import type { TagRow } from "@/types/tags";
 import CallsTab from "./details/CallsTab";
 import DetailsPanelHeader from "./details/DetailsPanelHeader";
 import NotesTab from "./details/NotesTab";
 import PaymentsTab from "./details/PaymentsTab";
 import SummaryTab from "./details/SummaryTab";
-import TagsTab from "./details/TagsTab";
 import TimelineTab from "./details/TimelineTab";
 
-type DetailsTabName =
-  | "Summary"
-  | "Notes"
-  | "Tags"
-  | "Timeline"
-  | "Payments"
-  | "Calls";
+type DetailsTabName = "Summary" | "Notes" | "Timeline" | "Payments" | "Calls";
 
 const DETAILS_TABS: DetailsTabName[] = [
   "Summary",
   "Notes",
-  "Tags",
   "Timeline",
   "Payments",
   "Calls",
 ];
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-() ]+$/;
 const CONTACT_AUTOSAVE_DEBOUNCE_MS = 180;
@@ -90,17 +76,12 @@ export default function DetailsPanel({
       phoneNumber: "",
       email: "",
     });
-  const [tagIds, setTagIds] = useState<string[]>([]);
-  const [availableTags, setAvailableTags] = useState<TagRow[]>([]);
-  const [loadingAvailableTags, setLoadingAvailableTags] = useState(false);
-  const tagCatalogRefreshInFlightRef = useRef(false);
-  const isMountedRef = useRef(true);
   const contactSaveAbortRef = useRef<AbortController | null>(null);
   const contactSaveTimerRef = useRef<number | null>(null);
   const lastSavedNotesRef = useRef<string>("");
   const lastSavedPaymentDetailsRef = useRef<string>("");
   const lastSavedContactDetailsRef = useRef<string>("");
-  const lastSavedTagIdsRef = useRef<string>("");
+
   const syncDetailsCache = useCallback(
     async (overrides?: Partial<ConversationDetails>) => {
       if (!user.id) return;
@@ -110,37 +91,15 @@ export default function DetailsPanel({
           paymentDetails,
           timelineEvents,
           contactDetails,
-          tagIds,
           ...overrides,
         });
       } catch (error) {
         console.error("[DetailsPanel] Failed to update details cache:", error);
       }
     },
-    [contactDetails, notes, paymentDetails, tagIds, timelineEvents, user.id],
+    [contactDetails, notes, paymentDetails, timelineEvents, user.id],
   );
 
-  const refreshAvailableTags = useCallback(async () => {
-    if (tagCatalogRefreshInFlightRef.current) return;
-
-    tagCatalogRefreshInFlightRef.current = true;
-    if (isMountedRef.current) {
-      setLoadingAvailableTags(true);
-    }
-
-    try {
-      const tags = await loadInboxTagCatalog();
-      if (!isMountedRef.current) return;
-      setAvailableTags(tags);
-    } catch (error) {
-      console.error("[DetailsPanel] Failed to load inbox tags:", error);
-    } finally {
-      tagCatalogRefreshInFlightRef.current = false;
-      if (isMountedRef.current) {
-        setLoadingAvailableTags(false);
-      }
-    }
-  }, []);
   const appendStatusTimelineEvent = useCallback(
     (status: StatusType, idPrefix: string) => {
       const now = Date.now();
@@ -185,7 +144,6 @@ export default function DetailsPanel({
         closerPaid: details?.paymentDetails?.closerPaid ?? "No",
         paymentNotes: details?.paymentDetails?.paymentNotes ?? "",
       };
-      const nextTagIds = Array.isArray(details?.tagIds) ? details.tagIds : [];
       const nextContactDetails: ConversationContactDetails = {
         phoneNumber: details?.contactDetails?.phoneNumber ?? "",
         email: details?.contactDetails?.email ?? "",
@@ -199,8 +157,6 @@ export default function DetailsPanel({
       lastSavedNotesRef.current = nextNotes;
       lastSavedPaymentDetailsRef.current = JSON.stringify(nextPaymentDetails);
       lastSavedContactDetailsRef.current = JSON.stringify(nextContactDetails);
-      lastSavedTagIdsRef.current = JSON.stringify(nextTagIds);
-      setTagIds(nextTagIds);
     };
 
     if (syncedDetails) {
@@ -234,7 +190,6 @@ export default function DetailsPanel({
     lastSavedNotesRef.current = "";
     lastSavedPaymentDetailsRef.current = "";
     lastSavedContactDetailsRef.current = "";
-    lastSavedTagIdsRef.current = "";
     if (contactSaveTimerRef.current) {
       window.clearTimeout(contactSaveTimerRef.current);
       contactSaveTimerRef.current = null;
@@ -294,69 +249,6 @@ export default function DetailsPanel({
 
     return () => window.clearTimeout(timeout);
   }, [detailsLoaded, paymentDetails, syncDetailsCache, user.id]);
-
-  useEffect(() => {
-    if (!detailsLoaded || !user.id) return;
-    const serialized = JSON.stringify(tagIds);
-    if (serialized === lastSavedTagIdsRef.current) return;
-
-    const timeout = window.setTimeout(async () => {
-      const payloadTagIds = [...tagIds];
-      const payloadSerialized = JSON.stringify(payloadTagIds);
-      emitConversationTagsSynced({
-        conversationId: user.id,
-        tagIds: payloadTagIds,
-      });
-      syncConversationTagsToClientCache(user.id, payloadTagIds).catch((error) =>
-        console.error("[DetailsPanel] Failed to sync tag cache:", error),
-      );
-
-      try {
-        const response = await fetch(
-          `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tagIds: payloadTagIds }),
-          },
-        );
-        if (!response.ok) return;
-        lastSavedTagIdsRef.current = payloadSerialized;
-        await syncDetailsCache({ tagIds: payloadTagIds });
-      } catch (error) {
-        console.error("[DetailsPanel] Failed to save tags:", error);
-      }
-    }, 450);
-
-    return () => window.clearTimeout(timeout);
-  }, [detailsLoaded, syncDetailsCache, tagIds, user.id]);
-
-  useEffect(() => {
-    refreshAvailableTags().catch((error) =>
-      console.error("[DetailsPanel] Failed to initialize tags:", error),
-    );
-  }, [refreshAvailableTags]);
-
-  useEffect(() => {
-    return subscribeInboxTagCatalogChanged((tags) => {
-      if (Array.isArray(tags)) {
-        setAvailableTags(tags);
-        return;
-      }
-      refreshAvailableTags().catch((error) =>
-        console.error(
-          "[DetailsPanel] Failed to refresh tags after catalog update:",
-          error,
-        ),
-      );
-    });
-  }, [refreshAvailableTags]);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -463,8 +355,9 @@ export default function DetailsPanel({
         !custom.detail?.userId ||
         custom.detail.userId !== user.id ||
         !custom.detail.status
-      )
+      ) {
         return;
+      }
       appendStatusTimelineEvent(custom.detail.status, "status_local");
     };
 
@@ -501,10 +394,9 @@ export default function DetailsPanel({
 
   return (
     <aside
-      className="bg-white flex flex-col flex-shrink-0 relative"
+      className="relative flex shrink-0 flex-col bg-white"
       style={width ? { width: `${width}px` } : { width: "400px" }}
     >
-      {/* Header: Avatar, Name, Status, Contacts, Setter/Closer */}
       <DetailsPanelHeader
         user={user}
         contactDetails={contactDetails}
@@ -514,8 +406,7 @@ export default function DetailsPanel({
 
       <hr className="border-[#F0F2F6]" />
 
-      {/* Tab Bar */}
-      <div className="flex items-center justify-around px-2 py-2 border-b border-[#F0F2F6] text-sm font-semibold text-[#606266]">
+      <div className="flex items-center justify-around border-b border-[#F0F2F6] px-2 py-2 text-sm font-semibold text-[#606266]">
         {DETAILS_TABS.map((tab) => (
           <button
             key={tab}
@@ -528,19 +419,10 @@ export default function DetailsPanel({
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 bg-white overflow-hidden flex flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden bg-white">
         {activeTab === "Summary" && <SummaryTab conversationId={user.id} />}
         {activeTab === "Notes" && (
           <NotesTab notes={notes} onChange={setNotes} />
-        )}
-        {activeTab === "Tags" && (
-          <TagsTab
-            availableTags={availableTags}
-            selectedTagIds={tagIds}
-            loading={loadingAvailableTags}
-            onChangeTagIds={setTagIds}
-          />
         )}
         {activeTab === "Timeline" && (
           <TimelineTab events={timelineEvents} onClear={handleClearTimeline} />
@@ -553,4 +435,3 @@ export default function DetailsPanel({
     </aside>
   );
 }
-

@@ -1,14 +1,20 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Plus, Tag } from "lucide-react";
+import { CheckCircle2, CircleAlert, Plus } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
+import { StatusIcon } from "@/components/icons/StatusIcon";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
-import TagCategoryDropdown from "@/components/settings/TagCategoryDropdown";
+import StatusIconPickerModal from "@/components/settings/StatusIconPickerModal";
 import TagRowActionsMenu from "@/components/settings/TagRowActionsMenu";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { setCachedInboxTags } from "@/lib/cache";
-import { broadcastInboxTagCatalogChanged } from "@/lib/inbox/clientTagCatalogSync";
+import { broadcastInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
+import {
+  buildStatusPillStyle,
+  normalizeStatusColorHex,
+  normalizeStatusText,
+} from "@/lib/status/config";
 import {
   hasDuplicateTagName,
   MAX_TAG_DESCRIPTION_LENGTH,
@@ -16,17 +22,17 @@ import {
   normalizeTagText,
   PRESET_TAG_ROWS,
 } from "@/lib/tags/config";
-import type { TagCategory, TagRow } from "@/types/tags";
+import type { TagIconPack, TagRow } from "@/types/tags";
 
 interface TagsSettingsContentProps {
   currentUser: {
     email: string;
     displayName?: string;
   };
-  initialCustomTags: TagRow[];
+  initialTags: TagRow[];
 }
 
-interface CreateTagResponse {
+interface UpsertTagResponse {
   tag?: TagRow;
   error?: string;
 }
@@ -36,34 +42,7 @@ interface DeleteTagResponse {
   error?: string;
 }
 
-function CategoryBadge({ category }: { category: TagCategory }) {
-  return (
-    <Badge
-      variant="outline"
-      className="border-[#F0F2F6] bg-[#F8F7FF] text-[#606266]"
-    >
-      {category}
-    </Badge>
-  );
-}
-
-function SourceBadge({ source }: { source: TagRow["source"] }) {
-  return source === "Preset" ? (
-    <Badge
-      variant="secondary"
-      className="bg-[rgba(135,113,255,0.1)] text-[#8771FF]"
-    >
-      Preset
-    </Badge>
-  ) : (
-    <Badge
-      variant="outline"
-      className="border-[#F0F2F6] bg-white text-[#606266]"
-    >
-      Custom
-    </Badge>
-  );
-}
+type IconPickerContext = "create" | "edit";
 
 function SummaryMetric({
   title,
@@ -85,21 +64,55 @@ function SummaryMetric({
   );
 }
 
+function SourceBadge({ source }: { source: TagRow["source"] }) {
+  return source === "Default" ? (
+    <Badge
+      variant="secondary"
+      className="bg-[rgba(135,113,255,0.1)] text-[#8771FF]"
+    >
+      Default
+    </Badge>
+  ) : (
+    <Badge
+      variant="outline"
+      className="border-[#F0F2F6] bg-white text-[#606266]"
+    >
+      Custom
+    </Badge>
+  );
+}
+
+function formatColorInput(colorHex: string): string {
+  const normalized = normalizeStatusColorHex(colorHex);
+  return normalized || "#8771FF";
+}
+
 export default function TagsSettingsContent({
   currentUser,
-  initialCustomTags,
+  initialTags,
 }: TagsSettingsContentProps) {
+  const initialCustomTags = useMemo(
+    () => initialTags.filter((tag) => tag.source === "Custom"),
+    [initialTags],
+  );
+
   const [customTags, setCustomTags] = useState<TagRow[]>(initialCustomTags);
   const [tagName, setTagName] = useState("");
-  const [tagCategory, setTagCategory] = useState<TagCategory>("Custom");
   const [tagDescription, setTagDescription] = useState("");
+  const [tagColorHex, setTagColorHex] = useState("#8771FF");
+  const [tagIconPack, setTagIconPack] = useState<TagIconPack>("lu");
+  const [tagIconName, setTagIconName] = useState("LuTag");
+  const [iconPickerContext, setIconPickerContext] =
+    useState<IconPickerContext | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [activeEditTagId, setActiveEditTagId] = useState<string | null>(null);
   const [editTagName, setEditTagName] = useState("");
-  const [editTagCategory, setEditTagCategory] = useState<TagCategory>("Custom");
   const [editTagDescription, setEditTagDescription] = useState("");
+  const [editTagColorHex, setEditTagColorHex] = useState("#8771FF");
+  const [editTagIconPack, setEditTagIconPack] = useState<TagIconPack>("lu");
+  const [editTagIconName, setEditTagIconName] = useState("LuTag");
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
@@ -111,11 +124,19 @@ export default function TagsSettingsContent({
   const normalizedTagDescription = normalizeTagText(tagDescription);
   const canAddTag = normalizedTagName.length > 0 && !isCreating && !isUpdating;
 
+  async function syncStatusCatalogCache(nextCustomTags: TagRow[]) {
+    const nextAssignableStatuses = [...PRESET_TAG_ROWS, ...nextCustomTags];
+    await setCachedInboxTags(nextAssignableStatuses);
+    broadcastInboxStatusCatalogChanged(nextAssignableStatuses);
+  }
+
   function resetEditState() {
     setActiveEditTagId(null);
     setEditTagName("");
-    setEditTagCategory("Custom");
     setEditTagDescription("");
+    setEditTagColorHex("#8771FF");
+    setEditTagIconPack("lu");
+    setEditTagIconName("LuTag");
   }
 
   function beginEditTag(tag: TagRow) {
@@ -124,16 +145,12 @@ export default function TagsSettingsContent({
     setSuccessMessage("");
     setActiveEditTagId(tag.id);
     setEditTagName(tag.name);
-    setEditTagCategory(tag.category);
     setEditTagDescription(
       tag.description === "No description added" ? "" : tag.description,
     );
-  }
-
-  async function syncInboxTagCatalogCache(nextCustomTags: TagRow[]) {
-    const nextAssignableTags = [...PRESET_TAG_ROWS, ...nextCustomTags];
-    await setCachedInboxTags(nextAssignableTags);
-    broadcastInboxTagCatalogChanged(nextAssignableTags);
+    setEditTagColorHex(tag.colorHex);
+    setEditTagIconPack(tag.iconPack);
+    setEditTagIconName(tag.iconName);
   }
 
   async function handleAddCustomTag(event: FormEvent<HTMLFormElement>) {
@@ -142,13 +159,13 @@ export default function TagsSettingsContent({
     setSuccessMessage("");
 
     if (!normalizedTagName) {
-      setErrorMessage("Tag name is required.");
+      setErrorMessage("Status name is required.");
       return;
     }
 
     if (normalizedTagName.length > MAX_TAG_NAME_LENGTH) {
       setErrorMessage(
-        `Tag name must be ${MAX_TAG_NAME_LENGTH} characters or fewer.`,
+        `Status name must be ${MAX_TAG_NAME_LENGTH} characters or fewer.`,
       );
       return;
     }
@@ -161,7 +178,18 @@ export default function TagsSettingsContent({
     }
 
     if (hasDuplicateTagName(normalizedTagName, allTags)) {
-      setErrorMessage("Tag name already exists. Use a different name.");
+      setErrorMessage("Status name already exists. Use a different name.");
+      return;
+    }
+
+    const normalizedColor = normalizeStatusColorHex(tagColorHex);
+    if (!normalizedColor) {
+      setErrorMessage("A valid color is required.");
+      return;
+    }
+
+    if (!tagIconName.trim()) {
+      setErrorMessage("An icon is required.");
       return;
     }
 
@@ -171,30 +199,34 @@ export default function TagsSettingsContent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: normalizedTagName,
-          category: tagCategory,
+          name: normalizeStatusText(normalizedTagName),
           description: normalizedTagDescription,
+          colorHex: normalizedColor,
+          iconPack: tagIconPack,
+          iconName: tagIconName,
         }),
       });
-      const payload = (await response.json()) as CreateTagResponse;
+      const payload = (await response.json()) as UpsertTagResponse;
       if (!response.ok || !payload.tag) {
-        throw new Error(payload.error || "Failed to create tag.");
+        throw new Error(payload.error || "Failed to create status tag.");
       }
 
       const nextCustomTags = [payload.tag as TagRow, ...customTags];
       setCustomTags(nextCustomTags);
       setTagName("");
-      setTagCategory("Custom");
       setTagDescription("");
+      setTagColorHex("#8771FF");
+      setTagIconPack("lu");
+      setTagIconName("LuTag");
       setSuccessMessage(
         `"${payload.tag.name}" was saved by ${
           currentUser.displayName || currentUser.email
         }.`,
       );
-      await syncInboxTagCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to create tag.",
+        error instanceof Error ? error.message : "Failed to create status tag.",
       );
     } finally {
       setIsCreating(false);
@@ -207,21 +239,31 @@ export default function TagsSettingsContent({
     setSuccessMessage("");
 
     const normalizedEditTagName = normalizeTagText(editTagName);
-    const normalizedEditTagDescription = normalizeTagText(editTagDescription);
+    const normalizedEditDescription = normalizeTagText(editTagDescription);
+    const normalizedEditColor = normalizeStatusColorHex(editTagColorHex);
+
     if (!normalizedEditTagName) {
-      setErrorMessage("Tag name is required.");
+      setErrorMessage("Status name is required.");
       return;
     }
     if (normalizedEditTagName.length > MAX_TAG_NAME_LENGTH) {
       setErrorMessage(
-        `Tag name must be ${MAX_TAG_NAME_LENGTH} characters or fewer.`,
+        `Status name must be ${MAX_TAG_NAME_LENGTH} characters or fewer.`,
       );
       return;
     }
-    if (normalizedEditTagDescription.length > MAX_TAG_DESCRIPTION_LENGTH) {
+    if (normalizedEditDescription.length > MAX_TAG_DESCRIPTION_LENGTH) {
       setErrorMessage(
         `Description must be ${MAX_TAG_DESCRIPTION_LENGTH} characters or fewer.`,
       );
+      return;
+    }
+    if (!normalizedEditColor) {
+      setErrorMessage("A valid color is required.");
+      return;
+    }
+    if (!editTagIconName.trim()) {
+      setErrorMessage("An icon is required.");
       return;
     }
 
@@ -231,7 +273,7 @@ export default function TagsSettingsContent({
     if (
       hasDuplicateTagName(normalizedEditTagName, existingRowsExcludingCurrent)
     ) {
-      setErrorMessage("Tag name already exists. Use a different name.");
+      setErrorMessage("Status name already exists. Use a different name.");
       return;
     }
 
@@ -243,15 +285,17 @@ export default function TagsSettingsContent({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: normalizedEditTagName,
-            category: editTagCategory,
-            description: normalizedEditTagDescription,
+            name: normalizeStatusText(normalizedEditTagName),
+            description: normalizedEditDescription,
+            colorHex: normalizedEditColor,
+            iconPack: editTagIconPack,
+            iconName: editTagIconName,
           }),
         },
       );
-      const payload = (await response.json()) as CreateTagResponse;
+      const payload = (await response.json()) as UpsertTagResponse;
       if (!response.ok || !payload.tag) {
-        throw new Error(payload.error || "Failed to update tag.");
+        throw new Error(payload.error || "Failed to update status tag.");
       }
 
       const nextCustomTags = customTags.map((row) =>
@@ -260,10 +304,10 @@ export default function TagsSettingsContent({
       setCustomTags(nextCustomTags);
       setSuccessMessage(`"${payload.tag.name}" was updated.`);
       resetEditState();
-      await syncInboxTagCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to update tag.",
+        error instanceof Error ? error.message : "Failed to update status tag.",
       );
     } finally {
       setIsUpdating(false);
@@ -289,7 +333,7 @@ export default function TagsSettingsContent({
       );
       const payload = (await response.json()) as DeleteTagResponse;
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Failed to delete tag.");
+        throw new Error(payload.error || "Failed to delete status tag.");
       }
 
       const nextCustomTags = customTags.filter((tag) => tag.id !== tagId);
@@ -298,18 +342,44 @@ export default function TagsSettingsContent({
         resetEditState();
       }
       setSuccessMessage(`"${target.name}" was deleted.`);
-      await syncInboxTagCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextCustomTags);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to delete tag.",
+        error instanceof Error ? error.message : "Failed to delete status tag.",
       );
     } finally {
       setDeletingTagId(null);
     }
   }
 
+  function handleIconSelect(selection: {
+    iconPack: TagIconPack;
+    iconName: string;
+  }) {
+    if (iconPickerContext === "edit") {
+      setEditTagIconPack(selection.iconPack);
+      setEditTagIconName(selection.iconName);
+    } else {
+      setTagIconPack(selection.iconPack);
+      setTagIconName(selection.iconName);
+    }
+    setIconPickerContext(null);
+  }
+
   return (
     <div className="space-y-4">
+      <StatusIconPickerModal
+        open={iconPickerContext !== null}
+        selectedIconPack={
+          iconPickerContext === "edit" ? editTagIconPack : tagIconPack
+        }
+        selectedIconName={
+          iconPickerContext === "edit" ? editTagIconName : tagIconName
+        }
+        onClose={() => setIconPickerContext(null)}
+        onSelect={handleIconSelect}
+      />
+
       {successMessage ? (
         <div className="flex items-center gap-2 rounded-2xl border border-[#D8D2FF] bg-[#F3F0FF] px-5 py-3 text-sm font-medium text-[#6d5ed6]">
           <CheckCircle2 size={16} />
@@ -325,24 +395,24 @@ export default function TagsSettingsContent({
       ) : null}
 
       <SettingsSectionCard
-        title="Tag management"
-        description="Create and manage workspace tags used to label Inbox conversations."
+        title="Status tags"
+        description="Manage default and custom statuses used in Inbox and Leads."
       >
         <div className="grid grid-cols-1 gap-3 border-b border-[#F0F2F6] px-6 py-6 md:grid-cols-3 md:px-8">
           <SummaryMetric
-            title="Total tags"
+            title="Total statuses"
             value={allTags.length}
-            subtitle="Preset and custom combined"
+            subtitle="Default and custom combined"
           />
           <SummaryMetric
-            title="Preset"
+            title="Default"
             value={PRESET_TAG_ROWS.length}
-            subtitle="Default options included by system"
+            subtitle="Built-in statuses"
           />
           <SummaryMetric
             title="Custom"
             value={customTags.length}
-            subtitle="Custom Tags"
+            subtitle="Workspace custom statuses"
           />
         </div>
 
@@ -351,17 +421,21 @@ export default function TagsSettingsContent({
           className="border-b border-[#F0F2F6] px-6 py-6 md:px-8"
         >
           <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#101011]">
-            <Tag size={16} className="text-[#8771FF]" />
-            Add custom tag
+            <StatusIcon
+              iconPack={tagIconPack}
+              iconName={tagIconName}
+              className="h-4 w-4 text-[#8771FF]"
+            />
+            Add custom status
           </h3>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_170px_minmax(0,1fr)_auto] md:items-end">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_150px_auto] md:items-end">
             <div>
               <label
                 htmlFor="tag-name"
                 className="mb-1 block text-xs font-medium text-[#606266]"
               >
-                Tag name
+                Status name
               </label>
               <input
                 id="tag-name"
@@ -370,23 +444,8 @@ export default function TagsSettingsContent({
                 value={tagName}
                 maxLength={MAX_TAG_NAME_LENGTH}
                 onChange={(event) => setTagName(event.target.value)}
-                placeholder="Example: High ticket closer"
-                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="tag-category"
-                className="mb-1 block text-xs font-medium text-[#606266]"
-              >
-                Category
-              </label>
-              <TagCategoryDropdown
-                id="tag-category"
-                name="tag-category"
-                value={tagCategory}
-                onChange={setTagCategory}
+                placeholder="Example: Revisit next month"
+                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF]"
               />
             </div>
 
@@ -405,8 +464,50 @@ export default function TagsSettingsContent({
                 maxLength={MAX_TAG_DESCRIPTION_LENGTH}
                 onChange={(event) => setTagDescription(event.target.value)}
                 placeholder="Short note for teammates"
-                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
+                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF]"
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="tag-color"
+                className="mb-1 block text-xs font-medium text-[#606266]"
+              >
+                Color
+              </label>
+              <div className="flex h-11 items-center gap-2 rounded-xl border border-[#F0F2F6] bg-white px-2.5">
+                <input
+                  id="tag-color"
+                  name="tag-color"
+                  type="color"
+                  value={formatColorInput(tagColorHex)}
+                  onChange={(event) => setTagColorHex(event.target.value)}
+                  className="h-7 w-7 cursor-pointer rounded border-none bg-transparent p-0"
+                />
+                <span className="text-xs font-semibold text-[#606266]">
+                  {normalizeStatusColorHex(tagColorHex) || "#8771FF"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1 block text-xs font-medium text-[#606266]">
+                Icon
+              </p>
+              <button
+                type="button"
+                onClick={() => setIconPickerContext("create")}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#F0F2F6] bg-white text-sm font-medium text-[#101011] transition-colors hover:bg-[#F8F7FF]"
+                aria-label="Select icon"
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#F0F2F6] bg-[#F8F7FF]">
+                  <StatusIcon
+                    iconPack={tagIconPack}
+                    iconName={tagIconName}
+                    className="h-4 w-4"
+                  />
+                </span>
+              </button>
             </div>
 
             <Button
@@ -416,31 +517,31 @@ export default function TagsSettingsContent({
               isLoading={isCreating}
               leftIcon={<Plus size={16} />}
             >
-              Add Tag
+              Add Status
             </Button>
           </div>
 
           <p className="mt-3 text-xs text-[#606266]">
-            Custom tags are available in Inbox tagging.
+            Custom statuses are available in Inbox status dropdowns and filters.
           </p>
         </form>
 
         <div className="px-6 py-6 md:px-8">
           <div className="overflow-x-auto rounded-2xl border border-[#F0F2F6]">
-            <table className="w-full min-w-[860px] border-collapse bg-white">
+            <table className="w-full min-w-[900px] border-collapse bg-white">
               <thead className="bg-[#F8F7FF] text-left">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
-                    Tag
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
-                    Category
+                    Status
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
                     Source
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
                     Description
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
+                    Color
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
                     Created
@@ -454,43 +555,56 @@ export default function TagsSettingsContent({
                 {allTags.map((tagRow) => (
                   <tr
                     key={tagRow.id}
-                    className="border-t border-[#F0F2F6] align-top"
+                    className="border-t border-[#F0F2F6] align-middle"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       {activeEditTagId === tagRow.id ? (
-                        <input
-                          type="text"
-                          value={editTagName}
-                          maxLength={MAX_TAG_NAME_LENGTH}
-                          onChange={(event) =>
-                            setEditTagName(event.target.value)
-                          }
-                          className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editTagName}
+                            maxLength={MAX_TAG_NAME_LENGTH}
+                            onChange={(event) =>
+                              setEditTagName(event.target.value)
+                            }
+                            className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setIconPickerContext("edit")}
+                            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-[#F0F2F6] bg-white px-3 text-[#606266] transition-colors hover:bg-[#F8F7FF]"
+                            aria-label="Select edit icon"
+                          >
+                            <StatusIcon
+                              iconPack={editTagIconPack}
+                              iconName={editTagIconName}
+                              className="h-4 w-4"
+                            />
+                          </button>
+                        </div>
                       ) : (
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-1.5">
-                          <Tag size={12} className="text-[#8771FF]" />
-                          <span className="text-sm font-medium text-[#101011]">
+                        <div
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold leading-none"
+                          style={buildStatusPillStyle(tagRow.colorHex)}
+                        >
+                          <StatusIcon
+                            iconPack={tagRow.iconPack}
+                            iconName={tagRow.iconName}
+                            className="h-3.5 w-3.5 shrink-0 self-center"
+                            style={{ color: tagRow.colorHex }}
+                          />
+                          <span className="inline-flex items-center leading-none">
                             {tagRow.name}
                           </span>
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      {activeEditTagId === tagRow.id ? (
-                        <TagCategoryDropdown
-                          id={`edit-tag-category-${tagRow.id}`}
-                          value={editTagCategory}
-                          onChange={setEditTagCategory}
-                        />
-                      ) : (
-                        <CategoryBadge category={tagRow.category} />
-                      )}
+                    <td className="px-4 py-3 align-middle">
+                      <div className="inline-flex items-center">
+                        <SourceBadge source={tagRow.source} />
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <SourceBadge source={tagRow.source} />
-                    </td>
-                    <td className="max-w-[300px] px-4 py-3 text-sm text-[#606266]">
+                    <td className="max-w-[320px] px-4 py-3 text-sm text-[#606266]">
                       {activeEditTagId === tagRow.id ? (
                         <input
                           type="text"
@@ -499,10 +613,38 @@ export default function TagsSettingsContent({
                           onChange={(event) =>
                             setEditTagDescription(event.target.value)
                           }
-                          className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
+                          className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF]"
                         />
                       ) : (
                         tagRow.description
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {activeEditTagId === tagRow.id ? (
+                        <div className="flex h-10 items-center gap-2 rounded-xl border border-[#F0F2F6] bg-white px-2.5">
+                          <input
+                            type="color"
+                            value={formatColorInput(editTagColorHex)}
+                            onChange={(event) =>
+                              setEditTagColorHex(event.target.value)
+                            }
+                            className="h-7 w-7 cursor-pointer rounded border-none bg-transparent p-0"
+                          />
+                          <span className="text-xs font-semibold text-[#606266]">
+                            {normalizeStatusColorHex(editTagColorHex) ||
+                              "#8771FF"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-2">
+                          <span
+                            className="inline-flex h-5 w-5 rounded-full border border-[#E2E5EB]"
+                            style={{ backgroundColor: tagRow.colorHex }}
+                          />
+                          <span className="text-xs font-semibold text-[#606266]">
+                            {tagRow.colorHex}
+                          </span>
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -514,7 +656,7 @@ export default function TagsSettingsContent({
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      {tagRow.source === "Preset" ? (
+                      {tagRow.source === "Default" ? (
                         <span className="text-xs text-[#9A9CA2]">System</span>
                       ) : activeEditTagId === tagRow.id ? (
                         <div className="flex items-center gap-2">

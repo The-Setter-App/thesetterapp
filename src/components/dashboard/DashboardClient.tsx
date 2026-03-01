@@ -3,7 +3,14 @@
 import Head from "next/head";
 import Link from "next/link";
 import React from "react";
-import PageHeader from "@/components/layout/PageHeader";
+import {
+  LuBadgePercent,
+  LuBell,
+  LuDollarSign,
+  LuHourglass,
+  LuReply,
+  LuSearch,
+} from "react-icons/lu";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
 import type { DashboardSnapshot } from "@/types/dashboard";
 
@@ -119,6 +126,9 @@ export default function Dashboard({
   displayName: string;
   snapshot: DashboardSnapshot;
 }) {
+  const funnelClipPathId = React.useId().replace(/:/g, "");
+  const [search, setSearch] = React.useState("");
+
   if (!snapshot.hasConnectedAccounts) {
     return <NoConnectedAccountsState displayName={displayName} />;
   }
@@ -138,31 +148,19 @@ export default function Dashboard({
   ]);
 
   // SVG icon components
+  const iconClassName = "text-[#5235EF]";
   const DollarIcon = (
-    <img src="/dashboardIcons/dollar.svg" alt="Dollar" width={30} height={30} />
+    <LuDollarSign className={`${iconClassName} h-[30px] w-[30px]`} />
   );
   const HourglassIcon = (
-    <img
-      src="/dashboardIcons/hourglass.svg"
-      alt="Hourglass"
-      width={30}
-      height={30}
-    />
+    <LuHourglass className={`${iconClassName} h-[30px] w-[30px]`} />
   );
   const ConversionRateIcon = (
-    <img
-      src="/dashboardIcons/conversion-rate.svg"
-      alt="Conversion Rate"
-      width={24}
-      height={24}
-    />
+    <LuBadgePercent className={`${iconClassName} h-6 w-6`} />
   );
-  const ReplyIcon = (
-    <img src="/dashboardIcons/reply.svg" alt="Reply" width={23} height={28} />
-  );
+  const ReplyIcon = <LuReply className={`${iconClassName} h-7 w-6`} />;
 
   // Search bar state and handler
-  const [search, setSearch] = React.useState("");
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
@@ -184,59 +182,73 @@ export default function Dashboard({
         style={{ fontFamily: "Inter, sans-serif" }}
       >
         <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
-          <PageHeader
-            title={`Hi, ${displayName}!`}
-            description="Your Setter Dashboard"
-            actions={
-              <>
-                <div className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#F0F2F6] bg-white">
-                  <img
-                    src="/dashboardIcons/bell.svg"
-                    alt="Bell"
-                    width={24}
-                    height={24}
-                  />
-                </div>
-                <form
-                  onSubmit={handleSearchSubmit}
+          {/* Header - Styled from Figma */}
+          <header className="flex flex-col gap-4 border-b border-[#F0F2F6] px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
+            <div className="flex flex-col gap-1">
+              <div
+                style={{
+                  color: "#101011",
+                  fontSize: "18px",
+                  fontWeight: 500,
+                  lineHeight: "28px",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                Hi, {displayName}!
+              </div>
+              <div
+                style={{
+                  color: "#606266",
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  lineHeight: "20px",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                Your Setter Dashboard
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
+              <div className="relative cursor-pointer">
+                <LuBell className="h-6 w-6 text-[#606266]" aria-label="Bell" />
+              </div>
+              <form
+                onSubmit={handleSearchSubmit}
+                style={{
+                  width: "100%",
+                  maxWidth: "260px",
+                  height: "44px",
+                  paddingLeft: "16px",
+                  paddingRight: "16px",
+                  boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
+                  borderRadius: "8px",
+                  outline: "1px #F0F2F6 solid",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "white",
+                }}
+              >
+                <LuSearch
+                  className="h-[14px] w-[14px] text-[#9A9CA2]"
+                  aria-label="Search"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={handleSearchChange}
+                  placeholder="Search"
+                  className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
                   style={{
+                    border: "none",
+                    fontFamily: "Inter, sans-serif",
                     width: "100%",
-                    maxWidth: "260px",
-                    height: "44px",
-                    paddingLeft: "16px",
-                    paddingRight: "16px",
-                    boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
-                    borderRadius: "8px",
-                    outline: "1px #F0F2F6 solid",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    background: "white",
                   }}
-                >
-                  <img
-                    src="/dashboardIcons/search.svg"
-                    alt="Search"
-                    width={14}
-                    height={14}
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
-                    style={{
-                      border: "none",
-                      fontFamily: "Inter, sans-serif",
-                      width: "100%",
-                    }}
-                    aria-label="Search"
-                  />
-                </form>
-              </>
-            }
-          />
+                  aria-label="Search"
+                />
+              </form>
+            </div>
+          </header>
 
           <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
             {/* Metrics Grid */}
@@ -271,25 +283,37 @@ export default function Dashboard({
             {/* Funnel Visualizer */}
             <div className="mx-3 md:mx-5 relative h-[357px] bg-white border border-[rgba(135,113,255,0.2)] rounded-[20px] overflow-hidden">
               <div className="pointer-events-none absolute inset-0 z-0">
-                {funnelGeometry.segments.map((segment) => (
-                  <div
-                    key={`${segment.start}-${segment.end}`}
-                    className="absolute inset-0 bg-[#8771FF]"
-                    style={{
-                      opacity: segment.opacity,
-                      clipPath: `polygon(${segment.start}% ${segment.upperStart}%, ${segment.end}% ${segment.upperEnd}%, ${segment.end}% ${segment.lowerEnd}%, ${segment.start}% ${segment.lowerStart}%)`,
-                    }}
-                  />
-                ))}
-                <div
-                  className="absolute inset-0 z-20"
-                  style={{ clipPath: funnelGeometry.clipPath }}
+                <svg
+                  aria-hidden="true"
+                  className="h-full w-full"
+                  preserveAspectRatio="none"
+                  viewBox="0 0 100 100"
                 >
-                  <div
-                    className="absolute left-0 right-0 h-px bg-[rgba(86,90,104,0.55)]"
-                    style={{ top: `${funnelGeometry.centerLineY}%` }}
+                  <defs>
+                    <clipPath id={funnelClipPathId}>
+                      <path d={funnelGeometry.pathD} />
+                    </clipPath>
+                  </defs>
+
+                  {funnelGeometry.segments.map((segment) => (
+                    <path
+                      key={segment.pathD}
+                      d={segment.pathD}
+                      fill="#8771FF"
+                      opacity={segment.opacity}
+                    />
+                  ))}
+
+                  <line
+                    clipPath={`url(#${funnelClipPathId})`}
+                    stroke="rgba(86,90,104,0.55)"
+                    strokeWidth="0.35"
+                    x1="0"
+                    x2="100"
+                    y1={funnelGeometry.centerLineY}
+                    y2={funnelGeometry.centerLineY}
                   />
-                </div>
+                </svg>
               </div>
               <div className="relative z-10 grid h-full grid-cols-5">
                 {[
