@@ -183,7 +183,7 @@ export default function Dashboard({
       >
         <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
           {/* Header - Styled from Figma */}
-          <header className="flex flex-col gap-4 border-b border-[#F0F2F6] px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
+          <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-[#F0F2F6] bg-white px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
             <div className="flex flex-col gap-1">
               <div
                 style={{

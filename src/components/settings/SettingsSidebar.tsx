@@ -47,7 +47,7 @@ export default function SettingsSidebar({ role }: { role: UserRole }) {
   const settingsNavItems = getSettingsItems(role);
 
   return (
-    <aside className="h-screen border-r border-[#F0F2F6] bg-white">
+    <aside className="h-auto border-r border-[#F0F2F6] bg-white md:h-full">
       <div className="flex h-full flex-col p-4 md:p-6">
         <nav className="flex gap-2 overflow-x-auto md:block md:space-y-2 md:overflow-visible">
           {settingsNavItems.map((item) => {

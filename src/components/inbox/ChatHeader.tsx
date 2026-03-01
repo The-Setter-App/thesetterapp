@@ -18,7 +18,7 @@ const EyeIcon = ({ className }: { className?: string }) => (
 
 export default function ChatHeader({ user, showVisible, onToggleVisible }: ChatHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+    <div className="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
       <div className="flex items-center">
         <img 
           src={user?.avatar || "/images/no_profile.jpg"} 
