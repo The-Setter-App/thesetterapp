@@ -95,7 +95,11 @@ export default function ChatSidebar({
           <Plus size={16} /> New Conversation
         </button>
 
-        <div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1">
+        <div
+          className={`flex flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1 ${
+            hasNoSessions ? "min-h-[220px] justify-center" : "max-h-[220px]"
+          }`}
+        >
           {isLoading &&
             Array.from({ length: 6 }).map((_, index) => (
               <div
