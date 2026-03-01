@@ -8,6 +8,16 @@ import type {
   Message,
   User,
 } from "@/types/inbox";
+import {
+  applyConversationDetailsLocalPatch,
+  clearSyncedConversationDetailsPending,
+  mergeRemoteConversationDetails,
+  readConversationDetailsCacheState,
+  toConversationDetailsCacheRecord,
+  type ConversationDetailsCacheRecord,
+  type ConversationDetailsCacheState,
+  type ConversationDetailsPendingPatch,
+} from "@/lib/cache/domains/inboxConversationDetailsState";
 
 const USERS_CACHE_KEY = "users";
 const MESSAGES_CACHE_PREFIX = "messages_";
@@ -25,6 +35,8 @@ export interface MessagePageMetaCacheRecord {
   hasMore: boolean;
   fetchedAt: number;
 }
+
+export type { ConversationDetailsCacheState };
 
 const inboxCache = createLayeredCache({
   storeName: APP_CACHE_STORES.inbox,
@@ -51,6 +63,10 @@ function conversationDetailsKey(conversationId: string): string {
 function conversationSummaryKey(conversationId: string): string {
   return `${CONVERSATION_SUMMARY_CACHE_PREFIX}${conversationId}`;
 }
+
+type StoredConversationDetails =
+  | ConversationDetails
+  | ConversationDetailsCacheRecord;
 
 export async function getCachedUsers(): Promise<User[] | null> {
   return inboxCache.get<User[]>(USERS_CACHE_KEY);
@@ -130,21 +146,46 @@ export async function updateCachedMessages(
 export async function getCachedConversationDetails(
   conversationId: string,
 ): Promise<ConversationDetails | null> {
+  const state = await getCachedConversationDetailsState(conversationId);
+  return state?.details ?? null;
+}
+
+export async function getCachedConversationDetailsState(
+  conversationId: string,
+): Promise<ConversationDetailsCacheState | null> {
   const normalized = normalizeConversationId(conversationId);
   if (!normalized) return null;
-  return inboxCache.get<ConversationDetails>(
+  const value = await inboxCache.get<StoredConversationDetails>(
     conversationDetailsKey(normalized),
   );
+  return readConversationDetailsCacheState(value);
 }
 
 export function getHotCachedConversationDetails(
   conversationId: string,
 ): ConversationDetails | null {
+  const state = getHotCachedConversationDetailsState(conversationId);
+  return state?.details ?? null;
+}
+
+export function getHotCachedConversationDetailsState(
+  conversationId: string,
+): ConversationDetailsCacheState | null {
   const normalized = normalizeConversationId(conversationId);
   if (!normalized) return null;
-  return (
-    inboxCache.peek<ConversationDetails>(conversationDetailsKey(normalized)) ??
-    null
+  const value =
+    inboxCache.peek<StoredConversationDetails>(conversationDetailsKey(normalized)) ??
+    null;
+  return readConversationDetailsCacheState(value);
+}
+
+async function setConversationDetailsState(
+  conversationId: string,
+  state: ConversationDetailsCacheState,
+): Promise<void> {
+  await inboxCache.set<ConversationDetailsCacheRecord>(
+    conversationDetailsKey(conversationId),
+    toConversationDetailsCacheRecord(state),
   );
 }
 
@@ -152,12 +193,54 @@ export async function setCachedConversationDetails(
   conversationId: string,
   details: ConversationDetails,
 ): Promise<void> {
+  await setCachedConversationDetailsFromRemote(conversationId, details);
+}
+
+export async function setCachedConversationDetailsFromRemote(
+  conversationId: string,
+  details: ConversationDetails,
+): Promise<ConversationDetailsCacheState> {
   const normalized = normalizeConversationId(conversationId);
-  if (!normalized) return;
-  await inboxCache.set<ConversationDetails>(
-    conversationDetailsKey(normalized),
-    details,
+  if (!normalized) {
+    return {
+      details,
+      pending: {},
+    };
+  }
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = mergeRemoteConversationDetails(currentState, details);
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
+}
+
+export async function setCachedConversationDetailsLocal(
+  conversationId: string,
+  patch: ConversationDetailsPendingPatch,
+): Promise<ConversationDetailsCacheState | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = applyConversationDetailsLocalPatch(currentState, patch);
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
+}
+
+export async function markCachedConversationDetailsSynced(
+  conversationId: string,
+  syncedPatch: ConversationDetailsPendingPatch,
+): Promise<ConversationDetailsCacheState | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = clearSyncedConversationDetailsPending(
+    currentState,
+    syncedPatch,
   );
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
 }
 
 export async function getCachedConversationSummary(

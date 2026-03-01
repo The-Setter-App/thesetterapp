@@ -2,7 +2,7 @@
 
 import {
   getCachedConversationDetails,
-  setCachedConversationDetails,
+  setCachedConversationDetailsFromRemote,
 } from "@/lib/cache";
 import type { ConversationDetails } from "@/types/inbox";
 
@@ -84,7 +84,7 @@ export async function prefetchConversationDetailsToCache(params: {
 
     const details = await fetchConversationDetails(conversationId);
     if (!details) return;
-    await setCachedConversationDetails(conversationId, details);
+    await setCachedConversationDetailsFromRemote(conversationId, details);
   })()
     .catch((error) => {
       // Prefetch is best-effort by design.

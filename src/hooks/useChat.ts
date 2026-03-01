@@ -9,7 +9,7 @@ import {
   getHotCachedMessagePageMeta,
   getHotCachedMessages,
   getHotCachedUsers,
-  setCachedConversationDetails,
+  setCachedConversationDetailsFromRemote,
   setCachedMessagePageMeta,
   setCachedMessages,
 } from '@/lib/cache';
@@ -213,13 +213,25 @@ export function useChat(selectedUserId: string) {
         return;
       }
 
-      setConversationDetails(details);
-      setConversationDetailsSyncedAt(Date.now());
-      if (details) {
-        setCachedConversationDetails(selectedUserId, details).catch((e) =>
-          console.error('Cache update failed:', e),
-        );
+      if (!details) {
+        setConversationDetails(null);
+        setConversationDetailsSyncedAt(0);
+        return;
       }
+
+      const nextState = await setCachedConversationDetailsFromRemote(
+        selectedUserId,
+        details,
+      );
+      if (
+        typeof expectedGen === 'number' &&
+        expectedGen !== fetchGenRef.current
+      ) {
+        return;
+      }
+
+      setConversationDetails(nextState.details);
+      setConversationDetailsSyncedAt(Date.now());
     } catch (error) {
       console.error('Error loading conversation details:', error);
     }

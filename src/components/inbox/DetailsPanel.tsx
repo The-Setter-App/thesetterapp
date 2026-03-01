@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setCachedConversationDetails } from "@/lib/cache";
+import {
+  getCachedConversationDetailsState,
+  markCachedConversationDetailsSynced,
+  setCachedConversationDetailsFromRemote,
+  setCachedConversationDetailsLocal,
+  type ConversationDetailsCacheState,
+} from "@/lib/cache";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import type {
   ConversationContactDetails,
@@ -81,23 +87,114 @@ export default function DetailsPanel({
   const lastSavedNotesRef = useRef<string>("");
   const lastSavedPaymentDetailsRef = useRef<string>("");
   const lastSavedContactDetailsRef = useRef<string>("");
+  const notesPendingRef = useRef(false);
+  const paymentPendingRef = useRef(false);
+  const contactPendingRef = useRef(false);
+  const latestNotesRef = useRef("");
+  const latestPaymentSerializedRef = useRef("");
+  const latestContactSerializedRef = useRef("");
 
-  const syncDetailsCache = useCallback(
-    async (overrides?: Partial<ConversationDetails>) => {
+  const updateDetailsCacheLocal = useCallback(
+    async (patch: Partial<ConversationDetails>) => {
       if (!user.id) return;
       try {
-        await setCachedConversationDetails(user.id, {
-          notes,
-          paymentDetails,
-          timelineEvents,
-          contactDetails,
-          ...overrides,
-        });
+        await setCachedConversationDetailsLocal(user.id, patch);
       } catch (error) {
-        console.error("[DetailsPanel] Failed to update details cache:", error);
+        console.error("[DetailsPanel] Failed to update local details cache:", error);
       }
     },
-    [contactDetails, notes, paymentDetails, timelineEvents, user.id],
+    [user.id],
+  );
+
+  const markDetailsCacheSynced = useCallback(
+    async (patch: Partial<ConversationDetails>) => {
+      if (!user.id) return;
+      try {
+        await markCachedConversationDetailsSynced(user.id, patch);
+      } catch (error) {
+        console.error("[DetailsPanel] Failed to mark details cache as synced:", error);
+      }
+    },
+    [user.id],
+  );
+
+  const applyDetailsCacheState = useCallback(
+    (state: ConversationDetailsCacheState | null | undefined) => {
+      const nextNotes = state?.details.notes ?? "";
+      const nextPaymentDetails: PaymentDetails = {
+        amount: state?.details.paymentDetails.amount ?? "",
+        paymentMethod:
+          state?.details.paymentDetails.paymentMethod ?? "Fanbasis",
+        payOption: state?.details.paymentDetails.payOption ?? "One Time",
+        paymentFrequency:
+          state?.details.paymentDetails.paymentFrequency ?? "One Time",
+        setterPaid: state?.details.paymentDetails.setterPaid ?? "No",
+        closerPaid: state?.details.paymentDetails.closerPaid ?? "No",
+        paymentNotes: state?.details.paymentDetails.paymentNotes ?? "",
+      };
+      const nextContactDetails: ConversationContactDetails = {
+        phoneNumber: state?.details.contactDetails.phoneNumber ?? "",
+        email: state?.details.contactDetails.email ?? "",
+      };
+
+      setNotes(nextNotes);
+      setPaymentDetails(nextPaymentDetails);
+      setTimelineEvents(state?.details.timelineEvents ?? []);
+      setContactDetails(nextContactDetails);
+      latestNotesRef.current = nextNotes;
+      latestPaymentSerializedRef.current = JSON.stringify(nextPaymentDetails);
+      latestContactSerializedRef.current = JSON.stringify(nextContactDetails);
+
+      lastSavedNotesRef.current = nextNotes;
+      lastSavedPaymentDetailsRef.current = JSON.stringify(nextPaymentDetails);
+      lastSavedContactDetailsRef.current = JSON.stringify(nextContactDetails);
+      notesPendingRef.current = typeof state?.pending.notes === "string";
+      paymentPendingRef.current = Boolean(state?.pending.paymentDetails);
+      contactPendingRef.current = Boolean(state?.pending.contactDetails);
+    },
+    [],
+  );
+
+  const handleNotesChange = useCallback(
+    (next: string) => {
+      notesPendingRef.current = true;
+      latestNotesRef.current = next;
+      setNotes(next);
+      updateDetailsCacheLocal({ notes: next }).catch((error) =>
+        console.error("[DetailsPanel] Failed to cache notes draft:", error),
+      );
+    },
+    [updateDetailsCacheLocal],
+  );
+
+  const handlePaymentDetailsChange = useCallback(
+    (next: PaymentDetails) => {
+      paymentPendingRef.current = true;
+      latestPaymentSerializedRef.current = JSON.stringify(next);
+      setPaymentDetails(next);
+      updateDetailsCacheLocal({ paymentDetails: next }).catch((error) =>
+        console.error(
+          "[DetailsPanel] Failed to cache payment details draft:",
+          error,
+        ),
+      );
+    },
+    [updateDetailsCacheLocal],
+  );
+
+  const handleContactDetailsChange = useCallback(
+    (next: ConversationContactDetails) => {
+      contactPendingRef.current = true;
+      latestContactSerializedRef.current = JSON.stringify(next);
+      setContactDetails(next);
+      updateDetailsCacheLocal({ contactDetails: next }).catch((error) =>
+        console.error(
+          "[DetailsPanel] Failed to cache contact details draft:",
+          error,
+        ),
+      );
+    },
+    [updateDetailsCacheLocal],
   );
 
   const appendStatusTimelineEvent = useCallback(
@@ -132,47 +229,37 @@ export default function DetailsPanel({
     let active = true;
     setDetailsLoaded(false);
 
-    const applyDetails = (details: ConversationDetails | null | undefined) => {
-      const nextNotes = details?.notes ?? "";
-      const nextPaymentDetails: PaymentDetails = {
-        amount: details?.paymentDetails?.amount ?? "",
-        paymentMethod: details?.paymentDetails?.paymentMethod ?? "Fanbasis",
-        payOption: details?.paymentDetails?.payOption ?? "One Time",
-        paymentFrequency:
-          details?.paymentDetails?.paymentFrequency ?? "One Time",
-        setterPaid: details?.paymentDetails?.setterPaid ?? "No",
-        closerPaid: details?.paymentDetails?.closerPaid ?? "No",
-        paymentNotes: details?.paymentDetails?.paymentNotes ?? "",
-      };
-      const nextContactDetails: ConversationContactDetails = {
-        phoneNumber: details?.contactDetails?.phoneNumber ?? "",
-        email: details?.contactDetails?.email ?? "",
-      };
-      setNotes(nextNotes);
-      setPaymentDetails(nextPaymentDetails);
-      setTimelineEvents(
-        Array.isArray(details?.timelineEvents) ? details.timelineEvents : [],
-      );
-      setContactDetails(nextContactDetails);
-      lastSavedNotesRef.current = nextNotes;
-      lastSavedPaymentDetailsRef.current = JSON.stringify(nextPaymentDetails);
-      lastSavedContactDetailsRef.current = JSON.stringify(nextContactDetails);
-    };
-
-    if (syncedDetails) {
-      applyDetails(syncedDetails);
-      setDetailsLoaded(true);
-    }
-
     (async () => {
       try {
+        if (syncedDetails) {
+          const cachedState = await getCachedConversationDetailsState(
+            conversationId,
+          );
+          if (active) {
+            applyDetailsCacheState(
+              cachedState ?? {
+                details: syncedDetails,
+                pending: {},
+              },
+            );
+            setDetailsLoaded(true);
+          }
+        }
+
         const res = await fetch(
           `/api/inbox/conversations/${encodeURIComponent(conversationId)}/details`,
         );
         if (!res.ok || !active) return;
-        const data = await res.json();
+        const data = (await res.json()) as { details?: ConversationDetails };
         if (!active) return;
-        applyDetails(data.details);
+        if (data.details) {
+          const remoteState = await setCachedConversationDetailsFromRemote(
+            conversationId,
+            data.details,
+          );
+          if (!active) return;
+          applyDetailsCacheState(remoteState);
+        }
       } catch (error) {
         console.error("[DetailsPanel] Failed to fetch details:", error);
       } finally {
@@ -183,13 +270,19 @@ export default function DetailsPanel({
     return () => {
       active = false;
     };
-  }, [syncedDetails, user.id]);
+  }, [applyDetailsCacheState, syncedDetails, user.id]);
 
   useEffect(() => {
     if (!user.id) return;
     lastSavedNotesRef.current = "";
     lastSavedPaymentDetailsRef.current = "";
     lastSavedContactDetailsRef.current = "";
+    notesPendingRef.current = false;
+    paymentPendingRef.current = false;
+    contactPendingRef.current = false;
+    latestNotesRef.current = "";
+    latestPaymentSerializedRef.current = "";
+    latestContactSerializedRef.current = "";
     if (contactSaveTimerRef.current) {
       window.clearTimeout(contactSaveTimerRef.current);
       contactSaveTimerRef.current = null;
@@ -199,7 +292,7 @@ export default function DetailsPanel({
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
-    if (notes === lastSavedNotesRef.current) return;
+    if (!notesPendingRef.current && notes === lastSavedNotesRef.current) return;
     const nextNotes = notes;
 
     const timeout = window.setTimeout(async () => {
@@ -213,20 +306,28 @@ export default function DetailsPanel({
           },
         );
         if (!response.ok) return;
-        lastSavedNotesRef.current = nextNotes;
-        await syncDetailsCache({ notes: nextNotes });
+        await markDetailsCacheSynced({ notes: nextNotes });
+        if (latestNotesRef.current === nextNotes) {
+          lastSavedNotesRef.current = nextNotes;
+          notesPendingRef.current = false;
+        }
       } catch (error) {
         console.error("[DetailsPanel] Failed to save notes:", error);
       }
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [detailsLoaded, notes, syncDetailsCache, user.id]);
+  }, [detailsLoaded, markDetailsCacheSynced, notes, user.id]);
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
     const serialized = JSON.stringify(paymentDetails);
-    if (serialized === lastSavedPaymentDetailsRef.current) return;
+    if (
+      !paymentPendingRef.current &&
+      serialized === lastSavedPaymentDetailsRef.current
+    ) {
+      return;
+    }
     const nextPaymentDetails = paymentDetails;
 
     const timeout = window.setTimeout(async () => {
@@ -240,15 +341,18 @@ export default function DetailsPanel({
           },
         );
         if (!response.ok) return;
-        lastSavedPaymentDetailsRef.current = serialized;
-        await syncDetailsCache({ paymentDetails: nextPaymentDetails });
+        await markDetailsCacheSynced({ paymentDetails: nextPaymentDetails });
+        if (latestPaymentSerializedRef.current === serialized) {
+          lastSavedPaymentDetailsRef.current = serialized;
+          paymentPendingRef.current = false;
+        }
       } catch (error) {
         console.error("[DetailsPanel] Failed to save payment details:", error);
       }
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [detailsLoaded, paymentDetails, syncDetailsCache, user.id]);
+  }, [detailsLoaded, markDetailsCacheSynced, paymentDetails, user.id]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -270,7 +374,12 @@ export default function DetailsPanel({
       if (!isContactDetailsValid(next)) return;
 
       const serialized = JSON.stringify(next);
-      if (serialized === lastSavedContactDetailsRef.current) return;
+      if (
+        !contactPendingRef.current &&
+        serialized === lastSavedContactDetailsRef.current
+      ) {
+        return;
+      }
 
       contactSaveAbortRef.current?.abort();
       const controller = new AbortController();
@@ -287,14 +396,17 @@ export default function DetailsPanel({
           },
         );
         if (!response.ok) return;
-        lastSavedContactDetailsRef.current = serialized;
-        await syncDetailsCache({ contactDetails: next });
+        await markDetailsCacheSynced({ contactDetails: next });
+        if (latestContactSerializedRef.current === serialized) {
+          lastSavedContactDetailsRef.current = serialized;
+          contactPendingRef.current = false;
+        }
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         console.error("[DetailsPanel] Failed to save contact details:", error);
       }
     },
-    [detailsLoaded, syncDetailsCache, user.id],
+    [detailsLoaded, markDetailsCacheSynced, user.id],
   );
 
   const commitContactDetails = useCallback(
@@ -323,7 +435,12 @@ export default function DetailsPanel({
       return;
 
     const serialized = JSON.stringify(contactDetails);
-    if (serialized === lastSavedContactDetailsRef.current) return;
+    if (
+      !contactPendingRef.current &&
+      serialized === lastSavedContactDetailsRef.current
+    ) {
+      return;
+    }
 
     if (contactSaveTimerRef.current) {
       window.clearTimeout(contactSaveTimerRef.current);
@@ -376,6 +493,7 @@ export default function DetailsPanel({
   const handleClearTimeline = useCallback(async () => {
     if (!user.id) return;
     setTimelineEvents([]);
+    await updateDetailsCacheLocal({ timelineEvents: [] });
     try {
       const response = await fetch(
         `/api/inbox/conversations/${encodeURIComponent(user.id)}/details`,
@@ -386,11 +504,11 @@ export default function DetailsPanel({
         },
       );
       if (!response.ok) return;
-      await syncDetailsCache({ timelineEvents: [] });
+      await markDetailsCacheSynced({ timelineEvents: [] });
     } catch (error) {
       console.error("[DetailsPanel] Failed to clear timeline:", error);
     }
-  }, [syncDetailsCache, user.id]);
+  }, [markDetailsCacheSynced, updateDetailsCacheLocal, user.id]);
 
   return (
     <aside
@@ -400,7 +518,7 @@ export default function DetailsPanel({
       <DetailsPanelHeader
         user={user}
         contactDetails={contactDetails}
-        onChangeContactDetails={setContactDetails}
+        onChangeContactDetails={handleContactDetailsChange}
         onCommitContactDetails={commitContactDetails}
       />
 
@@ -422,13 +540,16 @@ export default function DetailsPanel({
       <div className="flex flex-1 flex-col overflow-hidden bg-white">
         {activeTab === "Summary" && <SummaryTab conversationId={user.id} />}
         {activeTab === "Notes" && (
-          <NotesTab notes={notes} onChange={setNotes} />
+          <NotesTab notes={notes} onChange={handleNotesChange} />
         )}
         {activeTab === "Timeline" && (
           <TimelineTab events={timelineEvents} onClear={handleClearTimeline} />
         )}
         {activeTab === "Payments" && (
-          <PaymentsTab value={paymentDetails} onChange={setPaymentDetails} />
+          <PaymentsTab
+            value={paymentDetails}
+            onChange={handlePaymentDetailsChange}
+          />
         )}
         {activeTab === "Calls" && <CallsTab />}
       </div>

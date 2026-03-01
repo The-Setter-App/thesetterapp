@@ -11,21 +11,27 @@ import {
 } from "@/lib/cache/idb/appDb";
 
 export type {
+  ConversationDetailsCacheState,
   ConversationSummaryCacheRecord,
   MessagePageMetaCacheRecord,
 } from "@/lib/cache/domains/inboxCache";
 export {
   getCachedConversationDetails,
+  getCachedConversationDetailsState,
   getCachedConversationSummary,
   getCachedMessagePageMeta,
   getCachedMessages,
   getCachedUsers,
   getHotCachedConversationDetails,
+  getHotCachedConversationDetailsState,
   getHotCachedMessagePageMeta,
   getHotCachedMessages,
   getHotCachedUsers,
+  markCachedConversationDetailsSynced,
   removeCachedConversationsByAccount,
   setCachedConversationDetails,
+  setCachedConversationDetailsFromRemote,
+  setCachedConversationDetailsLocal,
   setCachedConversationSummary,
   setCachedMessagePageMeta,
   setCachedMessages,
