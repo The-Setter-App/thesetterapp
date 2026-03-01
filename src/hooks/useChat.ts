@@ -350,7 +350,7 @@ export function useChat(selectedUserId: string) {
     setAttachmentPreview('');
   };
 
-  const handleAudioDurationResolved = (messageId: string, duration: string) => {
+  const handleAudioDurationResolved = useCallback((messageId: string, duration: string) => {
     setChatHistory((prev) => {
       let changed = false;
       const updated = prev.map((message) => {
@@ -367,7 +367,7 @@ export function useChat(selectedUserId: string) {
       );
       return updated;
     });
-  };
+  }, [selectedUserId]);
 
   const applyConversationSnapshot = (
     messages: Message[] | null,

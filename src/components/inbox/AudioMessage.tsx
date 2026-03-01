@@ -29,19 +29,33 @@ export default function AudioMessage({
   const [loadedDuration, setLoadedDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const lastReportedDurationRef = useRef<string>('');
+  const durationRef = useRef<string | undefined>(duration);
+  const onDurationResolvedRef = useRef<AudioMessageProps['onDurationResolved']>(onDurationResolved);
+  const playRequestIdRef = useRef(0);
 
   // Waveform heights from design spec
   const waveformHeights = [2, 8, 14, 4, 16, 14, 10, 10, 10, 14, 10, 16, 10, 4, 2];
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+  const togglePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio || !src) return;
+
+    if (!audio.paused) {
+      audio.pause();
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    const requestId = ++playRequestIdRef.current;
+    try {
+      await audio.play();
+      if (requestId !== playRequestIdRef.current) return;
+    } catch (error) {
+      if (requestId !== playRequestIdRef.current) return;
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to play audio message:', error);
+    }
   };
 
   const parseDuration = (value?: string): number | null => {
@@ -54,6 +68,18 @@ export default function AudioMessage({
   };
 
   useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  useEffect(() => {
+    onDurationResolvedRef.current = onDurationResolved;
+  }, [onDurationResolved]);
+
+  useEffect(() => {
+    playRequestIdRef.current += 1;
+  }, [src]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -64,36 +90,43 @@ export default function AudioMessage({
         setLoadedDuration(nextDuration);
         const resolvedDuration = formatDurationDisplay(nextDuration);
         if (
-          onDurationResolved &&
+          onDurationResolvedRef.current &&
           resolvedDuration !== lastReportedDurationRef.current &&
-          resolvedDuration !== duration
+          resolvedDuration !== durationRef.current
         ) {
           lastReportedDurationRef.current = resolvedDuration;
-          onDurationResolved(messageId, resolvedDuration);
+          onDurationResolvedRef.current(messageId, resolvedDuration);
         }
       }
     };
     const onLoadedMetadata = () => syncDuration();
     const onDurationChange = () => syncDuration();
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
     };
 
-    // Ensure metadata fetch starts immediately for newly mounted/updated audio.
-    audio.load();
+    setCurrentTime(audio.currentTime || 0);
+    setIsPlaying(!audio.paused);
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('durationchange', onDurationChange);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onEnded);
 
     return () => {
+      audio.pause();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('durationchange', onDurationChange);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [duration, messageId, onDurationResolved, src]);
+  }, [messageId, src]);
 
   const providedDurationSeconds = parseDuration(duration);
   const hasLoadedDuration = Number.isFinite(loadedDuration) && loadedDuration > 0;
