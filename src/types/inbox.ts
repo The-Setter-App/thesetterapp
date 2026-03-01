@@ -205,6 +205,7 @@ export interface SSEMessageData {
   conversationId: string;
   accountId?: string;
   messageId: string;
+  clientTempId?: string;
   text?: string;
   duration?: string;
   attachments?: SSEAttachment[];

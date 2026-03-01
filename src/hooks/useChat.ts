@@ -573,14 +573,18 @@ export function useChat(selectedUserId: string) {
 
     setChatHistory((prev) => {
       const queue = pendingTempIdsRef.current;
-      const queueIdx = newMessage.fromMe
-        ? queue.findIndex((tempId) => {
-            const tempMsg = prev.find((m) => m.id === tempId);
-            if (!tempMsg || !tempMsg.pending) return false;
-            if (tempMsg.text && newMessage.text) return tempMsg.text === newMessage.text;
-            return tempMsg.type === newMessage.type;
-          })
-        : -1;
+      let queueIdx = -1;
+      if (newMessage.fromMe && data.clientTempId) {
+        queueIdx = queue.indexOf(data.clientTempId);
+      }
+      if (newMessage.fromMe && queueIdx === -1) {
+        queueIdx = queue.findIndex((tempId) => {
+          const tempMsg = prev.find((m) => m.id === tempId);
+          if (!tempMsg || !tempMsg.pending) return false;
+          if (tempMsg.text && newMessage.text) return tempMsg.text === newMessage.text;
+          return tempMsg.type === newMessage.type;
+        });
+      }
 
       if (queueIdx !== -1) {
         const matchedTempId = queue[queueIdx];
@@ -697,9 +701,11 @@ export function useChat(selectedUserId: string) {
     const nowIso = sendDate.toISOString();
     const tempIds: string[] = [];
     const optimisticMessages: Message[] = [];
+    let imageTempId: string | null = null;
+    let textTempId: string | null = null;
 
     if (hasAttachment) {
-      const imageTempId = `temp_${Date.now()}_img_${Math.random().toString(36).substr(2, 9)}`;
+      imageTempId = `temp_${Date.now()}_img_${Math.random().toString(36).substr(2, 9)}`;
       tempIds.push(imageTempId);
       optimisticMessages.push({
         id: imageTempId,
@@ -715,7 +721,7 @@ export function useChat(selectedUserId: string) {
     }
 
     if (hasText) {
-      const textTempId = `temp_${Date.now()}_txt_${Math.random().toString(36).substr(2, 9)}`;
+      textTempId = `temp_${Date.now()}_txt_${Math.random().toString(36).substr(2, 9)}`;
       tempIds.push(textTempId);
       optimisticMessages.push({
         id: textTempId,
@@ -759,6 +765,9 @@ export function useChat(selectedUserId: string) {
         formData.append('file', currentFile);
         formData.append('conversationId', user.id);
         formData.append('type', 'image');
+        if (imageTempId) {
+          formData.append('clientTempId', imageTempId);
+        }
 
         const res = await fetch('/api/send-attachment', { method: 'POST', body: formData });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed to send attachment');
@@ -767,7 +776,7 @@ export function useChat(selectedUserId: string) {
           const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
+            body: JSON.stringify({ text: messageText, clientTempId: textTempId }),
           });
           if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
         }
@@ -775,7 +784,7 @@ export function useChat(selectedUserId: string) {
         const sendRes = await fetch(`/api/inbox/conversations/${encodeURIComponent(user.id)}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: messageText, clientTempId: tempIds[tempIds.length - 1] }),
+          body: JSON.stringify({ text: messageText, clientTempId: textTempId }),
         });
         if (!sendRes.ok) throw new Error((await sendRes.json()).error || 'Failed to send message');
       }
