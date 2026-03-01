@@ -5,15 +5,18 @@ import CustomCheckbox from "@/components/leads/CustomCheckbox";
 import StatusBadge from "@/components/leads/StatusBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import type { LeadRow } from "@/types/leads";
+import type { TagRow } from "@/types/tags";
 
 interface LeadMobileCardProps {
   lead: LeadRow;
+  statusOptions: TagRow[];
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }
 
 export default function LeadMobileCard({
   lead,
+  statusOptions,
   selected,
   onToggleSelect,
 }: LeadMobileCardProps) {
@@ -42,7 +45,7 @@ export default function LeadMobileCard({
       </div>
 
       <div className="mt-3 space-y-3 pl-7">
-        <StatusBadge status={lead.status} />
+        <StatusBadge status={lead.status} statusOptions={statusOptions} />
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <p className="text-[10px] uppercase tracking-wide text-[#9A9CA2]">

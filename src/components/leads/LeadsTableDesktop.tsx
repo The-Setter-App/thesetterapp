@@ -4,9 +4,11 @@ import CustomCheckbox from "@/components/leads/CustomCheckbox";
 import LeadDesktopRow from "@/components/leads/LeadDesktopRow";
 import LeadsPagination from "@/components/leads/LeadsPagination";
 import type { LeadRow, SortConfig } from "@/types/leads";
+import type { TagRow } from "@/types/tags";
 
 interface LeadsTableDesktopProps {
   rows: LeadRow[];
+  statusOptions: TagRow[];
   sortConfig: SortConfig;
   onSort: (key: keyof LeadRow) => void;
   onToggleSelect: (id: string) => void;
@@ -69,6 +71,7 @@ function SortHeader({
 
 export default function LeadsTableDesktop({
   rows,
+  statusOptions,
   sortConfig,
   onSort,
   onToggleSelect,
@@ -145,6 +148,7 @@ export default function LeadsTableDesktop({
               <LeadDesktopRow
                 key={lead.id}
                 lead={lead}
+                statusOptions={statusOptions}
                 selected={isSelected(lead.id)}
                 onToggleSelect={onToggleSelect}
               />

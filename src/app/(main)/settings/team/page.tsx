@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import TeamRoleDropdown from '@/components/settings/TeamRoleDropdown';
 import { requireCurrentUser } from '@/lib/currentUser';
+import { requireCurrentSettingsUser } from '@/lib/currentSettingsUser';
 import { sendTeamInvitationEmail } from '@/lib/email';
 import {
   addTeamMemberByOwner,
@@ -83,7 +84,7 @@ interface TeamPageProps {
 }
 
 export default async function SettingsTeamPage({ searchParams }: TeamPageProps) {
-  const { user } = await requireCurrentUser();
+  const { user } = await requireCurrentSettingsUser();
 
   if (user.role === 'viewer') {
     return (

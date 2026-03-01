@@ -18,7 +18,7 @@ import DisconnectCacheCleanup from "@/components/settings/DisconnectCacheCleanup
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { requireCurrentUser } from "@/lib/currentUser";
+import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
 import { getCachedConnectedInstagramAccounts } from "@/lib/settingsCache";
 import { getConnectedInstagramAccounts } from "@/lib/userRepository";
 
@@ -31,7 +31,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsSocialsPage({
   searchParams,
 }: SocialsPageProps) {
-  const { session, user } = await requireCurrentUser();
+  const { session, user } = await requireCurrentSettingsUser();
   if (user.role !== "owner") {
     redirect(user.role === "viewer" ? "/settings/profile" : "/settings/team");
   }

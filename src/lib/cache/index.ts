@@ -40,6 +40,8 @@ export {
 export {
   clearCachedSetterAiMessages,
   getCachedSetterAiMessages,
+  getHotCachedSetterAiSessions,
+  getHotSetterAiLastEmail,
   getCachedSetterAiMessagesTimestamp,
   getCachedSetterAiSessions,
   getCachedSetterAiSessionsTimestamp,

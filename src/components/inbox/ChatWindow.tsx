@@ -1,8 +1,9 @@
 "use client";
 
-import { Message } from '@/types/inbox';
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { Message } from '@/types/inbox';
 import AudioMessage from './AudioMessage';
+import StatusUpdateEvent from './StatusUpdateEvent';
 
 interface ChatWindowProps {
   messages: Message[];
@@ -24,7 +25,7 @@ export default function ChatWindow({
   hasMore,
   onLoadMore,
   onAudioDurationResolved,
-  statusUpdate: _statusUpdate
+  statusUpdate
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -136,6 +137,14 @@ export default function ChatWindow({
       bottomRef.current?.scrollIntoView({ behavior: 'auto' });
     });
   }, [hasMore, loadingOlder]);
+
+  useEffect(() => {
+    if (!statusUpdate) return;
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      stickToBottomRef.current = true;
+    });
+  }, [statusUpdate]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -310,6 +319,13 @@ export default function ChatWindow({
               </div>
             );
           })}
+
+          {statusUpdate && (
+            <StatusUpdateEvent
+              status={statusUpdate.status}
+              timestamp={statusUpdate.timestamp}
+            />
+          )}
 
           {/* Scroll anchor */}
           <div ref={bottomRef} />

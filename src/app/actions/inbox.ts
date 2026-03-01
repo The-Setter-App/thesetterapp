@@ -17,7 +17,8 @@ import {
   addStatusTimelineEvent,
 } from '@/lib/inboxRepository';
 import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
-import { isStatusType } from '@/lib/status/config';
+import { isStatusType, normalizeStatusKey, normalizeStatusText } from '@/lib/status/config';
+import { listWorkspaceStatusNames } from '@/lib/tagsRepository';
 import type { User, Message } from '@/types/inbox';
 import type { SSEAttachment } from '@/types/inbox';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
@@ -324,13 +325,22 @@ export async function updateUserStatusAction(conversationId: string, newStatus: 
     if (!isStatusType(newStatus)) {
       throw new Error('Invalid status type');
     }
-    await updateUserStatus(conversationId, ownerEmail, newStatus);
-    await addStatusTimelineEvent(conversationId, ownerEmail, newStatus);
+    const normalizedStatus = normalizeStatusText(newStatus);
+    const availableStatusNames = await listWorkspaceStatusNames(ownerEmail);
+    const matchedStatus = availableStatusNames.find(
+      (statusName) => normalizeStatusKey(statusName) === normalizeStatusKey(normalizedStatus),
+    );
+    if (!matchedStatus) {
+      throw new Error('Status is not allowed for this workspace');
+    }
+
+    await updateUserStatus(conversationId, ownerEmail, matchedStatus);
+    await addStatusTimelineEvent(conversationId, ownerEmail, matchedStatus);
 
     emitWorkspaceSseEvent(ownerEmail, {
       type: 'user_status_updated',
       timestamp: new Date().toISOString(),
-      data: { conversationId, status: newStatus },
+      data: { conversationId, status: matchedStatus },
     });
   } catch (error) {
     console.error('[InboxActions] Error updating user status:', error);

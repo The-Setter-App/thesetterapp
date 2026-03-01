@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { canAccessTagsSettings } from "@/lib/permissions";
-import { isTagCategory } from "@/lib/tags/config";
+import { isTagIconPack } from "@/lib/status/config";
 import {
   createWorkspaceCustomTag,
-  listWorkspaceCustomTags,
+  listWorkspaceAssignableTags,
   WorkspaceTagRepositoryError,
 } from "@/lib/tagsRepository";
 import { requireWorkspaceContext } from "@/lib/workspace";
+import type { TagIconPack } from "@/types/tags";
 
 export const dynamic = "force-dynamic";
 
 interface CreateTagBody {
   name?: unknown;
-  category?: unknown;
   description?: unknown;
+  colorHex?: unknown;
+  iconPack?: unknown;
+  iconName?: unknown;
 }
 
 export async function GET() {
@@ -23,7 +26,7 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const tags = await listWorkspaceCustomTags(context.workspaceOwnerEmail);
+    const tags = await listWorkspaceAssignableTags(context.workspaceOwnerEmail);
     return NextResponse.json(
       { tags },
       { headers: { "Cache-Control": "private, no-store" } },
@@ -36,7 +39,7 @@ export async function GET() {
       );
     }
     return NextResponse.json(
-      { error: "Failed to load tags." },
+      { error: "Failed to load status tags." },
       { status: 500 },
     );
   }
@@ -53,13 +56,15 @@ export async function POST(request: Request) {
       .json()
       .catch(() => null)) as CreateTagBody | null;
     const name = typeof body?.name === "string" ? body.name : "";
-    const category = body?.category;
     const description =
       typeof body?.description === "string" ? body.description : "";
+    const colorHex = typeof body?.colorHex === "string" ? body.colorHex : "";
+    const iconPack = body?.iconPack;
+    const iconName = typeof body?.iconName === "string" ? body.iconName : "";
 
-    if (!isTagCategory(category)) {
+    if (!isTagIconPack(iconPack)) {
       return NextResponse.json(
-        { error: "Invalid tag category." },
+        { error: "Invalid icon pack." },
         { status: 400 },
       );
     }
@@ -67,8 +72,10 @@ export async function POST(request: Request) {
     const tag = await createWorkspaceCustomTag({
       workspaceOwnerEmail: context.workspaceOwnerEmail,
       name,
-      category,
       description,
+      colorHex,
+      iconPack: iconPack as TagIconPack,
+      iconName,
       createdByEmail: context.user.email,
       createdByLabel: context.user.displayName || context.user.email,
     });
@@ -85,7 +92,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Failed to create tag." },
+      { error: "Failed to create status tag." },
       { status: 500 },
     );
   }

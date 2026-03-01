@@ -1,5 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { streamSetterAiResponse } from "@/components/setter-ai/lib/setterAiClientApi";
+import {
+  createServerSession,
+  streamSetterAiResponse,
+} from "@/components/setter-ai/lib/setterAiClientApi";
 import { cacheSessionMessages } from "@/components/setter-ai/lib/setterAiClientCacheSync";
 import {
   type ClientChatSession,
@@ -20,9 +23,8 @@ export async function handleSendMessage(params: {
   setInput: Dispatch<SetStateAction<string>>;
   setIsStreaming: Dispatch<SetStateAction<boolean>>;
   setChatSessions: Dispatch<SetStateAction<ClientChatSession[]>>;
-  ensureBasePageDraftSessionFn: (
-    mode?: "push" | "replace",
-  ) => Promise<string | null>;
+  setActiveSessionId: Dispatch<SetStateAction<string | null>>;
+  updateChatUrlFn: (sessionId: string, mode?: "push" | "replace") => void;
   syncLocalSessionToServerFn: (
     localSessionId: string,
   ) => Promise<string | null>;
@@ -44,7 +46,8 @@ export async function handleSendMessage(params: {
     setInput,
     setIsStreaming,
     setChatSessions,
-    ensureBasePageDraftSessionFn,
+    setActiveSessionId,
+    updateChatUrlFn,
     syncLocalSessionToServerFn,
     loadSessionMessagesFn,
     refreshSessionsFn,
@@ -52,18 +55,24 @@ export async function handleSendMessage(params: {
 
   const textToSend = (overrideText || input).trim();
   if (!textToSend || isStreaming) return;
+  const email = currentEmailRef.current;
+  if (!email) return;
 
   let targetSession = activeSession;
   if (!targetSession) {
-    await ensureBasePageDraftSessionFn("replace");
-    targetSession =
-      chatSessionsRef.current.find(
-        (session) => session.id === activeSessionIdRef.current,
-      ) || null;
+    const created = await createServerSession();
+    if (!created) {
+      throw new Error("Failed to create chat session.");
+    }
+    targetSession = { ...created, messages: [] };
+    const nextSessions = [targetSession, ...chatSessionsRef.current];
+    chatSessionsRef.current = nextSessions;
+    setChatSessions(nextSessions);
+    setActiveSessionId(created.id);
+    activeSessionIdRef.current = created.id;
+    updateChatUrlFn(created.id, "replace");
   }
-
-  const email = currentEmailRef.current;
-  if (!targetSession || !email) return;
+  if (!targetSession) return;
 
   const targetSessionId = targetSession.id;
   const optimisticUserId = `tmp_user_${Date.now()}`;

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireCurrentUser } from '@/lib/currentUser';
+import { requireCurrentSettingsUser } from '@/lib/currentSettingsUser';
 import ProfileSettingsContent from '@/components/settings/ProfileSettingsContent';
 
 interface SettingsRootPageProps {
@@ -7,7 +7,7 @@ interface SettingsRootPageProps {
 }
 
 export default async function SettingsRootPage({ searchParams }: SettingsRootPageProps) {
-  const { user } = await requireCurrentUser();
+  const { user } = await requireCurrentSettingsUser();
   const params = await searchParams;
   const hasSocialState = Boolean(params.error || params.success || params.warning || params.disconnectedAccountId || params.missing || params.connectedCount);
 

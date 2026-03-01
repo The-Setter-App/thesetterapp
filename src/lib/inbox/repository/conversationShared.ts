@@ -57,9 +57,6 @@ export function buildConversationSetPayload(
   if (existing?.contactDetails) {
     basePayload.contactDetails = existing.contactDetails;
   }
-  if (Array.isArray(existing?.tagIds)) {
-    basePayload.tagIds = existing.tagIds;
-  }
 
   return {
     payload: basePayload,

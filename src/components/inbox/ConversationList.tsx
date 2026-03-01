@@ -1,6 +1,7 @@
 "use client";
 
-import { STATUS_COLOR_ICON_PATHS } from "@/lib/status/config";
+import { StatusIcon } from "@/components/icons/StatusIcon";
+import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 
@@ -12,7 +13,7 @@ interface ConversationListProps {
     userId: string,
     action: "qualified" | "priority" | "unpriority" | "delete",
   ) => void;
-  tagLookup: Record<string, TagRow>;
+  statusLookup: Record<string, TagRow>;
 }
 
 const VerifiedIcon = () => (
@@ -84,21 +85,17 @@ export default function ConversationList({
   selectedUserId,
   onSelectUser,
   onAction,
-  tagLookup,
+  statusLookup,
 }: ConversationListProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
       {users.map((u) => {
         const unreadCount = u.unread ?? 0;
         const showReplyBadge = unreadCount > 0 || Boolean(u.needsReply);
-        const resolvedTags = (u.tagIds || [])
-          .map((tagId) => tagLookup[tagId])
-          .filter((tag): tag is TagRow => Boolean(tag));
-        const visibleTags = resolvedTags.slice(0, 2);
-        const hiddenTagCount = Math.max(
-          0,
-          resolvedTags.length - visibleTags.length,
-        );
+        const statusMeta = statusLookup[u.status];
+        const statusStyle = statusMeta
+          ? buildStatusPillStyle(statusMeta.colorHex)
+          : undefined;
 
         return (
           <div
@@ -143,37 +140,22 @@ export default function ConversationList({
                     Account: {u.accountLabel}
                   </div>
                 )}
-                {visibleTags.length > 0 && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    {visibleTags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="inline-flex max-w-[150px] truncate rounded-full border border-[#E2E5EB] bg-[#F8F7FF] px-2 py-0.5 text-[10px] font-semibold text-[#6d5ed6]"
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                    {hiddenTagCount > 0 && (
-                      <span className="inline-flex rounded-full border border-[#E2E5EB] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#606266]">
-                        +{hiddenTagCount}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="flex-shrink-0">
                 <div
-                  className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border ${u.statusColor}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold leading-none ${statusMeta ? "" : u.statusColor}`}
+                  style={statusStyle}
                 >
-                  {STATUS_COLOR_ICON_PATHS[u.status] && (
-                    <img
-                      src={STATUS_COLOR_ICON_PATHS[u.status]}
-                      alt={u.status}
-                      className="w-4 h-4"
-                    />
-                  )}
-                  <span>{u.status}</span>
+                  <StatusIcon
+                    status={u.status}
+                    iconPack={statusMeta?.iconPack}
+                    iconName={statusMeta?.iconName}
+                    className="h-3.5 w-3.5 shrink-0 self-center"
+                  />
+                  <span className="inline-flex items-center leading-none">
+                    {u.status}
+                  </span>
                 </div>
               </div>
 

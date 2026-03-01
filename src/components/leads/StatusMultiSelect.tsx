@@ -1,27 +1,36 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import {
-  STATUS_COLOR_ICON_PATHS,
-  STATUS_OPTIONS,
-  STATUS_TEXT_CLASS_MAP,
-} from "@/lib/status/config";
+import { ChevronDown, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { StatusIcon } from "@/components/icons/StatusIcon";
+import { toStatusColorRgba } from "@/lib/status/config";
 import type { StatusType } from "@/types/status";
+import type { TagRow } from "@/types/tags";
 
 interface StatusMultiSelectProps {
   selectedStatuses: StatusType[];
+  statusOptions: TagRow[];
   onToggleStatus: (status: StatusType) => void;
   getStatusCount: (status: StatusType) => number;
 }
 
 export default function StatusMultiSelect({
   selectedStatuses,
+  statusOptions,
   onToggleStatus,
   getStatusCount,
 }: StatusMultiSelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return statusOptions;
+    return statusOptions.filter((status) =>
+      `${status.name} ${status.description}`.toLowerCase().includes(query),
+    );
+  }, [search, statusOptions]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -57,34 +66,55 @@ export default function StatusMultiSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-[#F0F2F6] bg-white p-2 shadow-sm">
-          <div className="space-y-1">
-            {STATUS_OPTIONS.map((status) => {
-              const selected = selectedStatuses.includes(status);
+        <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-2xl border border-[#F0F2F6] bg-white p-2 shadow-sm">
+          <div className="relative mb-2">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-[#9A9CA2]">
+              <Search className="h-3.5 w-3.5" />
+            </span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search statuses"
+              className="h-9 w-full rounded-lg border border-[#F0F2F6] bg-white pl-8 pr-3 text-xs text-[#101011] placeholder:text-[#9A9CA2] outline-none"
+            />
+          </div>
 
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {filteredOptions.map((status) => {
+              const selected = selectedStatuses.includes(status.name);
               return (
                 <button
                   type="button"
-                  key={status}
-                  onClick={() => onToggleStatus(status)}
+                  key={status.id}
+                  onClick={() => onToggleStatus(status.name)}
                   className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-[#F8F7FF]"
                 >
                   <span className="flex items-center gap-2">
-                    <img
-                      src={STATUS_COLOR_ICON_PATHS[status]}
-                      alt=""
-                      className="h-4 w-4"
-                    />
                     <span
-                      className={`text-sm font-medium ${STATUS_TEXT_CLASS_MAP[status]}`}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md"
+                      style={{
+                        backgroundColor: toStatusColorRgba(status.colorHex, 0.18),
+                      }}
                     >
-                      {status}
+                      <StatusIcon
+                        status={status.name}
+                        iconPack={status.iconPack}
+                        iconName={status.iconName}
+                        className="h-4 w-4"
+                        style={{ color: status.colorHex }}
+                      />
+                    </span>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: status.colorHex }}
+                    >
+                      {status.name}
                     </span>
                   </span>
 
                   <span className="flex items-center gap-2">
                     <span className="text-xs text-[#9A9CA2]">
-                      {getStatusCount(status)}
+                      {getStatusCount(status.name)}
                     </span>
                     <span
                       className={`flex h-4 w-4 items-center justify-center rounded-full border ${
@@ -99,6 +129,11 @@ export default function StatusMultiSelect({
                 </button>
               );
             })}
+            {filteredOptions.length === 0 ? (
+              <p className="px-2 py-3 text-center text-xs text-[#9A9CA2]">
+                No status found.
+              </p>
+            ) : null}
           </div>
         </div>
       )}

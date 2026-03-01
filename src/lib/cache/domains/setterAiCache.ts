@@ -53,6 +53,10 @@ export async function getSetterAiLastEmail(): Promise<string | null> {
   return setterAiCache.get<string>(LAST_EMAIL_KEY);
 }
 
+export function getHotSetterAiLastEmail(): string | null {
+  return setterAiCache.peek<string>(LAST_EMAIL_KEY) ?? null;
+}
+
 export async function setSetterAiLastEmail(email: string): Promise<void> {
   await setterAiCache.set<string>(LAST_EMAIL_KEY, normalizeEmail(email));
 }
@@ -61,6 +65,12 @@ export async function getCachedSetterAiSessions(
   email: string,
 ): Promise<ChatSession[] | null> {
   return setterAiCache.get<ChatSession[]>(sessionsKey(email));
+}
+
+export function getHotCachedSetterAiSessions(
+  email: string,
+): ChatSession[] | null {
+  return setterAiCache.peek<ChatSession[]>(sessionsKey(email)) ?? null;
 }
 
 export async function setCachedSetterAiSessions(

@@ -89,7 +89,6 @@ export interface User {
   isActive?: boolean;
   conversationId?: string;
   recipientId?: string;
-  tagIds?: string[];
   notes?: string;
   paymentDetails?: PaymentDetails;
   timelineEvents?: ConversationTimelineEvent[];
@@ -125,7 +124,6 @@ export interface ConversationDetails {
   paymentDetails: PaymentDetails;
   timelineEvents: ConversationTimelineEvent[];
   contactDetails: ConversationContactDetails;
-  tagIds: string[];
 }
 
 export interface Message {
