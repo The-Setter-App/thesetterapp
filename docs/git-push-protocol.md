@@ -2,12 +2,12 @@
 
 Use this when requesting the workflow:
 
-`Run company flow for this task.`
+`Run the git push protocol and do not ask anymore questions`
 
 ## Commit Workflow Steps
 
 1. Confirm scope in one sentence.
-2. Start from latest `main`.
+2. Start from latest `main`, fetch latest changes.
 3. Create a branch with a clear short name.
 4. Make only requested changes.
 5. Run required checks (`build` + relevant tests/lint if available).
