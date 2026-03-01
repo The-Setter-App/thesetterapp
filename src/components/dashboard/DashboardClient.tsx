@@ -185,28 +185,12 @@ export default function Dashboard({
           {/* Header - Styled from Figma */}
           <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-[#F0F2F6] bg-white px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
             <div className="flex flex-col gap-1">
-              <div
-                style={{
-                  color: "#101011",
-                  fontSize: "18px",
-                  fontWeight: 500,
-                  lineHeight: "28px",
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
+              <h1 className="text-xl font-semibold text-[#101011] md:text-2xl">
                 Hi, {displayName}!
-              </div>
-              <div
-                style={{
-                  color: "#606266",
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  lineHeight: "20px",
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
+              </h1>
+              <p className="text-xs text-[#606266] md:text-sm">
                 Your Setter Dashboard
-              </div>
+              </p>
             </div>
             <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
               <div className="relative cursor-pointer">
