@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const accessToken = decryptData(account.accessToken);
 
-    await sendAttachmentMessage(
+    const sendResult = await sendAttachmentMessage(
       account.pageId,
       conversation.recipientId,
       file,
@@ -128,7 +128,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, messageId: savedMessage.id });
     }
 
-    return NextResponse.json({ success: true });
+    if (sendResult.messageId) {
+      const attachmentPayload =
+        attachmentType === 'image'
+          ? [{ type: 'image' as const }]
+          : attachmentType === 'video'
+            ? [{ type: 'video' as const }]
+            : [{ type: 'file' as const }];
+
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
+        type: 'message_echo',
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId: account.instagramUserId,
+          recipientId: conversation.recipientId,
+          conversationId: conversation.id,
+          accountId: conversation.accountId,
+          messageId: sendResult.messageId,
+          clientTempId,
+          text: '',
+          attachments: attachmentPayload,
+          timestamp: Date.now(),
+          fromMe: true,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      messageId: sendResult.messageId || null,
+      clientTempId: clientTempId || null,
+    });
   } catch (error) {
     if (error instanceof AccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

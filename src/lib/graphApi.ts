@@ -29,6 +29,16 @@ type SendMessageOptions = {
   tag?: OutboundMessageTag;
 };
 
+export type GraphSendResult = {
+  messageId?: string;
+  recipientId?: string;
+};
+
+type GraphSendResponse = {
+  message_id?: string;
+  recipient_id?: string;
+};
+
 function debugLog(...args: unknown[]) {
   if (GRAPH_DEBUG) {
     console.log(...args);
@@ -292,7 +302,7 @@ export async function sendMessage(
   accessToken: string,
   graphVersion: string = DEFAULT_GRAPH_VERSION,
   options?: SendMessageOptions
-): Promise<void> {
+): Promise<GraphSendResult> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
@@ -320,7 +330,11 @@ export async function sendMessage(
       throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
     }
 
-    await response.json();
+    const sendResponse = (await response.json()) as GraphSendResponse;
+    return {
+      messageId: sendResponse.message_id,
+      recipientId: sendResponse.recipient_id,
+    };
   } catch (error) {
     console.error('[GraphAPI] Error sending message:', error);
     throw error;
@@ -340,7 +354,7 @@ export async function sendAttachmentMessage(
   accessToken: string,
   graphVersion: string = DEFAULT_GRAPH_VERSION,
   options?: SendMessageOptions
-): Promise<void> {
+): Promise<GraphSendResult> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
@@ -375,7 +389,11 @@ export async function sendAttachmentMessage(
       throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
     }
 
-    await response.json();
+    const sendResponse = (await response.json()) as GraphSendResponse;
+    return {
+      messageId: sendResponse.message_id,
+      recipientId: sendResponse.recipient_id,
+    };
   } catch (error) {
     console.error('[GraphAPI] Error sending attachment:', error);
     throw error;

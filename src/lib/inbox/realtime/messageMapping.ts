@@ -45,6 +45,7 @@ export function mapRealtimePayloadToMessage(
 
   return {
     id: data.messageId,
+    clientTempId: data.clientTempId,
     fromMe: eventType === "message_echo" || Boolean(data.fromMe),
     type,
     text: data.text || "",
@@ -111,4 +112,3 @@ export function mergeMessageCacheSnapshots(
     return a.id.localeCompare(b.id);
   });
 }
-

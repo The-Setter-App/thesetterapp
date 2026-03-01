@@ -4,6 +4,7 @@ import { decryptData } from '@/lib/crypto';
 import { sendMessage } from '@/lib/graphApi';
 import { findConversationById } from '@/lib/inboxRepository';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
+import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
 
 export async function POST(
   request: NextRequest,
@@ -31,11 +32,33 @@ export async function POST(
     }
 
     const accessToken = decryptData(account.accessToken);
-    await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion, {
+    const sendResult = await sendMessage(account.pageId, conversation.recipientId, text, accessToken, account.graphVersion, {
       tag: 'HUMAN_AGENT',
     });
 
-    return NextResponse.json({ accepted: true, clientTempId: body.clientTempId || null });
+    if (sendResult.messageId) {
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
+        type: 'message_echo',
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId: account.instagramUserId,
+          recipientId: conversation.recipientId,
+          conversationId,
+          accountId: conversation.accountId,
+          messageId: sendResult.messageId,
+          clientTempId: body.clientTempId || undefined,
+          text,
+          timestamp: Date.now(),
+          fromMe: true,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      accepted: true,
+      clientTempId: body.clientTempId || null,
+      messageId: sendResult.messageId || null,
+    });
   } catch (error) {
     if (error instanceof AccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
