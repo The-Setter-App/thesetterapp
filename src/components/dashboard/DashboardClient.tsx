@@ -11,6 +11,7 @@ import {
   LuReply,
   LuSearch,
 } from "react-icons/lu";
+import PageHeader from "@/components/layout/PageHeader";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
 import type { DashboardSnapshot } from "@/types/dashboard";
 
@@ -182,57 +183,53 @@ export default function Dashboard({
         style={{ fontFamily: "Inter, sans-serif" }}
       >
         <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
-          {/* Header - Styled from Figma */}
-          <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-[#F0F2F6] bg-white px-3 py-4 md:flex-row md:items-center md:justify-between md:px-5 md:py-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-semibold text-[#101011] md:text-2xl">
-                Hi, {displayName}!
-              </h1>
-              <p className="text-xs text-[#606266] md:text-sm">
-                Your Setter Dashboard
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
-              <div className="relative cursor-pointer">
-                <LuBell className="h-6 w-6 text-[#606266]" aria-label="Bell" />
-              </div>
-              <form
-                onSubmit={handleSearchSubmit}
-                style={{
-                  width: "100%",
-                  maxWidth: "260px",
-                  height: "44px",
-                  paddingLeft: "16px",
-                  paddingRight: "16px",
-                  boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "8px",
-                  outline: "1px #F0F2F6 solid",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "white",
-                }}
-              >
-                <LuSearch
-                  className="h-[14px] w-[14px] text-[#9A9CA2]"
-                  aria-label="Search"
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={handleSearchChange}
-                  placeholder="Search"
-                  className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
+          {/* Shared page header to keep height/padding consistent with Leads */}
+          <PageHeader
+            title={`Hi, ${displayName}!`}
+            description="Your Setter Dashboard"
+            actions={(
+              <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
+                <div className="relative cursor-pointer">
+                  <LuBell className="h-6 w-6 text-[#606266]" aria-label="Bell" />
+                </div>
+                <form
+                  onSubmit={handleSearchSubmit}
                   style={{
-                    border: "none",
-                    fontFamily: "Inter, sans-serif",
                     width: "100%",
+                    maxWidth: "260px",
+                    height: "44px",
+                    paddingLeft: "16px",
+                    paddingRight: "16px",
+                    boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
+                    borderRadius: "8px",
+                    outline: "1px #F0F2F6 solid",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: "white",
                   }}
-                  aria-label="Search"
-                />
-              </form>
-            </div>
-          </header>
+                >
+                  <LuSearch
+                    className="h-[14px] w-[14px] text-[#9A9CA2]"
+                    aria-label="Search"
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={handleSearchChange}
+                    placeholder="Search"
+                    className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
+                    style={{
+                      border: "none",
+                      fontFamily: "Inter, sans-serif",
+                      width: "100%",
+                    }}
+                    aria-label="Search"
+                  />
+                </form>
+              </div>
+            )}
+          />
 
           <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
             {/* Metrics Grid */}
