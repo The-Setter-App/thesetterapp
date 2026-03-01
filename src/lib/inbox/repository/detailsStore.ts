@@ -2,6 +2,7 @@ import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/reposito
 import type {
   ConversationContactDetails,
   ConversationDetails,
+  ConversationDetailsUpdatedAtByField,
   ConversationTimelineEvent,
   PaymentDetails,
   StatusType,
@@ -105,7 +106,8 @@ export async function updateConversationDetails(
   conversationId: string,
   ownerEmail: string,
   details: Partial<ConversationDetails>,
-): Promise<void> {
+  options?: { updatedAtByField?: ConversationDetailsUpdatedAtByField },
+): Promise<{ applied: boolean }> {
   const supabase = getInboxSupabase();
   const { data: existingRow, error: fetchError } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -126,45 +128,85 @@ export async function updateConversationDetails(
     payload?: User;
     updated_at?: string;
   } = {};
+  const requestedFieldTimestamps = options?.updatedAtByField ?? {};
   const row = (existingRow as { payload?: User | null } | null) ?? null;
-  if (!row) return;
+  if (!row) return { applied: false };
   const existingPayload = row.payload ?? null;
   const nextPayload = existingPayload ? ({ ...existingPayload } as User) : null;
+  const existingFieldTimestamps = existingPayload?.detailsUpdatedAtByField ?? {};
+  const nextFieldTimestamps: ConversationDetailsUpdatedAtByField = {
+    ...existingFieldTimestamps,
+  };
+  const nowIso = new Date().toISOString();
+
+  const parseIsoTimestamp = (value: string | undefined): number | null => {
+    if (typeof value !== "string" || value.trim().length === 0) return null;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const shouldApplyField = (
+    field: keyof ConversationDetailsUpdatedAtByField,
+  ): boolean => {
+    const incomingRaw = requestedFieldTimestamps[field];
+    const incomingTs = parseIsoTimestamp(incomingRaw);
+    if (incomingTs === null) {
+      nextFieldTimestamps[field] = nowIso;
+      return true;
+    }
+
+    const existingTs = parseIsoTimestamp(existingFieldTimestamps[field]);
+    if (existingTs !== null && incomingTs < existingTs) {
+      return false;
+    }
+
+    nextFieldTimestamps[field] = new Date(incomingTs).toISOString();
+    return true;
+  };
 
   if (typeof details.notes === "string") {
-    updates.notes = details.notes;
-    if (nextPayload) {
-      nextPayload.notes = details.notes;
+    if (shouldApplyField("notes")) {
+      updates.notes = details.notes;
+      if (nextPayload) {
+        nextPayload.notes = details.notes;
+      }
     }
   }
 
   if (details.paymentDetails) {
-    updates.payment_details = details.paymentDetails;
-    if (nextPayload) {
-      nextPayload.paymentDetails = details.paymentDetails;
+    if (shouldApplyField("paymentDetails")) {
+      updates.payment_details = details.paymentDetails;
+      if (nextPayload) {
+        nextPayload.paymentDetails = details.paymentDetails;
+      }
     }
   }
 
   if (Array.isArray(details.timelineEvents)) {
-    updates.timeline_events = details.timelineEvents;
-    if (nextPayload) {
-      nextPayload.timelineEvents = details.timelineEvents;
+    if (shouldApplyField("timelineEvents")) {
+      updates.timeline_events = details.timelineEvents;
+      if (nextPayload) {
+        nextPayload.timelineEvents = details.timelineEvents;
+      }
     }
   }
 
   if (details.contactDetails) {
-    updates.contact_details = details.contactDetails;
-    if (nextPayload) {
-      nextPayload.contactDetails = details.contactDetails;
+    if (shouldApplyField("contactDetails")) {
+      updates.contact_details = details.contactDetails;
+      if (nextPayload) {
+        nextPayload.contactDetails = details.contactDetails;
+      }
     }
   }
 
-  if (Object.keys(updates).length === 0) return;
+  if (Object.keys(updates).length === 0) return { applied: false };
 
   if (nextPayload) {
+    nextPayload.detailsUpdatedAtByField = nextFieldTimestamps;
     updates.payload = nextPayload;
   }
-  updates.updated_at = new Date().toISOString();
+  updates.updated_at = nowIso;
 
   const { error } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -175,6 +217,8 @@ export async function updateConversationDetails(
   if (error) {
     throw new Error(`[InboxDetailsStore] Failed to update conversation details: ${error.message}`);
   }
+
+  return { applied: true };
 }
 
 export async function addStatusTimelineEvent(
