@@ -44,13 +44,13 @@ export async function sendOTPEmail(email: string, otp: string) {
   try {
     const logoUrl = resolveEmailLogoUrl();
     const logoMarkup = logoUrl
-      ? `<img src="${logoUrl}" alt="SetterAPP" width="44" height="44" style="display: inline-block; vertical-align: middle;" />`
+      ? `<img src="${logoUrl}" alt="Setter" width="44" height="44" style="display: inline-block; vertical-align: middle;" />`
       : '<span style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 22px; font-weight: 700; color: #8771FF;">S</span>';
 
     const data = await resend.emails.send({
-      from: "SetterAPP <test@thesetter.app>",
+      from: "Setter <test@thesetter.app>",
       to: [email],
-      subject: "Your SetterAPP Login Code",
+      subject: "Your Setter Login Code",
       html: `
         <div style="font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; max-width: 100%; margin: 0; padding: 0;">
           <div style="background: linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.15) 50%, #FFFFFF 100%); padding: 48px 16px;">
@@ -63,7 +63,7 @@ export async function sendOTPEmail(email: string, otp: string) {
                   Your Login Code
                 </h2>
                 <p style="font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: #374151; margin: 0 0 28px 0;">
-                  Enter the code below to sign in to SetterAPP.
+                  Enter the code below to sign in to Setter.
                 </p>
                 <div style="background-color: #f5f3ff; border: 1px solid rgba(135, 113, 255, 0.2); border-radius: 12px; padding: 24px; margin: 0 0 28px 0;">
                   <span style="font-family: 'Inter', monospace; font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #8771FF;">
@@ -79,7 +79,7 @@ export async function sendOTPEmail(email: string, otp: string) {
                 </p>
               </div>
               <p style="font-family: 'Inter', sans-serif; font-size: 11px; color: #9ca3af; text-align: center; margin: 20px 0 0 0;">
-                SetterAPP
+                Setter
               </p>
             </div>
           </div>
@@ -120,13 +120,13 @@ export async function sendTeamInvitationEmail(input: TeamInvitationEmailInput) {
   const safeRole = escapeHtml(input.role === "setter" ? "Setter" : "Closer");
   const logoUrl = resolveEmailLogoUrl();
   const logoMarkup = logoUrl
-    ? `<img src="${logoUrl}" alt="SetterAPP" width="44" height="44" style="display: inline-block; vertical-align: middle;" />`
+    ? `<img src="${logoUrl}" alt="Setter" width="44" height="44" style="display: inline-block; vertical-align: middle;" />`
     : '<span style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 22px; font-weight: 700; color: #8771FF;">S</span>';
 
   const data = await resend.emails.send({
-    from: "SetterAPP <test@thesetter.app>",
+    from: "Setter <test@thesetter.app>",
     to: [input.memberEmail],
-    subject: "You have been invited to SetterAPP",
+    subject: "You have been invited to Setter",
     html: `
       <div style="font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; max-width: 100%; margin: 0; padding: 0;">
         <div style="background: linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.15) 50%, #FFFFFF 100%); padding: 48px 16px;">
@@ -135,7 +135,7 @@ export async function sendTeamInvitationEmail(input: TeamInvitationEmailInput) {
               <div style="margin: 0 0 14px 0; text-align: left;">
                 ${logoMarkup}
               </div>
-              <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 10px 0;">You are invited to SetterAPP</h2>
+              <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 10px 0;">You are invited to Setter</h2>
               <p style="font-size: 14px; color: #374151; margin: 0 0 14px 0;">
                 <strong>${safeOwnerEmail}</strong> added you to their workspace as a <strong>${safeRole}</strong>.
               </p>
