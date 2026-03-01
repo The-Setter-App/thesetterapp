@@ -1,5 +1,4 @@
 import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
-import { normalizeConversationTagIds } from "@/lib/inbox/tagValidation";
 import type {
   ConversationContactDetails,
   ConversationDetails,
@@ -32,7 +31,7 @@ export async function getConversationDetails(
 
   const { data, error } = await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .select("notes,payment_details,timeline_events,contact_details,tag_ids,payload")
+    .select("notes,payment_details,timeline_events,contact_details,payload")
     .eq("id", conversationId)
     .eq("owner_email", ownerEmail)
     .maybeSingle();
@@ -48,7 +47,6 @@ export async function getConversationDetails(
     payment_details: Partial<PaymentDetails> | null;
     timeline_events: ConversationTimelineEvent[] | null;
     contact_details: Partial<ConversationContactDetails> | null;
-    tag_ids: string[] | null;
     payload: User | null;
   };
 
@@ -60,35 +58,46 @@ export async function getConversationDetails(
     : Array.isArray(payload?.timelineEvents)
       ? payload.timelineEvents
       : [];
-  const normalizedTagIds = Array.isArray(row.tag_ids)
-    ? normalizeConversationTagIds(row.tag_ids)
-    : Array.isArray(payload?.tagIds)
-      ? normalizeConversationTagIds(payload.tagIds)
-      : [];
 
   return {
     notes: row.notes ?? payload?.notes ?? "",
     paymentDetails: {
-      amount: typeof payment.amount === "string" ? payment.amount : DEFAULT_PAYMENT_DETAILS.amount,
+      amount:
+        typeof payment.amount === "string"
+          ? payment.amount
+          : DEFAULT_PAYMENT_DETAILS.amount,
       paymentMethod:
-        typeof payment.paymentMethod === "string" ? payment.paymentMethod : DEFAULT_PAYMENT_DETAILS.paymentMethod,
-      payOption: typeof payment.payOption === "string" ? payment.payOption : DEFAULT_PAYMENT_DETAILS.payOption,
+        typeof payment.paymentMethod === "string"
+          ? payment.paymentMethod
+          : DEFAULT_PAYMENT_DETAILS.paymentMethod,
+      payOption:
+        typeof payment.payOption === "string"
+          ? payment.payOption
+          : DEFAULT_PAYMENT_DETAILS.payOption,
       paymentFrequency:
         typeof payment.paymentFrequency === "string"
           ? payment.paymentFrequency
           : DEFAULT_PAYMENT_DETAILS.paymentFrequency,
-      setterPaid: payment.setterPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.setterPaid,
-      closerPaid: payment.closerPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.closerPaid,
+      setterPaid:
+        payment.setterPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.setterPaid,
+      closerPaid:
+        payment.closerPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.closerPaid,
       paymentNotes:
-        typeof payment.paymentNotes === "string" ? payment.paymentNotes : DEFAULT_PAYMENT_DETAILS.paymentNotes,
+        typeof payment.paymentNotes === "string"
+          ? payment.paymentNotes
+          : DEFAULT_PAYMENT_DETAILS.paymentNotes,
     },
     timelineEvents,
     contactDetails: {
       phoneNumber:
-        typeof contact.phoneNumber === "string" ? contact.phoneNumber : DEFAULT_CONTACT_DETAILS.phoneNumber,
-      email: typeof contact.email === "string" ? contact.email : DEFAULT_CONTACT_DETAILS.email,
+        typeof contact.phoneNumber === "string"
+          ? contact.phoneNumber
+          : DEFAULT_CONTACT_DETAILS.phoneNumber,
+      email:
+        typeof contact.email === "string"
+          ? contact.email
+          : DEFAULT_CONTACT_DETAILS.email,
     },
-    tagIds: normalizedTagIds,
   };
 }
 
@@ -114,7 +123,6 @@ export async function updateConversationDetails(
     payment_details?: Partial<PaymentDetails>;
     timeline_events?: ConversationTimelineEvent[];
     contact_details?: Partial<ConversationContactDetails>;
-    tag_ids?: string[];
     payload?: User;
     updated_at?: string;
   } = {};
@@ -148,14 +156,6 @@ export async function updateConversationDetails(
     updates.contact_details = details.contactDetails;
     if (nextPayload) {
       nextPayload.contactDetails = details.contactDetails;
-    }
-  }
-
-  if (Array.isArray(details.tagIds)) {
-    const normalizedTagIds = normalizeConversationTagIds(details.tagIds);
-    updates.tag_ids = normalizedTagIds;
-    if (nextPayload) {
-      nextPayload.tagIds = normalizedTagIds;
     }
   }
 

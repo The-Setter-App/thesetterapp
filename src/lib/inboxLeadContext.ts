@@ -1,5 +1,6 @@
 import type { Message, User } from "@/types/inbox";
 import { findConversationById, getMessagesPageFromDb } from "@/lib/inboxRepository";
+import { pipeFields } from "@/lib/pipeFields";
 
 function formatMessageLine(message: Message): string | null {
   const speaker = message.fromMe ? "You" : "Lead";
@@ -16,10 +17,11 @@ function buildLeadHeader(conversation: User): string {
   const cleanedName = name ? name.replace(/^@/, "") : "Lead";
   const updatedAt = typeof conversation.updatedAt === "string" ? conversation.updatedAt : "";
 
-  const parts: string[] = [`Lead: ${cleanedName}`];
-  if (updatedAt) parts.push(`Last updated: ${updatedAt}`);
-  parts.push(`ConversationId: ${conversation.id}`);
-  return parts.join(" | ");
+  return pipeFields({
+    lead: cleanedName,
+    updatedAt,
+    conversationId: conversation.id,
+  });
 }
 
 export async function buildLeadConversationContextBlock(params: {

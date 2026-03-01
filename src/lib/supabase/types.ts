@@ -48,10 +48,11 @@ export interface WorkspaceTagRowDb {
   workspace_owner_email: string;
   normalized_name: string;
   name: string;
-  category: "Lead Stage" | "Priority" | "Intent" | "Follow Up" | "Custom";
   description: string;
   source: "Custom";
-  inbox_status: "Not wired yet";
+  color_hex: string;
+  icon_pack: "lu" | "fa6";
+  icon_name: string;
   created_by_email: string;
   created_by_label: string;
   created_at: string;

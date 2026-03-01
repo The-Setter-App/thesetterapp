@@ -12,6 +12,7 @@ import {
 } from '@/lib/setterAiRepository';
 import { SETTER_AI_SYSTEM_PROMPT } from '@/lib/setterAiSystemPrompt';
 import { buildLeadConversationContextBlock } from '@/lib/inboxLeadContext';
+import { toNvidiaBaseUrlCandidates } from '@/lib/nvidiaBaseUrl';
 
 function looksLikeSystemRoleUnsupported(details: string): boolean {
   const normalized = details.toLowerCase();
@@ -46,28 +47,12 @@ function looksLikeHtmlEdgeResponse(details: string): boolean {
   );
 }
 
-function normalizeBaseUrl(raw: string): string {
-  return raw.replace(/\/+$/, "");
-}
-
 function buildBaseUrlCandidates(primary: string): string[] {
-  const rawCandidates = [
-    primary,
+  return toNvidiaBaseUrlCandidates(primary, [
     process.env.NVIDIA_BASE_URL_FALLBACK || "",
     process.env.NVIDIA_ALT_BASE_URL || "",
     "https://integrate.api.nvidia.com",
-  ];
-
-  const unique: string[] = [];
-  for (const raw of rawCandidates) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const normalized = normalizeBaseUrl(trimmed);
-    if (!unique.includes(normalized)) {
-      unique.push(normalized);
-    }
-  }
-  return unique;
+  ]);
 }
 
 function coerceSystemToUser(
@@ -193,7 +178,7 @@ export async function POST(request: NextRequest) {
       : modelMessages;
 
     const baseUrlCandidates = buildBaseUrlCandidates(baseUrl);
-    let activeBaseUrl = baseUrlCandidates[0] || normalizeBaseUrl(baseUrl);
+    let activeBaseUrl = baseUrlCandidates[0] || baseUrl;
     const createStream = async (
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
       maxTokensOverride?: number,
@@ -225,7 +210,7 @@ export async function POST(request: NextRequest) {
       details = getErrorDetails(error instanceof Error ? error : null);
     }
 
-    if (!completionStream && looksLikeHtmlEdgeResponse(details) && baseUrlCandidates.length > 1) {
+    if (!completionStream && baseUrlCandidates.length > 1) {
       for (const candidate of baseUrlCandidates.slice(1)) {
         activeBaseUrl = candidate;
         try {

@@ -1,13 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  MAX_CONVERSATION_TAGS,
-  sanitizeConversationTagIds,
-} from "@/lib/inbox/tagValidation";
-import {
   getConversationDetails,
   updateConversationDetails,
 } from "@/lib/inboxRepository";
-import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
 import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
 import type { ConversationDetails } from "@/types/inbox";
 
@@ -63,7 +58,6 @@ export async function GET(
             phoneNumber: "",
             email: "",
           },
-          tagIds: [],
         },
       },
       {
@@ -143,35 +137,6 @@ export async function PATCH(
         { error: "Timeline events must be an array" },
         { status: 400 },
       );
-    }
-
-    if (nextBody.tagIds !== undefined) {
-      if (
-        !Array.isArray(nextBody.tagIds) ||
-        nextBody.tagIds.some((tagId) => typeof tagId !== "string")
-      ) {
-        return NextResponse.json(
-          { error: "Tag ids must be an array of strings" },
-          { status: 400 },
-        );
-      }
-
-      const assignableTags =
-        await listWorkspaceAssignableTags(workspaceOwnerEmail);
-      const sanitizedTagIds = sanitizeConversationTagIds(
-        nextBody.tagIds,
-        assignableTags,
-      );
-      if (sanitizedTagIds.length > MAX_CONVERSATION_TAGS) {
-        return NextResponse.json(
-          {
-            error: `A conversation can have up to ${MAX_CONVERSATION_TAGS} tags.`,
-          },
-          { status: 400 },
-        );
-      }
-
-      nextBody.tagIds = sanitizedTagIds;
     }
 
     await updateConversationDetails(

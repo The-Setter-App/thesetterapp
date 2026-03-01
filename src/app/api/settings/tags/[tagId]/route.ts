@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { canAccessTagsSettings } from "@/lib/permissions";
-import { isTagCategory } from "@/lib/tags/config";
+import { isTagIconPack } from "@/lib/status/config";
 import {
   deleteWorkspaceCustomTag,
   updateWorkspaceCustomTag,
   WorkspaceTagRepositoryError,
 } from "@/lib/tagsRepository";
 import { requireWorkspaceContext } from "@/lib/workspace";
+import type { TagIconPack } from "@/types/tags";
 
 export const dynamic = "force-dynamic";
 
 interface UpdateTagBody {
   name?: unknown;
-  category?: unknown;
   description?: unknown;
+  colorHex?: unknown;
+  iconPack?: unknown;
+  iconName?: unknown;
 }
 
 interface RouteParams {
@@ -34,13 +37,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       .json()
       .catch(() => null)) as UpdateTagBody | null;
     const name = typeof body?.name === "string" ? body.name : "";
-    const category = body?.category;
     const description =
       typeof body?.description === "string" ? body.description : "";
+    const colorHex = typeof body?.colorHex === "string" ? body.colorHex : "";
+    const iconPack = body?.iconPack;
+    const iconName = typeof body?.iconName === "string" ? body.iconName : "";
 
-    if (!isTagCategory(category)) {
+    if (!isTagIconPack(iconPack)) {
       return NextResponse.json(
-        { error: "Invalid tag category." },
+        { error: "Invalid icon pack." },
         { status: 400 },
       );
     }
@@ -49,8 +54,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       workspaceOwnerEmail: context.workspaceOwnerEmail,
       tagId,
       name,
-      category,
       description,
+      colorHex,
+      iconPack: iconPack as TagIconPack,
+      iconName,
     });
 
     return NextResponse.json(
@@ -65,7 +72,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
     return NextResponse.json(
-      { error: "Failed to update tag." },
+      { error: "Failed to update status tag." },
       { status: 500 },
     );
   }
@@ -98,7 +105,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       );
     }
     return NextResponse.json(
-      { error: "Failed to delete tag." },
+      { error: "Failed to delete status tag." },
       { status: 500 },
     );
   }

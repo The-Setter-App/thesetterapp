@@ -9,7 +9,7 @@ import {
 import { redirect } from "next/navigation";
 import IntegrationFeatureCard from "@/components/settings/IntegrationFeatureCard";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
-import { requireCurrentUser } from "@/lib/currentUser";
+import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
 import {
   getCachedConnectedInstagramAccounts,
   getCachedTeamMembersForOwner,
@@ -18,7 +18,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function SettingsIntegrationPage() {
-  const { session, user } = await requireCurrentUser();
+  const { session, user } = await requireCurrentSettingsUser();
   if (user.role !== "owner") {
     redirect(user.role === "viewer" ? "/settings/profile" : "/settings/team");
   }

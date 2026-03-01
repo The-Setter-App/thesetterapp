@@ -50,6 +50,7 @@ export default function LeadsPageClient() {
     search,
     setSearch,
     selectedStatuses,
+    statusCatalog,
     onToggleStatus,
     dateRangeFilter,
     onDateRangeFilterChange,
@@ -90,6 +91,7 @@ export default function LeadsPageClient() {
 
         <LeadsFilterBar
           selectedStatuses={selectedStatuses}
+          statusOptions={statusCatalog}
           onToggleStatus={onToggleStatus}
           getStatusCount={getStatusCount}
           dateRangeFilter={dateRangeFilter}
@@ -125,11 +127,13 @@ export default function LeadsPageClient() {
           <>
             <LeadsListMobile
               rows={paginatedRows}
+              statusOptions={statusCatalog}
               isSelected={isSelected}
               onToggleSelect={onToggleSelect}
             />
             <LeadsTableDesktop
               rows={paginatedRows}
+              statusOptions={statusCatalog}
               sortConfig={sortConfig}
               onSort={onSort}
               onToggleSelect={onToggleSelect}

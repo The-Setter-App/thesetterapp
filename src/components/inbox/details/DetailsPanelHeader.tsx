@@ -1,34 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { User, StatusType } from "@/types/inbox";
-import type { ConversationContactDetails } from "@/types/inbox";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { updateUserStatusAction } from "@/app/actions/inbox";
-import { isStatusType, STATUS_COLOR_ICON_PATHS, STATUS_OPTIONS } from "@/lib/status/config";
+import { StatusIcon } from "@/components/icons/StatusIcon";
+import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
+import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
-import type { SSEEvent } from "@/types/inbox";
+import {
+  DEFAULT_STATUS_TAGS,
+  findStatusTagByName,
+  isStatusType,
+} from "@/lib/status/config";
 import {
   emitConversationStatusSynced,
   syncConversationStatusToClientCache,
 } from "@/lib/status/clientSync";
+import type { ConversationContactDetails, SSEEvent, User } from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
 
 const CopyIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5"
+    />
   </svg>
 );
-
-const StatusIcon = ({ status, className }: { status: StatusType; className?: string }) => {
-  const iconPath = STATUS_COLOR_ICON_PATHS[status];
-  if (!iconPath) return null;
-  return (
-    <img 
-      src={iconPath} 
-      alt={status} 
-      className={className || "w-5 h-5"}
-    />
-  );
-};
 
 interface DetailsPanelHeaderProps {
   user: User;
@@ -45,29 +50,66 @@ export default function DetailsPanelHeader({
 }: DetailsPanelHeaderProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<StatusType>(user.status);
-  const [copiedField, setCopiedField] = useState<"phone" | "email" | null>(null);
+  const [statusUpdatedFlash, setStatusUpdatedFlash] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(user.status);
+  const [copiedField, setCopiedField] = useState<"phone" | "email" | null>(
+    null,
+  );
+  const [statusCatalog, setStatusCatalog] = useState<TagRow[]>([]);
+  const statusUpdatedTimeoutRef = useRef<number | null>(null);
 
   const userId = user.id;
 
-  // Keep local status in sync when switching conversations.
   useEffect(() => {
     setCurrentStatus(user.status);
   }, [user.status, userId]);
 
   useEffect(() => {
-    // Listen for local optimistic updates.
+    return () => {
+      if (statusUpdatedTimeoutRef.current !== null) {
+        window.clearTimeout(statusUpdatedTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    loadInboxStatusCatalog()
+      .then((statuses) => setStatusCatalog(statuses))
+      .catch((error) =>
+        console.error("[DetailsPanelHeader] Failed to load statuses:", error),
+      );
+  }, []);
+
+  useEffect(() => {
+    return subscribeInboxStatusCatalogChanged((statuses) => {
+      if (!Array.isArray(statuses)) return;
+      setStatusCatalog(statuses);
+    });
+  }, []);
+
+  const currentStatusMeta = useMemo(
+    () =>
+      findStatusTagByName(statusCatalog, currentStatus) ??
+      findStatusTagByName(DEFAULT_STATUS_TAGS, currentStatus),
+    [currentStatus, statusCatalog],
+  );
+
+  const dropdownStatuses = useMemo(
+    () => (statusCatalog.length > 0 ? statusCatalog : DEFAULT_STATUS_TAGS),
+    [statusCatalog],
+  );
+
+  useEffect(() => {
     const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ userId?: string; status?: StatusType }>;
+      const customEvent = e as CustomEvent<{ userId?: string; status?: string }>;
       if (customEvent.detail?.userId === userId && isStatusType(customEvent.detail?.status)) {
         setCurrentStatus(customEvent.detail.status);
       }
     };
-    window.addEventListener('userStatusUpdated', handler);
-    return () => window.removeEventListener('userStatusUpdated', handler);
+    window.addEventListener("userStatusUpdated", handler);
+    return () => window.removeEventListener("userStatusUpdated", handler);
   }, [userId]);
 
-  // Listen for SSE status updates (cross-tab / external updates)
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<SSEEvent>;
@@ -82,49 +124,83 @@ export default function DetailsPanelHeader({
     window.addEventListener(INBOX_SSE_EVENT, handler);
     return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
   }, [userId]);
+
   const displayName = user.name.replace("@", "");
+  const statusColor = currentStatusMeta?.colorHex || "#8771FF";
   const emailValue = contactDetails.email.trim();
   const phoneValue = contactDetails.phoneNumber.trim();
-  const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+  const emailValid =
+    !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
   const phoneDigits = phoneValue.replace(/\D/g, "");
-  const phoneValid = !phoneValue || (/^[0-9+\-() ]+$/.test(phoneValue) && phoneDigits.length >= 7 && phoneDigits.length <= 16);
+  const phoneValid =
+    !phoneValue ||
+    (/^[0-9+\-() ]+$/.test(phoneValue) &&
+      phoneDigits.length >= 7 &&
+      phoneDigits.length <= 16);
+  const statusActionLabel = isUpdating
+    ? "Updating"
+    : statusUpdatedFlash
+      ? "Updated"
+      : "Update";
 
   const handleCopy = async (value: string, field: "phone" | "email") => {
     if (!value.trim()) return;
     try {
       await navigator.clipboard.writeText(value);
       setCopiedField(field);
-      window.setTimeout(() => setCopiedField((prev) => (prev === field ? null : prev)), 1200);
+      window.setTimeout(
+        () => setCopiedField((prev) => (prev === field ? null : prev)),
+        1200,
+      );
     } catch (error) {
       console.error("Failed to copy:", error);
     }
   };
 
-  const handleStatusSelect = async (newStatus: StatusType) => {
+  const handleStatusSelect = async (newStatus: string) => {
     if (newStatus === currentStatus) {
       setShowStatusDropdown(false);
       return;
     }
 
     const previousStatus = currentStatus;
+    const optimisticUpdatedAt = new Date().toISOString();
     setCurrentStatus(newStatus);
     setIsUpdating(true);
+    setStatusUpdatedFlash(false);
     setShowStatusDropdown(false);
 
-    // Optimistic local update so both sidebars reflect immediately.
-    emitConversationStatusSynced({ conversationId: userId, status: newStatus });
+    emitConversationStatusSynced({
+      conversationId: userId,
+      status: newStatus,
+      updatedAt: optimisticUpdatedAt,
+    });
     syncConversationStatusToClientCache(userId, newStatus).catch((error) =>
-      console.error("Failed to sync status cache:", error)
+      console.error("Failed to sync status cache:", error),
     );
 
     try {
       await updateUserStatusAction(userId, newStatus);
+      setStatusUpdatedFlash(true);
+      if (statusUpdatedTimeoutRef.current !== null) {
+        window.clearTimeout(statusUpdatedTimeoutRef.current);
+      }
+      statusUpdatedTimeoutRef.current = window.setTimeout(() => {
+        setStatusUpdatedFlash(false);
+        statusUpdatedTimeoutRef.current = null;
+      }, 3000);
     } catch (error) {
       console.error("Failed to update status:", error);
       setCurrentStatus(previousStatus);
-      emitConversationStatusSynced({ conversationId: userId, status: previousStatus });
-      syncConversationStatusToClientCache(userId, previousStatus).catch((cacheError) =>
-        console.error("Failed to sync status cache:", cacheError)
+      setStatusUpdatedFlash(false);
+      emitConversationStatusSynced({
+        conversationId: userId,
+        status: previousStatus,
+        updatedAt: new Date().toISOString(),
+      });
+      syncConversationStatusToClientCache(userId, previousStatus).catch(
+        (cacheError) =>
+          console.error("Failed to sync status cache:", cacheError),
       );
     } finally {
       setIsUpdating(false);
@@ -132,31 +208,38 @@ export default function DetailsPanelHeader({
   };
 
   return (
-    <div className="pt-8 pb-4 px-6 flex flex-col items-center">
-      {/* Avatar */}
+    <div className="flex flex-col items-center px-6 pb-4 pt-8">
       <img
         src={user.avatar || "/images/no_profile.jpg"}
         alt={user.name}
-        className="w-16 h-16 rounded-full object-cover mb-4 shadow-lg shadow-orange-100"
+        className="mb-4 h-16 w-16 rounded-full object-cover"
       />
 
-      {/* Name & Handle */}
-      <h3 className="font-bold text-xl text-[#101011]">{displayName}</h3>
-      <p className="text-sm text-[#606266] mb-5">{user.name}</p>
+      <h3 className="text-xl font-bold text-gray-900">{displayName}</h3>
+      <p className="mb-5 text-sm text-gray-500">{user.name}</p>
 
-      {/* Status Button */}
-      <div className="relative w-full mb-4">
+      <div className="relative mb-4 w-full">
         <button
+          type="button"
           onClick={() => setShowStatusDropdown(!showStatusDropdown)}
           disabled={isUpdating}
-          className="flex items-center justify-center w-full px-4 py-3 bg-white border border-[#F0F2F6] rounded-xl shadow-sm hover:bg-[#F8F7FF] disabled:opacity-50"
+          className="flex w-full items-center justify-center rounded-xl border border-[#F0F2F6] bg-white px-4 py-2.5 shadow-sm hover:bg-[#F8F7FF] disabled:opacity-50"
         >
-          <StatusIcon status={currentStatus} className="w-5 h-5 mr-2" />
-          <span className="text-sm font-bold text-[#101011]">
-            {currentStatus} {isUpdating ? "..." : "- Update"}
+          <StatusIcon
+            status={currentStatus}
+            iconPack={currentStatusMeta?.iconPack}
+            iconName={currentStatusMeta?.iconName}
+            className="h-5 w-5 shrink-0"
+            style={{ color: statusColor }}
+          />
+          <span className="ml-2 text-sm font-semibold" style={{ color: statusColor }}>
+            {currentStatus}
+          </span>
+          <span className="ml-1 text-sm font-semibold text-[#101011]">
+            - {statusActionLabel}
           </span>
           <svg
-            className={`w-4 h-4 text-[#9A9CA2] ml-2 transition-transform ${
+            className={`ml-2 h-5 w-5 text-[#9A9CA2] transition-transform ${
               showStatusDropdown ? "rotate-90" : ""
             }`}
             fill="none"
@@ -172,33 +255,46 @@ export default function DetailsPanelHeader({
           </svg>
         </button>
 
-        {/* Status Dropdown Menu */}
         {showStatusDropdown && !isUpdating && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#F0F2F6] rounded-xl shadow-lg z-50 overflow-hidden">
-            <div className="max-h-64 overflow-y-auto">
-              {STATUS_OPTIONS.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusSelect(status)}
-                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center ${
-                    currentStatus === status
-                      ? "bg-[#8771FF] text-white" // No hover for selected
-                      : "text-[#606266] hover:bg-[#F8F7FF]"
-                  }`}
-                  disabled={isUpdating}
-                >
-                  <StatusIcon status={status} className="w-4 h-4 mr-2" />
-                  {status}
-                </button>
-              ))}
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+            <div className="max-h-72 overflow-y-auto">
+              {dropdownStatuses.map((statusRow) => {
+                const active = statusRow.name === currentStatus;
+                return (
+                  <button
+                    key={statusRow.id}
+                    type="button"
+                    onClick={() => handleStatusSelect(statusRow.name)}
+                    className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-base font-semibold transition-colors ${
+                      active
+                        ? "bg-[#8771FF] text-white"
+                        : "text-[#606266] hover:bg-gray-50"
+                    }`}
+                  >
+                    <StatusIcon
+                      status={statusRow.name}
+                      iconPack={statusRow.iconPack}
+                      iconName={statusRow.iconName}
+                      className="h-5 w-5 shrink-0"
+                      style={{ color: active ? "#FFFFFF" : statusRow.colorHex }}
+                    />
+                    <span style={{ color: active ? "#FFFFFF" : undefined }}>
+                      {statusRow.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
-      {/* Contact Fields */}
       <div className="w-full space-y-0">
-        <div className={`flex items-center justify-between p-3 bg-white rounded-t-xl border border-b-0 group shadow-sm ${phoneValid ? "border-[#F0F2F6]" : "border-rose-300"}`}>
+        <div
+          className={`group flex items-center justify-between rounded-t-xl border border-b-0 bg-white p-3 shadow-sm ${
+            phoneValid ? "border-gray-200" : "border-rose-300"
+          }`}
+        >
           <input
             type="text"
             placeholder="Phone Number"
@@ -213,57 +309,74 @@ export default function DetailsPanelHeader({
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="text-sm text-[#606266] px-1 w-full bg-transparent outline-none"
+            className="w-full bg-transparent px-1 text-sm text-gray-700 outline-none"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.phoneNumber, "phone")}
-            className="ml-2 inline-flex items-center text-[10px] text-[#606266] hover:text-[#606266]"
+            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
           >
-            <CopyIcon className="w-4 h-4 text-[#B0B3BA] group-hover:text-[#606266]" />
-            <span className="ml-1">{copiedField === "phone" ? "Copied" : "Copy"}</span>
+            <CopyIcon className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+            <span className="ml-1">
+              {copiedField === "phone" ? "Copied" : "Copy"}
+            </span>
           </button>
         </div>
-        <div className={`flex items-center justify-between p-3 bg-white rounded-b-xl border group shadow-sm ${emailValid ? "border-[#F0F2F6]" : "border-rose-300"}`}>
+        <div
+          className={`group flex items-center justify-between rounded-b-xl border bg-white p-3 shadow-sm ${
+            emailValid ? "border-gray-200" : "border-rose-300"
+          }`}
+        >
           <input
             type="email"
             placeholder="Email"
             value={contactDetails.email}
-            onChange={(e) => onChangeContactDetails({ ...contactDetails, email: e.target.value })}
+            onChange={(e) =>
+              onChangeContactDetails({ ...contactDetails, email: e.target.value })
+            }
             onBlur={() => {
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="text-sm text-[#606266] px-1 w-full bg-transparent outline-none"
+            className="w-full bg-transparent px-1 text-sm text-gray-700 outline-none"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.email, "email")}
-            className="ml-2 inline-flex items-center text-[10px] text-[#606266] hover:text-[#606266]"
+            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
           >
-            <CopyIcon className="w-4 h-4 text-[#B0B3BA] group-hover:text-[#606266]" />
-            <span className="ml-1">{copiedField === "email" ? "Copied" : "Copy"}</span>
+            <CopyIcon className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+            <span className="ml-1">
+              {copiedField === "email" ? "Copied" : "Copy"}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* Setter & Closer Cards */}
-      <div className="flex w-full mt-3 space-x-3">
-        <div className="flex-1 p-2 border border-[#F0F2F6] rounded-xl flex items-center bg-white shadow-sm">
-          <div className="flex flex-col ml-1">
-            <div className="text-[10px] text-[#9A9CA2] mb-0.5">Setter</div>
+      <div className="mt-3 flex w-full space-x-3">
+        <div className="flex flex-1 items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className="ml-1 flex flex-col">
+            <div className="mb-0.5 text-[10px] text-gray-400">Setter</div>
             <div className="flex items-center">
-              <img src="https://randomuser.me/api/portraits/men/8.jpg" className="w-6 h-6 rounded-full mr-2" alt="Setter" />
-              <div className="text-xs font-bold truncate">Caleb Bruiners</div>
+              <img
+                src="https://randomuser.me/api/portraits/men/8.jpg"
+                className="mr-2 h-6 w-6 rounded-full"
+                alt="Setter"
+              />
+              <div className="truncate text-xs font-bold">Caleb Bruiners</div>
             </div>
           </div>
         </div>
-        <div className="flex-1 p-2 border border-[#F0F2F6] rounded-xl flex items-center bg-white shadow-sm">
-          <div className="flex flex-col ml-1">
-            <div className="text-[10px] text-[#9A9CA2] mb-0.5">Closer</div>
+        <div className="flex flex-1 items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className="ml-1 flex flex-col">
+            <div className="mb-0.5 text-[10px] text-gray-400">Closer</div>
             <div className="flex items-center">
-              <img src="https://randomuser.me/api/portraits/men/9.jpg" className="w-6 h-6 rounded-full mr-2" alt="Closer" />
-              <div className="text-xs font-bold truncate">Andrew James</div>
+              <img
+                src="https://randomuser.me/api/portraits/men/9.jpg"
+                className="mr-2 h-6 w-6 rounded-full"
+                alt="Closer"
+              />
+              <div className="truncate text-xs font-bold">Andrew James</div>
             </div>
           </div>
         </div>
@@ -271,4 +384,3 @@ export default function DetailsPanelHeader({
     </div>
   );
 }
-
