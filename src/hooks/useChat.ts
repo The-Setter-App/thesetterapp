@@ -25,6 +25,7 @@ import { CONVERSATION_STATUS_SYNCED_EVENT } from '@/lib/status/clientSync';
 import { getInboxStatusColorClass, isStatusType } from '@/lib/status/config';
 import type { User, Message, MessagePageResponse, ConversationDetails, SSEEvent, SSEMessageData } from '@/types/inbox';
 import { mapRealtimePayloadToMessage } from '@/lib/inbox/realtime/messageMapping';
+import { optimizeImageForUpload } from '@/lib/imageCompression';
 
 const INITIAL_PAGE_SIZE = 20;
 const PREFETCH_FRESH_MS = 5 * 60 * 1000;
@@ -761,8 +762,23 @@ export function useChat(selectedUserId: string) {
 
     try {
       if (currentFile) {
+        let fileForUpload = currentFile;
+        if (currentFile.type.startsWith('image/')) {
+          try {
+            const optimized = await optimizeImageForUpload(currentFile);
+            fileForUpload = optimized.file;
+            if (optimized.optimized) {
+              console.info(
+                `[Inbox] Optimized image before upload (${optimized.originalSize} -> ${optimized.optimizedSize} bytes)`,
+              );
+            }
+          } catch (compressionError) {
+            console.warn('[Inbox] Image optimization failed, uploading original file.', compressionError);
+          }
+        }
+
         const formData = new FormData();
-        formData.append('file', currentFile);
+        formData.append('file', fileForUpload);
         formData.append('conversationId', user.id);
         formData.append('type', 'image');
         if (imageTempId) {
