@@ -82,7 +82,7 @@ function NoConnectedAccountsState({ displayName }: { displayName: string }) {
 
 const MetricCard = ({ value, label, icon }: MetricCardProps) => (
   <div
-    className="w-full m-1 rounded-xl border border-[#F0F2F6] p-4 md:p-5 flex items-center gap-4"
+    className="flex h-full w-full items-center gap-4 rounded-2xl border border-[#F0F2F6] p-4 shadow-sm md:p-5"
     style={{ background: "rgba(135, 113, 255, 0.10)" }}
   >
     <div
@@ -187,10 +187,13 @@ export default function Dashboard({
           <PageHeader
             title={`Hi, ${displayName}!`}
             description="Your Setter Dashboard"
-            actions={(
+            actions={
               <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
                 <div className="relative cursor-pointer">
-                  <LuBell className="h-6 w-6 text-[#606266]" aria-label="Bell" />
+                  <LuBell
+                    className="h-6 w-6 text-[#606266]"
+                    aria-label="Bell"
+                  />
                 </div>
                 <form
                   onSubmit={handleSearchSubmit}
@@ -228,12 +231,12 @@ export default function Dashboard({
                   />
                 </form>
               </div>
-            )}
+            }
           />
 
-          <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6 lg:px-8">
             {/* Metrics Grid */}
-            <div className="px-3 md:px-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 md:gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <MetricCard
                 value={totalRevenue}
                 label="Total revenue"
@@ -262,8 +265,8 @@ export default function Dashboard({
             </div>
 
             {/* Funnel Visualizer */}
-            <div className="mx-3 md:mx-5 relative h-[357px] bg-white border border-[rgba(135,113,255,0.2)] rounded-[20px] overflow-hidden">
-              <div className="pointer-events-none absolute inset-0 z-0">
+            <div className="relative overflow-hidden rounded-2xl border border-[rgba(135,113,255,0.2)] bg-white">
+              <div className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
                 <svg
                   aria-hidden="true"
                   className="h-full w-full"
@@ -296,7 +299,7 @@ export default function Dashboard({
                   />
                 </svg>
               </div>
-              <div className="relative z-10 grid h-full grid-cols-5">
+              <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:h-[357px] lg:grid-cols-5">
                 {[
                   {
                     label: "Conversations",
@@ -321,7 +324,7 @@ export default function Dashboard({
                 ].map((step, i, arr) => (
                   <div
                     key={step.label}
-                    className={`p-4 flex flex-col gap-3 ${i !== arr.length - 1 ? "border-r border-[rgba(135,113,255,0.2)]" : ""}`}
+                    className={`flex flex-col gap-3 p-4 md:p-5 lg:p-6 ${i !== arr.length - 1 ? "border-b border-[rgba(135,113,255,0.2)] md:border-b-0 md:border-r" : ""}`}
                   >
                     <div
                       style={{
