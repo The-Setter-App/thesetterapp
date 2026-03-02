@@ -98,7 +98,7 @@ export async function refreshSessions(params: {
   } = params;
 
   let fallbackSessions: ClientChatSession[] = [];
-  if (currentEmail) {
+  if (currentEmail && !forceNetwork) {
     await hydrateDeletedSessionTombstonesFn(currentEmail);
     const tombstonedIds = deletedSessionIdsRef.current;
     const cachedSessions = await getCachedSetterAiSessions(currentEmail);

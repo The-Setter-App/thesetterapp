@@ -73,6 +73,10 @@ export function useSetterAiController({
   const [currentEmail, setCurrentEmail] = useState<string | null>(
     normalizedHotEmail,
   );
+  const [draftLinkedLead, setDraftLinkedLead] = useState<{
+    conversationId: string;
+    label: string;
+  } | null>(null);
   const currentEmailRef = useRef<string | null>(null);
   const activeMessageLoadRef = useRef(0);
   const bootstrapRanRef = useRef(false);
@@ -89,10 +93,10 @@ export function useSetterAiController({
     [activeSessionId, chatSessions],
   );
 
-  const linkedLead = useMemo(
-    () => getLinkedLead(activeSession),
-    [activeSession],
-  );
+  const linkedLead = useMemo(() => {
+    const sessionLinkedLead = getLinkedLead(activeSession);
+    return sessionLinkedLead || draftLinkedLead;
+  }, [activeSession, draftLinkedLead]);
 
   useEffect(() => {
     chatSessionsRef.current = chatSessions;
@@ -206,7 +210,7 @@ export function useSetterAiController({
       syncLocalSessionToServer({
         localSessionId,
         currentEmail,
-        activeSessionId,
+        activeSessionIdRef,
         deletedSessionIdsRef,
         chatSessionsRef,
         sessionSyncPromisesRef,
@@ -215,7 +219,7 @@ export function useSetterAiController({
         markSessionAsDeletedFn: markSessionAsDeletedCb,
         updateChatUrlFn: updateChatUrl,
       }),
-    [activeSessionId, currentEmail, markSessionAsDeletedCb],
+    [currentEmail, markSessionAsDeletedCb],
   );
 
   const loadSessionMessagesCb = useCallback(
@@ -289,10 +293,14 @@ export function useSetterAiController({
         syncLocalSessionToServerFn: syncLocalSessionToServerCb,
         loadSessionMessagesFn: loadSessionMessagesCb,
         refreshSessionsFn: refreshSessionsCb,
+        fallbackLeadConversationId: draftLinkedLead?.conversationId ?? null,
+        fallbackLeadLabel: draftLinkedLead?.label ?? null,
       });
+      setDraftLinkedLead(null);
     },
     [
       activeSession,
+      draftLinkedLead,
       input,
       isStreaming,
       loadSessionMessagesCb,
@@ -303,6 +311,14 @@ export function useSetterAiController({
 
   const handleLinkLeadCb = useCallback(
     async (lead: LeadConversationSummary) => {
+      if (!activeSession) {
+        const label = lead.name.replace(/^@/, "") || lead.conversationId;
+        setDraftLinkedLead({
+          conversationId: lead.conversationId,
+          label,
+        });
+        return;
+      }
       await handleLinkLead({
         lead,
         currentEmail,
@@ -315,6 +331,10 @@ export function useSetterAiController({
   );
 
   const handleClearLeadCb = useCallback(async () => {
+    if (!activeSession) {
+      setDraftLinkedLead(null);
+      return;
+    }
     await handleClearLead({
       currentEmail,
       activeSession,
@@ -325,6 +345,7 @@ export function useSetterAiController({
 
   const handleSelectSessionCb = useCallback(
     (sessionId: string) => {
+      setDraftLinkedLead(null);
       handleSelectSession({
         sessionId,
         activeSessionId,
@@ -338,6 +359,7 @@ export function useSetterAiController({
   );
 
   const handleNewChatCb = useCallback(async () => {
+    setDraftLinkedLead(null);
     await handleNewChat({
       isStreaming,
       activeSessionId,

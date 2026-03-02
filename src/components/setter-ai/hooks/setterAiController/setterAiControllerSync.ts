@@ -13,7 +13,7 @@ import { replaceCachedSetterAiSessionId } from "@/lib/cache";
 export async function syncLocalSessionToServer(params: {
   localSessionId: string;
   currentEmail: string | null;
-  activeSessionId: string | null;
+  activeSessionIdRef: MutableRefObject<string | null>;
   deletedSessionIdsRef: MutableRefObject<Set<string>>;
   chatSessionsRef: MutableRefObject<ClientChatSession[]>;
   sessionSyncPromisesRef: MutableRefObject<Map<string, Promise<string | null>>>;
@@ -25,7 +25,7 @@ export async function syncLocalSessionToServer(params: {
   const {
     localSessionId,
     currentEmail,
-    activeSessionId,
+    activeSessionIdRef,
     deletedSessionIdsRef,
     chatSessionsRef,
     sessionSyncPromisesRef,
@@ -60,13 +60,15 @@ export async function syncLocalSessionToServer(params: {
       if (deletedSessionIdsRef.current.has(localSessionId)) {
         return null;
       }
-      setChatSessions((prev) =>
-        prev.map((session) =>
+      setChatSessions((prev) => {
+        const nextSessions = prev.map((session) =>
           session.id === localSessionId
             ? { ...session, syncFailed: true }
             : session,
-        ),
-      );
+        );
+        chatSessionsRef.current = nextSessions;
+        return nextSessions;
+      });
       return null;
     }
 
@@ -100,16 +102,21 @@ export async function syncLocalSessionToServer(params: {
       );
       if (localIndex === -1) {
         if (prev.some((session) => session.id === promotedSession.id)) {
+          chatSessionsRef.current = prev;
           return prev;
         }
-        return [promotedSession, ...prev];
+        const nextSessions = [promotedSession, ...prev];
+        chatSessionsRef.current = nextSessions;
+        return nextSessions;
       }
 
-      return prev.map((session, index) =>
+      const nextSessions = prev.map((session, index) =>
         index === localIndex ? promotedSession : session,
       );
+      chatSessionsRef.current = nextSessions;
+      return nextSessions;
     });
-    if (activeSessionId === localSessionId) {
+    if (activeSessionIdRef.current === localSessionId) {
       setActiveSessionId(promotedSession.id);
       updateChatUrlFn(promotedSession.id, "replace");
     }

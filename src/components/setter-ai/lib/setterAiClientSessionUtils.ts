@@ -1,9 +1,17 @@
 import type { ChatSession } from "@/types/ai";
 import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
 
+const RETAIN_MISSING_SESSIONS_MS = 5 * 60 * 1000;
+
 export function isPlaceholderTitle(title: string | null | undefined): boolean {
   if (!title) return true;
   return title.trim().toLowerCase() === "new conversation";
+}
+
+function toTimeMs(value: string | null | undefined): number {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function createLocalSessionId(): string {
@@ -40,13 +48,33 @@ export function mergeSessionsWithLocalMessages(
     };
   });
 
+  const mergedServerSessionIds = new Set(
+    mergedServerSessions.map((session) => session.id),
+  );
   const pendingLocalSessions = previous.filter(
     (session) =>
       session.localOnly &&
-      !mergedServerSessions.some((merged) => merged.id === session.id),
+      !mergedServerSessionIds.has(session.id),
   );
 
-  return [...pendingLocalSessions, ...mergedServerSessions];
+  const nowMs = Date.now();
+  const retainedMissingRecentSessions = previous.filter((session) => {
+    if (session.localOnly) return false;
+    if (mergedServerSessionIds.has(session.id)) return false;
+    if ((session.messages?.length || 0) === 0) return false;
+    const lastUpdatedMs = Math.max(
+      toTimeMs(session.updatedAt),
+      toTimeMs(session.createdAt),
+    );
+    if (!lastUpdatedMs) return false;
+    return nowMs - lastUpdatedMs < RETAIN_MISSING_SESSIONS_MS;
+  });
+
+  return [
+    ...pendingLocalSessions,
+    ...retainedMissingRecentSessions,
+    ...mergedServerSessions,
+  ];
 }
 
 export function chatPath(sessionId: string): string {

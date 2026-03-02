@@ -210,7 +210,12 @@ export function resolvePreferredSessionId(params: {
     return initialChatId;
   }
 
-  if (prefersDraftStart && pathname === "/setter-ai") {
+  const hasExplicitSessionTarget = Boolean(currentActiveId || initialChatId);
+  if (
+    prefersDraftStart &&
+    pathname === "/setter-ai" &&
+    !hasExplicitSessionTarget
+  ) {
     return null;
   }
 
