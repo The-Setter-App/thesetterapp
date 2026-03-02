@@ -96,7 +96,7 @@ export default function ChatSidebar({
         </button>
 
         <div
-          className={`flex flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1 ${
+          className={`min-h-0 flex flex-col gap-2 overflow-y-auto lg:max-h-none lg:flex-1 ${
             hasNoSessions ? "min-h-[220px] justify-center" : "max-h-[220px]"
           }`}
         >
@@ -104,7 +104,7 @@ export default function ChatSidebar({
             Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={`session-skeleton-${index}`}
-                className="flex h-12 w-full animate-pulse items-center gap-3 rounded-xl border border-[#F0F2F6] bg-white px-3"
+                className="flex h-12 w-full shrink-0 animate-pulse items-center gap-3 rounded-xl border border-[#F0F2F6] bg-white px-3"
               >
                 <div className="h-4 w-4 rounded bg-[#EEEAFD]" />
                 <div className="h-3 w-40 rounded bg-[#F0F2F6]" />
@@ -128,7 +128,7 @@ export default function ChatSidebar({
             sessions.map((session) => (
               <div
                 key={session.id}
-                className={`group relative flex h-12 w-full min-w-[44px] items-center rounded-xl border px-1.5 text-left text-sm transition-colors
+                className={`group relative flex h-12 w-full min-w-[44px] shrink-0 items-center rounded-xl border px-1.5 text-left text-sm transition-colors
                 ${
                   session.id === activeSessionId
                     ? "border-[#E6E1FF] bg-[#F8F7FF] text-[#101011]"

@@ -30,7 +30,6 @@ type CacheEntry<T> = {
   value: T;
 };
 
-const sessionsCache = new Map<string, CacheEntry<ChatSession[]>>();
 const messagesCache = new Map<string, CacheEntry<Message[]>>();
 
 function normalizeEmail(email: string): string {
@@ -88,7 +87,7 @@ function setCached<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): v
 }
 
 function invalidateSessionCache(email: string): void {
-  sessionsCache.delete(`sessions:${email}`);
+  void email;
 }
 
 function invalidateMessageCache(email: string, sessionId: string): void {
@@ -97,9 +96,6 @@ function invalidateMessageCache(email: string, sessionId: string): void {
 
 export async function listSetterAiSessionsByEmail(email: string): Promise<ChatSession[]> {
   const normalizedEmail = normalizeEmail(email);
-  const cacheKey = `sessions:${normalizedEmail}`;
-  const cached = getCached(sessionsCache, cacheKey);
-  if (cached) return cached;
 
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
@@ -109,7 +105,6 @@ export async function listSetterAiSessionsByEmail(email: string): Promise<ChatSe
     .order("updated_at", { ascending: false });
 
   const sessions = ((data ?? []) as SessionRow[]).map(mapSessionRow);
-  setCached(sessionsCache, cacheKey, sessions);
   return sessions;
 }
 

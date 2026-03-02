@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
-  createServerSession,
+  patchSessionLinkedLead,
   streamSetterAiResponse,
 } from "@/components/setter-ai/lib/setterAiClientApi";
 import { cacheSessionMessages } from "@/components/setter-ai/lib/setterAiClientCacheSync";
@@ -9,7 +9,69 @@ import {
   FALLBACK_EMPTY_RESPONSE,
   STREAM_FAILURE_MESSAGE,
 } from "@/components/setter-ai/lib/setterAiClientConstants";
+import { createLocalSessionId } from "@/components/setter-ai/lib/setterAiClientSessionUtils";
 import type { Message } from "@/types/ai";
+
+function reconcileOptimisticMessages(params: {
+  messages: Message[];
+  optimisticUserId: string;
+  optimisticAssistantId: string;
+  assistantText: string;
+}): Message[] {
+  const {
+    messages,
+    optimisticUserId,
+    optimisticAssistantId,
+    assistantText,
+  } = params;
+
+  return messages.map((message) => {
+    if (message.id === optimisticUserId) {
+      return { ...message, pending: false };
+    }
+    if (message.id === optimisticAssistantId) {
+      return { ...message, text: assistantText, pending: false };
+    }
+    return message;
+  });
+}
+
+function reconcileSessionMessagesInList(params: {
+  sessions: ClientChatSession[];
+  sessionId: string;
+  optimisticUserId: string;
+  optimisticAssistantId: string;
+  assistantText: string;
+}): {
+  nextSessions: ClientChatSession[];
+  reconciledMessages: Message[] | null;
+} {
+  const {
+    sessions,
+    sessionId,
+    optimisticUserId,
+    optimisticAssistantId,
+    assistantText,
+  } = params;
+
+  let reconciledMessages: Message[] | null = null;
+  const nextSessions = sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    const nextMessages = reconcileOptimisticMessages({
+      messages: session.messages,
+      optimisticUserId,
+      optimisticAssistantId,
+      assistantText,
+    });
+    reconciledMessages = nextMessages;
+    return {
+      ...session,
+      messages: nextMessages,
+    };
+  });
+
+  return { nextSessions, reconciledMessages };
+}
 
 export async function handleSendMessage(params: {
   overrideText?: string;
@@ -33,6 +95,8 @@ export async function handleSendMessage(params: {
     options?: { forceNetwork?: boolean; fromSelect?: boolean },
   ) => Promise<void>;
   refreshSessionsFn: (forceNetwork?: boolean) => Promise<ClientChatSession[]>;
+  fallbackLeadConversationId?: string | null;
+  fallbackLeadLabel?: string | null;
 }): Promise<void> {
   const {
     overrideText,
@@ -51,6 +115,8 @@ export async function handleSendMessage(params: {
     syncLocalSessionToServerFn,
     loadSessionMessagesFn,
     refreshSessionsFn,
+    fallbackLeadConversationId,
+    fallbackLeadLabel,
   } = params;
 
   const textToSend = (overrideText || input).trim();
@@ -60,17 +126,24 @@ export async function handleSendMessage(params: {
 
   let targetSession = activeSession;
   if (!targetSession) {
-    const created = await createServerSession();
-    if (!created) {
-      throw new Error("Failed to create chat session.");
-    }
-    targetSession = { ...created, messages: [] };
+    const nowIso = new Date().toISOString();
+    const localSessionId = createLocalSessionId();
+    targetSession = {
+      id: localSessionId,
+      title: "New Conversation",
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      messages: [],
+      localOnly: true,
+      linkedInboxConversationId:
+        fallbackLeadConversationId || null,
+      linkedInboxConversationLabel: fallbackLeadLabel || null,
+    };
     const nextSessions = [targetSession, ...chatSessionsRef.current];
     chatSessionsRef.current = nextSessions;
     setChatSessions(nextSessions);
-    setActiveSessionId(created.id);
-    activeSessionIdRef.current = created.id;
-    updateChatUrlFn(created.id, "replace");
+    setActiveSessionId(targetSession.id);
+    activeSessionIdRef.current = targetSession.id;
   }
   if (!targetSession) return;
 
@@ -138,9 +211,22 @@ export async function handleSendMessage(params: {
     const syncedSession =
       chatSessionsRef.current.find((session) => session.id === sessionId) ||
       null;
+    if (fallbackLeadConversationId && sessionId !== targetSessionId) {
+      const existingLinkedLeadId = syncedSession?.linkedInboxConversationId;
+      if (existingLinkedLeadId !== fallbackLeadConversationId) {
+        void patchSessionLinkedLead({
+          sessionId,
+          lead: {
+            conversationId: fallbackLeadConversationId,
+          },
+          label: fallbackLeadLabel || fallbackLeadConversationId,
+        }).catch(() => null);
+      }
+    }
     const leadConversationId =
       syncedSession?.linkedInboxConversationId ||
       targetSession.linkedInboxConversationId ||
+      fallbackLeadConversationId ||
       null;
 
     const response = await streamSetterAiResponse({
@@ -186,8 +272,8 @@ export async function handleSendMessage(params: {
       if (!token) continue;
 
       assistantText += token;
-      setChatSessions((prev) =>
-        prev.map((session) => {
+      setChatSessions((prev) => {
+        const nextSessions = prev.map((session) => {
           if (session.id !== sessionId) return session;
           return {
             ...session,
@@ -197,30 +283,36 @@ export async function handleSendMessage(params: {
                 : message,
             ),
           };
-        }),
-      );
+        });
+        chatSessionsRef.current = nextSessions;
+        return nextSessions;
+      });
     }
 
     if (!assistantText.trim()) {
       assistantText = FALLBACK_EMPTY_RESPONSE;
     }
 
-    setChatSessions((prev) =>
-      prev.map((session) => {
-        if (session.id !== sessionId) return session;
-        return {
-          ...session,
-          messages: session.messages.map((message) => {
-            if (message.id === optimisticUserId)
-              return { ...message, pending: false };
-            if (message.id === optimisticAssistantId) {
-              return { ...message, text: assistantText, pending: false };
-            }
-            return message;
-          }),
-        };
-      }),
-    );
+    const successReconcile = reconcileSessionMessagesInList({
+      sessions: chatSessionsRef.current,
+      sessionId,
+      optimisticUserId,
+      optimisticAssistantId,
+      assistantText,
+    });
+    chatSessionsRef.current = successReconcile.nextSessions;
+    setChatSessions(successReconcile.nextSessions);
+
+    if (
+      successReconcile.reconciledMessages &&
+      successReconcile.reconciledMessages.length > 0
+    ) {
+      await cacheSessionMessages(
+        email,
+        sessionId,
+        successReconcile.reconciledMessages,
+      );
+    }
 
     void loadSessionMessagesFn(sessionId, { forceNetwork: true });
     void refreshSessionsFn(true);
@@ -235,39 +327,23 @@ export async function handleSendMessage(params: {
       error instanceof Error && error.message.trim()
         ? error.message.trim()
         : STREAM_FAILURE_MESSAGE;
-    setChatSessions((prev) =>
-      prev.map((session) => {
-        if (session.id !== sessionId) return session;
-        return {
-          ...session,
-          messages: session.messages.map((message) => {
-            if (message.id === optimisticUserId)
-              return { ...message, pending: false };
-            if (message.id === optimisticAssistantId) {
-              return {
-                ...message,
-                text: aborted ? abortedMessage : errorMessage,
-                pending: false,
-              };
-            }
-            return message;
-          }),
-        };
-      }),
-    );
-    const failedMessages = optimisticMessages.map((message) => {
-      if (message.id === optimisticUserId)
-        return { ...message, pending: false };
-      if (message.id === optimisticAssistantId) {
-        return {
-          ...message,
-          text: aborted ? abortedMessage : errorMessage,
-          pending: false,
-        };
-      }
-      return message;
+
+    const settledAssistantText = aborted ? abortedMessage : errorMessage;
+    const failureReconcile = reconcileSessionMessagesInList({
+      sessions: chatSessionsRef.current,
+      sessionId,
+      optimisticUserId,
+      optimisticAssistantId,
+      assistantText: settledAssistantText,
     });
-    await cacheSessionMessages(email, sessionId, failedMessages);
+    chatSessionsRef.current = failureReconcile.nextSessions;
+    setChatSessions(failureReconcile.nextSessions);
+
+    await cacheSessionMessages(
+      email,
+      sessionId,
+      failureReconcile.reconciledMessages ?? optimisticMessages,
+    );
   } finally {
     if (streamAbortControllerRef.current === streamController) {
       streamAbortControllerRef.current = null;
