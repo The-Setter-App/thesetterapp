@@ -1,20 +1,27 @@
 "use client";
 
-import { useState, use, useCallback, useEffect, useRef } from 'react';
-import ChatWindow from '@/components/inbox/ChatWindow';
-import DetailsPanel from '@/components/inbox/DetailsPanel';
-import ChatHeader from '@/components/inbox/ChatHeader';
-import MessageInput from '@/components/inbox/MessageInput';
-import { useChat } from '@/hooks/useChat';
-import { useInboxSync } from '@/components/inbox/InboxSyncContext';
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import CalendlySendModal from "@/components/inbox/CalendlySendModal";
+import ChatHeader from "@/components/inbox/ChatHeader";
+import ChatWindow from "@/components/inbox/ChatWindow";
+import DetailsPanel from "@/components/inbox/DetailsPanel";
+import { useInboxSync } from "@/components/inbox/InboxSyncContext";
+import MessageInput from "@/components/inbox/MessageInput";
+import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
+import { useChat } from "@/hooks/useChat";
 
-export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ChatPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const { epoch, markChatReady } = useInboxSync();
   const [showVisible, setShowVisible] = useState(true);
+  const [showCalendlyModal, setShowCalendlyModal] = useState(false);
   const [rightWidth, setRightWidth] = useState(400);
   const isResizingRightRef = useRef(false);
-  
+
   const {
     user,
     chatHistory,
@@ -36,35 +43,46 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     conversationDetails,
     initialLoadSettled,
   } = useChat(id);
+  const {
+    connected: calendlyConnected,
+    canManageIntegration: canManageCalendlyIntegration,
+    loading: calendlyConnectionLoading,
+  } = useCalendlyConnectionState();
 
-  const handleRightResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    isResizingRightRef.current = true;
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'ew-resize';
-  }, []);
+  const handleRightResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      isResizingRightRef.current = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "ew-resize";
+    },
+    [],
+  );
 
   const handleRightResizeMove = useCallback((event: MouseEvent) => {
     if (!isResizingRightRef.current) return;
-    const nextWidth = Math.max(320, Math.min(620, window.innerWidth - event.clientX));
+    const nextWidth = Math.max(
+      320,
+      Math.min(620, window.innerWidth - event.clientX),
+    );
     setRightWidth(nextWidth);
   }, []);
 
   const handleRightResizeEnd = useCallback(() => {
     isResizingRightRef.current = false;
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
   }, []);
 
   useEffect(() => {
-    window.addEventListener('mousemove', handleRightResizeMove);
-    window.addEventListener('mouseup', handleRightResizeEnd);
+    window.addEventListener("mousemove", handleRightResizeMove);
+    window.addEventListener("mouseup", handleRightResizeEnd);
 
     return () => {
-      window.removeEventListener('mousemove', handleRightResizeMove);
-      window.removeEventListener('mouseup', handleRightResizeEnd);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      window.removeEventListener("mousemove", handleRightResizeMove);
+      window.removeEventListener("mouseup", handleRightResizeEnd);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
   }, [handleRightResizeMove, handleRightResizeEnd]);
 
@@ -84,10 +102,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="flex-1 flex h-full overflow-hidden">
       <main className="flex-1 flex flex-col min-w-0 bg-white">
-        <ChatHeader 
-          user={user} 
-          showVisible={showVisible} 
-          onToggleVisible={() => setShowVisible(!showVisible)} 
+        <ChatHeader
+          user={user}
+          showVisible={showVisible}
+          onToggleVisible={() => setShowVisible(!showVisible)}
         />
 
         <ChatWindow
@@ -101,7 +119,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           statusUpdate={statusUpdate}
         />
 
-        <MessageInput 
+        <MessageInput
           messageInput={messageInput}
           setMessageInput={setMessageInput}
           handleSendMessage={handleSendMessage}
@@ -112,16 +130,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           handleAttachmentPaste={handleAttachmentPaste}
           clearAttachment={clearAttachment}
           handleSendAudio={handleSendAudio}
+          showCalendlyButton
+          onOpenCalendlyModal={() => setShowCalendlyModal(true)}
         />
       </main>
 
       {showVisible && (
         <>
-          <div
+          <button
+            type="button"
             className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
             onMouseDown={handleRightResizeStart}
             aria-label="Resize right sidebar"
-            role="separator"
           />
           {!user ? (
             <aside
@@ -137,10 +157,23 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               user={user}
               width={rightWidth}
               syncedDetails={conversationDetails}
+              calendlyConnectionLoading={calendlyConnectionLoading}
+              calendlyConnected={calendlyConnected}
+              canManageCalendlyIntegration={canManageCalendlyIntegration}
             />
           )}
         </>
       )}
+
+      {user ? (
+        <CalendlySendModal
+          open={showCalendlyModal}
+          conversationId={user.id}
+          calendlyConnected={calendlyConnected}
+          canManageCalendlyIntegration={canManageCalendlyIntegration}
+          onClose={() => setShowCalendlyModal(false)}
+        />
+      ) : null}
     </div>
   );
 }

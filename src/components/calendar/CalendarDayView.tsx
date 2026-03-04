@@ -1,7 +1,7 @@
 "use client";
 
-import type { CalendarEvent } from "@/components/calendar/calendarMockData";
-import { EVENT_TYPE_CONFIG } from "@/components/calendar/calendarMockData";
+import type { CalendarEvent } from "@/components/calendar/calendarEventModel";
+import { EVENT_TYPE_CONFIG } from "@/components/calendar/calendarEventModel";
 import {
   computeOverlapLayout,
   END_HOUR,
