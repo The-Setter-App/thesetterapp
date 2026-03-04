@@ -43,6 +43,53 @@ export interface InstagramAccountRow {
   instagram_username: string | null;
 }
 
+export interface WorkspaceCalendlyConnectionRow {
+  id: string;
+  workspace_owner_email: string;
+  personal_access_token: string;
+  scheduling_url: string;
+  webhook_signing_key: string;
+  webhook_subscription_uri: string | null;
+  is_connected: boolean;
+  connected_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InboxCallEventRow {
+  owner_email: string;
+  id: string;
+  conversation_id: string | null;
+  calendly_event_uri: string | null;
+  calendly_invitee_uri: string | null;
+  event_type: string;
+  status: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  timezone: string | null;
+  join_url: string | null;
+  cancel_url: string | null;
+  reschedule_url: string | null;
+  invitee_name: string | null;
+  invitee_email: string | null;
+  raw_payload: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InboxCalendlyInviteRow {
+  owner_email: string;
+  invite_id: string;
+  conversation_id: string;
+  created_by_email: string;
+  expires_at: string;
+  consumed_at: string | null;
+  consumed_event_uri: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkspaceTagRowDb {
   id: string;
   workspace_owner_email: string;

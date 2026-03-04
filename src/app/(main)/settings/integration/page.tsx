@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import IntegrationFeatureCard from "@/components/settings/IntegrationFeatureCard";
+import CalendlyIntegrationCard from "@/components/settings/CalendlyIntegrationCard";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
 import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
 import {
@@ -131,6 +132,10 @@ export default async function SettingsIntegrationPage() {
             clear ownership across your team.
           </p>
         </div>
+      </div>
+
+      <div className="border-t border-[#F0F2F6] px-6 py-6 md:px-8">
+        <CalendlyIntegrationCard />
       </div>
     </SettingsSectionCard>
   );

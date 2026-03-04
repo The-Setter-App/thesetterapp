@@ -15,6 +15,8 @@ interface MessageInputProps {
   handleAttachmentPaste: (file: File) => void;
   clearAttachment: () => void;
   handleSendAudio?: (blob: Blob, duration: number) => void;
+  showCalendlyButton?: boolean;
+  onOpenCalendlyModal?: () => void;
 }
 
 export default function MessageInput({
@@ -27,7 +29,9 @@ export default function MessageInput({
   handleFileSelect,
   handleAttachmentPaste,
   clearAttachment,
-  handleSendAudio
+  handleSendAudio,
+  showCalendlyButton = false,
+  onOpenCalendlyModal,
 }: MessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -130,6 +134,19 @@ export default function MessageInput({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               </button>
+
+              {showCalendlyButton ? (
+                <button
+                  onClick={onOpenCalendlyModal}
+                  className="p-2 rounded-full hover:text-[#606266] hover:bg-[#F8F7FF] transition-colors"
+                  title="Send Calendly Link"
+                  disabled={!user}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-13 9h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              ) : null}
             </div>
             
             <textarea

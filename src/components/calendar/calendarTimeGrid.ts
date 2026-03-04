@@ -1,8 +1,8 @@
 /** Shared geometry for day/week calendar time-grid rendering. */
 
 /** Hour range to display (inclusive) */
-export const START_HOUR = 7;
-export const END_HOUR = 20;
+export const START_HOUR = 0;
+export const END_HOUR = 23;
 
 /** Pixel height per hour row */
 export const HOUR_HEIGHT = 60;
@@ -63,7 +63,8 @@ export function computeOverlapLayout(
   const colEnds: number[] = [];
 
   for (const ev of sorted) {
-    const end = ev.startHour + Math.max(ev.duration, MIN_EVENT_HEIGHT / HOUR_HEIGHT);
+    const end =
+      ev.startHour + Math.max(ev.duration, MIN_EVENT_HEIGHT / HOUR_HEIGHT);
 
     let col = -1;
     for (let c = 0; c < colEnds.length; c++) {

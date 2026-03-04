@@ -1,5 +1,6 @@
-import CalendarPageClient from "@/components/calendar/CalendarPageClient";
+import { redirect } from "next/navigation";
+import { toCalendarMonthPath } from "@/lib/calendarRoute";
 
 export default function CalendarPage() {
-  return <CalendarPageClient />;
+  redirect(toCalendarMonthPath(new Date()));
 }

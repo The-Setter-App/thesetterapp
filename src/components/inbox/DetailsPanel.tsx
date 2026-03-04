@@ -2,12 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type ConversationDetailsCacheState,
   getCachedConversationDetailsState,
   markCachedConversationDetailsSynced,
   setCachedConversationDetailsFromRemote,
   setCachedConversationDetailsLocal,
-  type ConversationDetailsCacheState,
 } from "@/lib/cache";
+import {
+  getConversationCallsCacheSnapshot,
+  refreshConversationCallsCache,
+} from "@/lib/inbox/callsClientCache";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import type {
   ConversationContactDetails,
@@ -26,14 +30,6 @@ import SummaryTab from "./details/SummaryTab";
 import TimelineTab from "./details/TimelineTab";
 
 type DetailsTabName = "Summary" | "Notes" | "Timeline" | "Payments" | "Calls";
-
-const DETAILS_TABS: DetailsTabName[] = [
-  "Summary",
-  "Notes",
-  "Timeline",
-  "Payments",
-  "Calls",
-];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-() ]+$/;
@@ -55,14 +51,27 @@ interface DetailsPanelProps {
   user: User;
   width?: number;
   syncedDetails?: ConversationDetails | null;
+  calendlyConnectionLoading?: boolean;
+  calendlyConnected?: boolean;
+  canManageCalendlyIntegration?: boolean;
 }
 
 export default function DetailsPanel({
   user,
   width,
   syncedDetails,
+  calendlyConnectionLoading = true,
+  calendlyConnected = false,
+  canManageCalendlyIntegration = false,
 }: DetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailsTabName>("Summary");
+  const detailsTabs: DetailsTabName[] = [
+    "Summary",
+    "Notes",
+    "Timeline",
+    "Payments",
+    "Calls",
+  ];
   const [notes, setNotes] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
     amount: "",
@@ -100,7 +109,10 @@ export default function DetailsPanel({
       try {
         await setCachedConversationDetailsLocal(user.id, patch);
       } catch (error) {
-        console.error("[DetailsPanel] Failed to update local details cache:", error);
+        console.error(
+          "[DetailsPanel] Failed to update local details cache:",
+          error,
+        );
       }
     },
     [user.id],
@@ -112,7 +124,10 @@ export default function DetailsPanel({
       try {
         await markCachedConversationDetailsSynced(user.id, patch);
       } catch (error) {
-        console.error("[DetailsPanel] Failed to mark details cache as synced:", error);
+        console.error(
+          "[DetailsPanel] Failed to mark details cache as synced:",
+          error,
+        );
       }
     },
     [user.id],
@@ -232,9 +247,8 @@ export default function DetailsPanel({
     (async () => {
       try {
         if (syncedDetails) {
-          const cachedState = await getCachedConversationDetailsState(
-            conversationId,
-          );
+          const cachedState =
+            await getCachedConversationDetailsState(conversationId);
           if (active) {
             applyDetailsCacheState(
               cachedState ?? {
@@ -289,6 +303,30 @@ export default function DetailsPanel({
     }
     contactSaveAbortRef.current?.abort();
   }, [user.id]);
+
+  useEffect(() => {
+    if (!user.id) return;
+    if (calendlyConnectionLoading || !calendlyConnected) return;
+
+    const controller = new AbortController();
+    let active = true;
+
+    (async () => {
+      try {
+        const snapshot = await getConversationCallsCacheSnapshot(user.id);
+        if (!active || snapshot.fresh) return;
+        await refreshConversationCallsCache(user.id, controller.signal);
+      } catch (error) {
+        if (!active || controller.signal.aborted) return;
+        console.error("[DetailsPanel] Failed to prefetch calls cache:", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [calendlyConnected, calendlyConnectionLoading, user.id]);
 
   useEffect(() => {
     if (!detailsLoaded || !user.id) return;
@@ -541,7 +579,7 @@ export default function DetailsPanel({
       <hr className="border-[#F0F2F6]" />
 
       <div className="flex items-center justify-around border-b border-[#F0F2F6] px-2 py-2 text-sm font-semibold text-[#606266]">
-        {DETAILS_TABS.map((tab) => (
+        {detailsTabs.map((tab) => (
           <button
             key={tab}
             type="button"
@@ -567,7 +605,14 @@ export default function DetailsPanel({
             onChange={handlePaymentDetailsChange}
           />
         )}
-        {activeTab === "Calls" && <CallsTab />}
+        {activeTab === "Calls" ? (
+          <CallsTab
+            conversationId={user.id}
+            connectionLoading={calendlyConnectionLoading}
+            calendlyConnected={calendlyConnected}
+            canManageCalendlyIntegration={canManageCalendlyIntegration}
+          />
+        ) : null}
       </div>
     </aside>
   );
