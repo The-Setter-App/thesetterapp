@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AppImage } from "@/components/ui/AppImage";
 
 export interface DropdownOption {
   label: string;
@@ -40,7 +41,7 @@ export default function FieldDropdown({ value, options, placeholder, onChange }:
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <span className="flex items-center min-w-0">
-          {selected?.iconSrc ? <img src={selected.iconSrc} alt={selected.label} className="w-4 h-4 mr-2 shrink-0" /> : null}
+          {selected?.iconSrc ? <AppImage src={selected.iconSrc} alt={selected.label} className="w-4 h-4 mr-2 shrink-0" loadingMode="lazy" /> : null}
           <span className={`truncate ${selected ? "text-[#101011]" : "text-[#9A9CA2]"}`}>
             {selected?.label || placeholder || "Select an option"}
           </span>
@@ -63,7 +64,7 @@ export default function FieldDropdown({ value, options, placeholder, onChange }:
               }}
             >
               <span className="flex items-center min-w-0">
-                {option.iconSrc ? <img src={option.iconSrc} alt={option.label} className="w-4 h-4 mr-2 shrink-0" /> : null}
+                {option.iconSrc ? <AppImage src={option.iconSrc} alt={option.label} className="w-4 h-4 mr-2 shrink-0" loadingMode="lazy" /> : null}
                 <span className="text-sm text-[#101011] truncate">{option.label}</span>
               </span>
               {value === option.value ? (

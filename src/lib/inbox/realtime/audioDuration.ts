@@ -1,5 +1,7 @@
 'use client';
 
+import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
+
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
   const minutes = Math.floor(seconds / 60);
@@ -10,6 +12,7 @@ function formatDuration(seconds: number): string {
 export function resolveAudioDurationFromUrl(url: string): Promise<string | null> {
   return new Promise((resolve) => {
     const audio = new Audio();
+    const resolvedUrl = resolveAppMediaSrc(url) || url;
 
     const cleanup = () => {
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
@@ -30,7 +33,7 @@ export function resolveAudioDurationFromUrl(url: string): Promise<string | null>
     audio.preload = "metadata";
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("error", onError);
-    audio.src = url;
+    audio.src = resolvedUrl;
     audio.load();
   });
 }

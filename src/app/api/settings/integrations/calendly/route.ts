@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { canAccessIntegrationSettings } from "@/lib/permissions";
 import {
-  connectCalendlyForWorkspace,
   disconnectCalendlyForWorkspace,
-  getCalendlyConnectionState,
+  getCalendlyConnectionSettingsState,
+  updateCalendlySchedulingUrlForWorkspace,
 } from "@/lib/calendly/service";
+import { canAccessIntegrationSettings } from "@/lib/permissions";
 import { requireWorkspaceContext } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
-interface ConnectBody {
-  personalAccessToken?: unknown;
+interface UpdateBody {
   schedulingUrl?: unknown;
 }
 
@@ -21,51 +20,52 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const connection = await getCalendlyConnectionState(context.workspaceOwnerEmail);
-    return NextResponse.json(
-      connection
-        ? {
-            connected: true,
-            connectedAt: connection.connectedAt,
-            schedulingUrl: connection.schedulingUrl,
-          }
-        : { connected: false },
-      { headers: { "Cache-Control": "private, no-store" } },
+    const connection = await getCalendlyConnectionSettingsState(
+      context.workspaceOwnerEmail,
     );
+    return NextResponse.json(connection, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load Calendly state.";
+    const message =
+      error instanceof Error ? error.message : "Failed to load Calendly state.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST() {
+  return NextResponse.json(
+    { error: "Calendly now uses OAuth. Use /api/auth/calendly/login." },
+    { status: 405 },
+  );
+}
+
+export async function PATCH(request: Request) {
   try {
     const context = await requireWorkspaceContext();
     if (!canAccessIntegrationSettings(context.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = (await request.json().catch(() => null)) as ConnectBody | null;
-    const personalAccessToken =
-      typeof body?.personalAccessToken === "string" ? body.personalAccessToken : "";
+    const body = (await request.json().catch(() => null)) as UpdateBody | null;
     const schedulingUrl =
       typeof body?.schedulingUrl === "string" ? body.schedulingUrl : "";
 
-    const connection = await connectCalendlyForWorkspace(context.workspaceOwnerEmail, {
-      personalAccessToken,
-      schedulingUrl,
-    });
-    return NextResponse.json(
+    const connection = await updateCalendlySchedulingUrlForWorkspace(
+      context.workspaceOwnerEmail,
       {
-        connected: true,
-        connectedAt: connection.connectedAt,
-        schedulingUrl: connection.schedulingUrl,
+        schedulingUrl,
       },
-      { headers: { "Cache-Control": "private, no-store" } },
     );
+
+    return NextResponse.json(connection, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to connect Calendly.";
+      error instanceof Error
+        ? error.message
+        : "Failed to update Calendly settings.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -76,6 +76,7 @@ export async function DELETE() {
     if (!canAccessIntegrationSettings(context.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
     await disconnectCalendlyForWorkspace(context.workspaceOwnerEmail);
     return NextResponse.json({ disconnected: true });
   } catch (error) {

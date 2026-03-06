@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LuCalendar, LuGlobe, LuVideo } from "react-icons/lu";
 import CallsTabSkeleton from "@/components/inbox/details/CallsTabSkeleton";
 import {
   getConversationCallsCacheSnapshot,
   refreshConversationCallsCache,
 } from "@/lib/inbox/callsClientCache";
+import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import type { ConversationCallEvent } from "@/types/calendly";
+import type { SSEEvent } from "@/types/inbox";
 
 interface CallsTabProps {
   conversationId: string;
@@ -43,6 +45,11 @@ export default function CallsTab({
   const [calls, setCalls] = useState<ConversationCallEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const refreshCalls = useCallback(async () => {
+    const nextCalls = await refreshConversationCallsCache(conversationId);
+    setCalls(nextCalls);
+    setError("");
+  }, [conversationId]);
 
   useEffect(() => {
     if (connectionLoading) {
@@ -82,10 +89,7 @@ export default function CallsTab({
         setLoading(!cached);
         setError("");
 
-        const nextCalls = await refreshConversationCallsCache(
-          conversationId,
-          controller.signal,
-        );
+        const nextCalls = await refreshConversationCallsCache(conversationId, controller.signal);
         if (!active) return;
 
         setCalls(nextCalls);
@@ -108,6 +112,24 @@ export default function CallsTab({
       controller.abort();
     };
   }, [conversationId, calendlyConnected, connectionLoading]);
+
+  useEffect(() => {
+    if (connectionLoading || !calendlyConnected) return;
+
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent>;
+      const message = customEvent.detail;
+      if (!message || message.type !== "calendly_call_updated") return;
+      if (message.data.conversationId !== conversationId) return;
+
+      refreshCalls().catch((refreshError) => {
+        console.error("[CallsTab] Failed to refresh after Calendly update:", refreshError);
+      });
+    };
+
+    window.addEventListener(INBOX_SSE_EVENT, handler);
+    return () => window.removeEventListener(INBOX_SSE_EVENT, handler);
+  }, [calendlyConnected, connectionLoading, conversationId, refreshCalls]);
 
   const sortedCalls = useMemo(
     () =>

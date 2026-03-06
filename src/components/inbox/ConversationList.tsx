@@ -1,5 +1,6 @@
 "use client";
 
+import { AppImage } from "@/components/ui/AppImage";
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
@@ -89,7 +90,7 @@ export default function ConversationList({
 }: ConversationListProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
-      {users.map((u) => {
+      {users.map((u, index) => {
         const unreadCount = u.unread ?? 0;
         const showReplyBadge = unreadCount > 0 || Boolean(u.needsReply);
         const statusMeta = statusLookup[u.status];
@@ -106,10 +107,11 @@ export default function ConversationList({
             onClick={() => onSelectUser(u.id)}
           >
               <div className="relative flex-shrink-0">
-                <img
+                <AppImage
                   src={u.avatar || "/images/no_profile.jpg"}
                   alt={u.name}
                   className="w-10 h-10 rounded-full object-cover"
+                  loadingMode={index < 8 ? "eager" : "lazy"}
                 />
                 {showReplyBadge && (
                   <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">

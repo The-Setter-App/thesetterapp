@@ -4,6 +4,7 @@ import { Camera, UserRound } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { AppImage } from '@/components/ui/AppImage';
 import { Input } from '@/components/ui/Input';
 import { fileToOptimizedProfileDataUrl } from '@/lib/profileImage';
 import {
@@ -130,10 +131,11 @@ export default function OnboardingProfileForm({
               <p className="text-sm font-semibold text-[#101011]">Preview</p>
               <div className="mt-4 flex items-center gap-3">
                 <div className="h-14 w-14 overflow-hidden rounded-full border border-[#F0F2F6] bg-[#F8F7FF]">
-                  <img
+                  <AppImage
                     src={profileImageBase64 || '/images/no_profile.jpg'}
                     alt="Profile preview"
                     className="h-full w-full object-cover"
+                    loadingMode="eager"
                   />
                 </div>
                 <div>
@@ -165,10 +167,11 @@ export default function OnboardingProfileForm({
                 <div className="rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 overflow-hidden rounded-full border border-[#F0F2F6] bg-white">
-                      <img
+                      <AppImage
                         src={profileImageBase64 || '/images/no_profile.jpg'}
                         alt="Current profile"
                         className="h-full w-full object-cover"
+                        loadingMode="eager"
                       />
                     </div>
                     <div className="flex flex-1 flex-col gap-2">

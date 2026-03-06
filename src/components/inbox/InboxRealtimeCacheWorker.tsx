@@ -9,6 +9,7 @@ import {
   updateCachedMessages,
 } from "@/lib/cache";
 import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
+import { syncConversationCallsCache } from "@/lib/inbox/realtime/calendlyCallSync";
 import {
   buildRealtimePreviewText,
   mapRealtimePayloadToMessage,
@@ -139,6 +140,16 @@ export default function InboxRealtimeCacheWorker({
     eventSource.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as SSEEvent;
+        if (message.type === "calendly_call_updated") {
+          syncQueueRef.current = syncQueueRef.current
+            .catch(() => undefined)
+            .then(() => syncConversationCallsCache(message.data.conversationId))
+            .catch((error) => {
+              console.error("[InboxRealtimeCacheWorker] Calls cache sync failed:", error);
+            });
+          return;
+        }
+
         if (message.type !== "new_message" && message.type !== "message_echo") {
           return;
         }

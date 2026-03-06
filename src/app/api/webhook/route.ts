@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { emitWorkspaceSseEvent } from '../sse/route';
+import { emitWorkspaceSseEvent } from '@/lib/inbox/sseBus';
 import { 
   findConversationIdByParticipantAndAccount,
   findConversationIdByParticipantUnique,

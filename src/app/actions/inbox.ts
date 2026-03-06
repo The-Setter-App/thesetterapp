@@ -16,7 +16,7 @@ import {
   updateConversationPriority,
   addStatusTimelineEvent,
 } from '@/lib/inboxRepository';
-import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
+import { emitWorkspaceSseEvent } from '@/lib/inbox/sseBus';
 import { isStatusType, normalizeStatusKey, normalizeStatusText } from '@/lib/status/config';
 import { listWorkspaceStatusNames } from '@/lib/tagsRepository';
 import type { User, Message } from '@/types/inbox';

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppImage } from "@/components/ui/AppImage";
 import type { LeadConversationSummary } from "@/types/setterAiLeadContext";
 
 export default function LeadMentionMenu(props: {
@@ -80,10 +81,11 @@ export default function LeadMentionMenu(props: {
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#F0F2F6] bg-[#F8F7FF]">
                   {item.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <AppImage
                       src={item.avatarUrl}
                       alt={item.name}
                       className="h-full w-full object-cover"
+                      loadingMode="lazy"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-[#8771FF]">

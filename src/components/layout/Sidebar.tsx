@@ -1,5 +1,6 @@
 "use client";
 
+import { AppImage } from "@/components/ui/AppImage";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -32,6 +33,7 @@ const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: str
 
       <Link 
         href={to} 
+        prefetch={true}
         className={`group flex items-center justify-center relative transition-colors duration-200 focus:outline-none ${
           isActive 
             ? 'text-[#8771FF]' 
@@ -99,11 +101,12 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
       {/* Profile Icon */}
       <div className="mb-8">
         <div className="w-9 h-9 rounded-full overflow-hidden border border-[#F0F2F6] relative">
-           <img 
+           <AppImage
              src={profileImageBase64 || "/images/no_profile.jpg"}
              alt={`${displayName} avatar`}
              title={`${displayName} (${email})`}
              className="w-full h-full object-cover"
+             loadingMode="eager"
            />
         </div>
       </div>

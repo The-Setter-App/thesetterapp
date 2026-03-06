@@ -1,4 +1,3 @@
-import { Readable } from "node:stream";
 import { AUDIO_BUCKET, getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
 import { saveMessageToDb } from "@/lib/inbox/repository/messageStore";
 import type { Message } from "@/types/inbox";
@@ -174,11 +173,11 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
   return merged;
 }
 
-export async function getVoiceNoteStreamForMessage(
+export async function getVoiceNoteBinaryForMessage(
   messageId: string,
   ownerEmail: string,
 ): Promise<{
-  stream: NodeJS.ReadableStream;
+  buffer: Buffer;
   mimeType: string;
   size: number;
 } | null> {
@@ -202,7 +201,7 @@ export async function getVoiceNoteStreamForMessage(
   const buffer = Buffer.from(arrayBuffer);
 
   return {
-    stream: Readable.from(buffer),
+    buffer,
     mimeType: message.audioStorage?.mimeType || blob.type || "audio/webm",
     size: buffer.length,
   };

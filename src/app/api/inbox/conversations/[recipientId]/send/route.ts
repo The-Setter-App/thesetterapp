@@ -4,7 +4,7 @@ import { decryptData } from '@/lib/crypto';
 import { sendMessage } from '@/lib/graphApi';
 import { findConversationById } from '@/lib/inboxRepository';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
-import { emitWorkspaceSseEvent } from '@/app/api/sse/route';
+import { emitWorkspaceSseEvent } from '@/lib/inbox/sseBus';
 
 export async function POST(
   request: NextRequest,

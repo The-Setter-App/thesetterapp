@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from 'react';
+import { AppImage } from "@/components/ui/AppImage";
 import { User } from '@/types/inbox';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 
@@ -63,7 +64,7 @@ export default function MessageInput({
       {attachmentPreview && (
          <div className="absolute bottom-full left-0 mb-2 p-2 bg-white border border-[#F0F2F6] rounded-lg shadow-lg z-10">
            <div className="relative group">
-             <img src={attachmentPreview} alt="Attachment" className="h-32 w-auto rounded-md object-contain border border-[#F0F2F6] bg-[#F8F7FF]" />
+             <AppImage src={attachmentPreview} alt="Attachment" className="h-32 w-auto rounded-md object-contain border border-[#F0F2F6] bg-[#F8F7FF]" loadingMode="eager" />
              <button 
                onClick={clearAttachment}
                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-[#F0F2F6] text-[#606266] hover:text-red-500 transition-colors"

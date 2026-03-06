@@ -19,6 +19,23 @@ const INBOX_CALL_EVENTS_TABLE = "inbox_call_events";
 const CONVERSATIONS_TABLE = "inbox_conversations";
 const MESSAGES_TABLE = "inbox_messages";
 const INVITES_TABLE = "inbox_calendly_invites";
+const CONNECTION_SELECT_COLUMNS =
+  "id,workspace_owner_email,oauth_access_token,oauth_refresh_token,oauth_access_token_expires_at,oauth_scope,oauth_token_type,calendly_user_uri,organization_uri,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at";
+
+export interface CalendlyConnectionSecret {
+  id: string;
+  workspaceOwnerEmail: string;
+  oauthAccessToken: string;
+  oauthRefreshToken: string;
+  oauthAccessTokenExpiresAt: string;
+  oauthScope?: string;
+  oauthTokenType?: string;
+  calendlyUserUri?: string;
+  organizationUri?: string;
+  webhookSigningKey: string;
+  webhookSubscriptionUri?: string;
+  schedulingUrl: string;
+}
 
 function mapConnectionRow(
   row: WorkspaceCalendlyConnectionRow,
@@ -29,7 +46,31 @@ function mapConnectionRow(
     schedulingUrl: row.scheduling_url,
     isConnected: row.is_connected,
     connectedAt: row.connected_at,
+    oauthAccessTokenExpiresAt: row.oauth_access_token_expires_at,
+    oauthScope: row.oauth_scope ?? undefined,
+    oauthTokenType: row.oauth_token_type ?? undefined,
+    calendlyUserUri: row.calendly_user_uri ?? undefined,
+    organizationUri: row.organization_uri ?? undefined,
     webhookSubscriptionUri: row.webhook_subscription_uri ?? undefined,
+  };
+}
+
+function mapConnectionSecretRow(
+  row: WorkspaceCalendlyConnectionRow,
+): CalendlyConnectionSecret {
+  return {
+    id: row.id,
+    workspaceOwnerEmail: row.workspace_owner_email,
+    oauthAccessToken: decryptData(row.oauth_access_token),
+    oauthRefreshToken: decryptData(row.oauth_refresh_token),
+    oauthAccessTokenExpiresAt: row.oauth_access_token_expires_at,
+    oauthScope: row.oauth_scope ?? undefined,
+    oauthTokenType: row.oauth_token_type ?? undefined,
+    calendlyUserUri: row.calendly_user_uri ?? undefined,
+    organizationUri: row.organization_uri ?? undefined,
+    webhookSigningKey: decryptData(row.webhook_signing_key),
+    webhookSubscriptionUri: row.webhook_subscription_uri ?? undefined,
+    schedulingUrl: row.scheduling_url,
   };
 }
 
@@ -86,9 +127,7 @@ export async function getCalendlyConnectionByOwnerEmail(
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(CALENDLY_CONNECTIONS_TABLE)
-    .select(
-      "id,workspace_owner_email,personal_access_token,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at",
-    )
+    .select(CONNECTION_SELECT_COLUMNS)
     .eq("workspace_owner_email", workspaceOwnerEmail)
     .eq("is_connected", true)
     .maybeSingle();
@@ -104,19 +143,11 @@ export async function getCalendlyConnectionByOwnerEmail(
 
 export async function getCalendlyConnectionSecretByOwnerEmail(
   workspaceOwnerEmail: string,
-): Promise<{
-  id: string;
-  personalAccessToken: string;
-  webhookSigningKey: string;
-  webhookSubscriptionUri?: string;
-  schedulingUrl: string;
-} | null> {
+): Promise<CalendlyConnectionSecret | null> {
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(CALENDLY_CONNECTIONS_TABLE)
-    .select(
-      "id,workspace_owner_email,personal_access_token,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at",
-    )
+    .select(CONNECTION_SELECT_COLUMNS)
     .eq("workspace_owner_email", workspaceOwnerEmail)
     .eq("is_connected", true)
     .maybeSingle();
@@ -127,30 +158,16 @@ export async function getCalendlyConnectionSecretByOwnerEmail(
     );
   }
   if (!data) return null;
-  const row = data as WorkspaceCalendlyConnectionRow;
-  return {
-    id: row.id,
-    personalAccessToken: decryptData(row.personal_access_token),
-    webhookSigningKey: decryptData(row.webhook_signing_key),
-    webhookSubscriptionUri: row.webhook_subscription_uri ?? undefined,
-    schedulingUrl: row.scheduling_url,
-  };
+  return mapConnectionSecretRow(data as WorkspaceCalendlyConnectionRow);
 }
 
-export async function getCalendlyConnectionSecretById(id: string): Promise<{
-  id: string;
-  workspaceOwnerEmail: string;
-  personalAccessToken: string;
-  webhookSigningKey: string;
-  webhookSubscriptionUri?: string;
-  schedulingUrl: string;
-} | null> {
+export async function getCalendlyConnectionSecretById(
+  id: string,
+): Promise<CalendlyConnectionSecret | null> {
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(CALENDLY_CONNECTIONS_TABLE)
-    .select(
-      "id,workspace_owner_email,personal_access_token,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at",
-    )
+    .select(CONNECTION_SELECT_COLUMNS)
     .eq("id", id)
     .eq("is_connected", true)
     .maybeSingle();
@@ -161,20 +178,18 @@ export async function getCalendlyConnectionSecretById(id: string): Promise<{
     );
   }
   if (!data) return null;
-  const row = data as WorkspaceCalendlyConnectionRow;
-  return {
-    id: row.id,
-    workspaceOwnerEmail: row.workspace_owner_email,
-    personalAccessToken: decryptData(row.personal_access_token),
-    webhookSigningKey: decryptData(row.webhook_signing_key),
-    webhookSubscriptionUri: row.webhook_subscription_uri ?? undefined,
-    schedulingUrl: row.scheduling_url,
-  };
+  return mapConnectionSecretRow(data as WorkspaceCalendlyConnectionRow);
 }
 
 export async function upsertCalendlyConnection(input: {
   workspaceOwnerEmail: string;
-  personalAccessToken: string;
+  oauthAccessToken: string;
+  oauthRefreshToken: string;
+  oauthAccessTokenExpiresAt: string;
+  oauthScope?: string;
+  oauthTokenType?: string;
+  calendlyUserUri?: string;
+  organizationUri?: string;
   schedulingUrl: string;
   webhookSigningKey: string;
   webhookSubscriptionUri?: string;
@@ -186,7 +201,13 @@ export async function upsertCalendlyConnection(input: {
     .upsert(
       {
         workspace_owner_email: input.workspaceOwnerEmail,
-        personal_access_token: encryptData(input.personalAccessToken),
+        oauth_access_token: encryptData(input.oauthAccessToken),
+        oauth_refresh_token: encryptData(input.oauthRefreshToken),
+        oauth_access_token_expires_at: input.oauthAccessTokenExpiresAt,
+        oauth_scope: input.oauthScope ?? null,
+        oauth_token_type: input.oauthTokenType ?? null,
+        calendly_user_uri: input.calendlyUserUri ?? null,
+        organization_uri: input.organizationUri ?? null,
         scheduling_url: input.schedulingUrl,
         webhook_signing_key: encryptData(input.webhookSigningKey),
         webhook_subscription_uri: input.webhookSubscriptionUri ?? null,
@@ -196,9 +217,7 @@ export async function upsertCalendlyConnection(input: {
       },
       { onConflict: "workspace_owner_email" },
     )
-    .select(
-      "id,workspace_owner_email,personal_access_token,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at",
-    )
+    .select(CONNECTION_SELECT_COLUMNS)
     .single();
 
   if (error || !data) {
@@ -206,6 +225,62 @@ export async function upsertCalendlyConnection(input: {
       `[CalendlyRepository] Failed to upsert connection: ${error?.message || "Unknown error"}`,
     );
   }
+  return mapConnectionRow(data as WorkspaceCalendlyConnectionRow);
+}
+
+export async function updateCalendlyConnectionOAuthTokens(input: {
+  workspaceOwnerEmail: string;
+  oauthAccessToken: string;
+  oauthRefreshToken: string;
+  oauthAccessTokenExpiresAt: string;
+  oauthScope?: string;
+  oauthTokenType?: string;
+}): Promise<void> {
+  const supabase = getInboxSupabase();
+  const { error } = await supabase
+    .from(CALENDLY_CONNECTIONS_TABLE)
+    .update({
+      oauth_access_token: encryptData(input.oauthAccessToken),
+      oauth_refresh_token: encryptData(input.oauthRefreshToken),
+      oauth_access_token_expires_at: input.oauthAccessTokenExpiresAt,
+      oauth_scope: input.oauthScope ?? null,
+      oauth_token_type: input.oauthTokenType ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("workspace_owner_email", input.workspaceOwnerEmail)
+    .eq("is_connected", true);
+
+  if (error) {
+    throw new Error(
+      `[CalendlyRepository] Failed to update OAuth tokens: ${error.message}`,
+    );
+  }
+}
+
+export async function updateCalendlyConnectionSchedulingUrl(input: {
+  workspaceOwnerEmail: string;
+  schedulingUrl: string;
+}): Promise<CalendlyConnection | null> {
+  const supabase = getInboxSupabase();
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from(CALENDLY_CONNECTIONS_TABLE)
+    .update({
+      scheduling_url: input.schedulingUrl,
+      updated_at: nowIso,
+    })
+    .eq("workspace_owner_email", input.workspaceOwnerEmail)
+    .eq("is_connected", true)
+    .select(CONNECTION_SELECT_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `[CalendlyRepository] Failed to update scheduling URL: ${error.message}`,
+    );
+  }
+
+  if (!data) return null;
   return mapConnectionRow(data as WorkspaceCalendlyConnectionRow);
 }
 

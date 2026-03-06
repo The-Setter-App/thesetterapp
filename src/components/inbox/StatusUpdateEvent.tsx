@@ -63,7 +63,7 @@ export default function StatusUpdateEvent({
   const iconChipBackground = `${statusColor}20`;
 
   return (
-    <div className="my-4 flex justify-center px-2">
+    <div className="mt-7 mb-4 flex justify-center px-2">
       <div className="flex max-w-[320px] flex-col items-center text-center">
         <div
           className="inline-flex h-8 w-8 items-center justify-center rounded-md border shadow-sm"

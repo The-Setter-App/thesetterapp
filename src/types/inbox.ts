@@ -237,6 +237,11 @@ export interface SSEConversationPriorityData {
   isPriority: boolean;
 }
 
+export interface SSECalendlyCallUpdatedData {
+  conversationId: string;
+  callId: string;
+}
+
 /** Union of all SSE events the server can emit. */
 export type SSEEvent =
   | { type: "connected"; timestamp: string }
@@ -245,6 +250,11 @@ export type SSEEvent =
   | { type: "message_seen"; timestamp: string; data: SSESeenData }
   | { type: "messages_synced"; timestamp: string; data: SSESyncedData }
   | { type: "user_status_updated"; timestamp?: string; data: SSEUserStatusData }
+  | {
+      type: "calendly_call_updated";
+      timestamp?: string;
+      data: SSECalendlyCallUpdatedData;
+    }
   | {
       type: "conversation_priority_updated";
       timestamp?: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
 
 function formatDurationDisplay(seconds: number): string {
   if (!seconds || isNaN(seconds)) return "0:00";
@@ -32,13 +33,14 @@ export default function AudioMessage({
   const durationRef = useRef<string | undefined>(duration);
   const onDurationResolvedRef = useRef<AudioMessageProps['onDurationResolved']>(onDurationResolved);
   const playRequestIdRef = useRef(0);
+  const resolvedSrc = resolveAppMediaSrc(src) || src;
 
   // Waveform heights from design spec
   const waveformHeights = [2, 8, 14, 4, 16, 14, 10, 10, 10, 14, 10, 16, 10, 4, 2];
 
   const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio || !src) return;
+    if (!audio || !resolvedSrc) return;
 
     if (!audio.paused) {
       audio.pause();
@@ -77,7 +79,7 @@ export default function AudioMessage({
 
   useEffect(() => {
     playRequestIdRef.current += 1;
-  }, [src]);
+  }, [resolvedSrc]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -126,7 +128,7 @@ export default function AudioMessage({
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [messageId, src]);
+  }, [messageId, resolvedSrc]);
 
   const providedDurationSeconds = parseDuration(duration);
   const hasLoadedDuration = Number.isFinite(loadedDuration) && loadedDuration > 0;
@@ -143,7 +145,7 @@ export default function AudioMessage({
         isOwn ? 'bg-[#8771FF]' : 'bg-white border border-[#F0F2F6]'
       }`}
     >
-      <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
+      <audio ref={audioRef} src={resolvedSrc} preload="metadata" className="hidden" />
       
       {/* Play Button: 32x32, z-index: 2 */}
       <button 

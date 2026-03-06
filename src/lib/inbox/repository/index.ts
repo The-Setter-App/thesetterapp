@@ -1,5 +1,5 @@
 export {
-  getVoiceNoteStreamForMessage,
+  getVoiceNoteBinaryForMessage,
   reconcileOutgoingAudioEchoWithLocalFallback,
   saveOrUpdateLocalAudioMessage,
   saveVoiceNoteBlobToGridFs,
