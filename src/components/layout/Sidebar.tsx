@@ -1,9 +1,8 @@
 "use client";
 
-import { AppImage } from "@/components/ui/AppImage";
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { IconType } from "react-icons";
 import {
   LuBot,
@@ -14,15 +13,24 @@ import {
   LuSettings,
   LuUsers,
 } from "react-icons/lu";
-import { logout } from '@/app/actions/auth';
-import { resetCache } from '@/lib/cache';
-import type { UserRole } from '@/types/auth';
+import { logout } from "@/app/actions/auth";
+import { AppImage } from "@/components/ui/AppImage";
+import { resetCache } from "@/lib/cache";
+import { getCurrentCalendarPath } from "@/lib/calendarRoute";
+import type { UserRole } from "@/types/auth";
 
-type NavConfig = { to: string; icon: IconType; alt: string };
+type NavConfig = {
+  href: string;
+  activePrefix?: string;
+  icon: IconType;
+  alt: string;
+};
 
-const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: string }) => {
+const NavItem = ({ href, activePrefix, icon: Icon, alt }: NavConfig) => {
   const pathname = usePathname();
-  const isActive = pathname === to || pathname.startsWith(`${to}/`);
+  const activePath = activePrefix ?? href;
+  const isActive =
+    pathname === activePath || pathname.startsWith(`${activePath}/`);
 
   return (
     <div className="relative w-full flex justify-center mb-8">
@@ -31,17 +39,18 @@ const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: str
         <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#8771FF] rounded-r-md" />
       )}
 
-      <Link 
-        href={to} 
+      <Link
+        href={href}
         prefetch={true}
         className={`group flex items-center justify-center relative transition-colors duration-200 focus:outline-none ${
-          isActive 
-            ? 'text-[#8771FF]' 
-            : 'text-[#9A9CA2] hover:text-[#606266]'
+          isActive ? "text-[#8771FF]" : "text-[#9A9CA2] hover:text-[#606266]"
         }`}
       >
         <div className="relative flex items-center justify-center">
-          <Icon className="w-5 h-5 transition-colors duration-200" aria-label={alt} />
+          <Icon
+            className="w-5 h-5 transition-colors duration-200"
+            aria-label={alt}
+          />
         </div>
         <span
           aria-hidden="true"
@@ -56,32 +65,47 @@ const NavItem = ({ to, icon: Icon, alt }: { to: string, icon: IconType, alt: str
 
 const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
   owner: [
-    { to: '/dashboard', icon: LuLayoutDashboard, alt: 'Dashboard' },
-    { to: '/inbox', icon: LuInbox, alt: 'Inbox' },
-    { to: '/leads', icon: LuUsers, alt: 'Leads' },
-    { to: '/calendar', icon: LuCalendar, alt: 'Calendar' },
-    { to: '/setter-ai', icon: LuBot, alt: 'Setter AI' },
-    { to: '/settings/profile', icon: LuSettings, alt: 'Settings' },
+    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/inbox", icon: LuInbox, alt: "Inbox" },
+    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    {
+      href: getCurrentCalendarPath(),
+      activePrefix: "/calendar",
+      icon: LuCalendar,
+      alt: "Calendar",
+    },
+    { href: "/setter-ai", icon: LuBot, alt: "Setter AI" },
+    { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   setter: [
-    { to: '/dashboard', icon: LuLayoutDashboard, alt: 'Dashboard' },
-    { to: '/inbox', icon: LuInbox, alt: 'Inbox' },
-    { to: '/leads', icon: LuUsers, alt: 'Leads' },
-    { to: '/calendar', icon: LuCalendar, alt: 'Calendar' },
-    { to: '/setter-ai', icon: LuBot, alt: 'Setter AI' },
-    { to: '/settings/profile', icon: LuSettings, alt: 'Settings' },
+    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/inbox", icon: LuInbox, alt: "Inbox" },
+    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    {
+      href: getCurrentCalendarPath(),
+      activePrefix: "/calendar",
+      icon: LuCalendar,
+      alt: "Calendar",
+    },
+    { href: "/setter-ai", icon: LuBot, alt: "Setter AI" },
+    { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   closer: [
-    { to: '/dashboard', icon: LuLayoutDashboard, alt: 'Dashboard' },
-    { to: '/inbox', icon: LuInbox, alt: 'Inbox' },
-    { to: '/leads', icon: LuUsers, alt: 'Leads' },
-    { to: '/calendar', icon: LuCalendar, alt: 'Calendar' },
-    { to: '/setter-ai', icon: LuBot, alt: 'Setter AI' },
-    { to: '/settings/profile', icon: LuSettings, alt: 'Settings' },
+    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/inbox", icon: LuInbox, alt: "Inbox" },
+    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    {
+      href: getCurrentCalendarPath(),
+      activePrefix: "/calendar",
+      icon: LuCalendar,
+      alt: "Calendar",
+    },
+    { href: "/setter-ai", icon: LuBot, alt: "Setter AI" },
+    { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   viewer: [
-    { to: '/dashboard', icon: LuLayoutDashboard, alt: 'Dashboard' },
-    { to: '/settings/profile', icon: LuSettings, alt: 'Settings' },
+    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
 };
 
@@ -92,7 +116,12 @@ interface SidebarProps {
   profileImageBase64?: string;
 }
 
-const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps) => {
+const Sidebar = ({
+  role,
+  displayName,
+  email,
+  profileImageBase64,
+}: SidebarProps) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const navItems = NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.viewer;
 
@@ -101,26 +130,30 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
       {/* Profile Icon */}
       <div className="mb-8">
         <div className="w-9 h-9 rounded-full overflow-hidden border border-[#F0F2F6] relative">
-           <AppImage
-             src={profileImageBase64 || "/images/no_profile.jpg"}
-             alt={`${displayName} avatar`}
-             title={`${displayName} (${email})`}
-             className="w-full h-full object-cover"
-             loadingMode="eager"
-           />
+          <AppImage
+            src={profileImageBase64 || "/images/no_profile.jpg"}
+            alt={`${displayName} avatar`}
+            title={`${displayName} (${email})`}
+            className="w-full h-full object-cover"
+            loadingMode="eager"
+          />
         </div>
       </div>
 
       {/* Navigation Links */}
       <div className="flex flex-col w-full">
         {navItems.map((item) => (
-          <NavItem key={item.to} to={item.to} icon={item.icon} alt={item.alt} />
+          <NavItem
+            key={`${item.alt}-${item.activePrefix ?? item.href}`}
+            {...item}
+          />
         ))}
       </div>
 
       {/* Logout Button */}
       <div className="mt-auto w-full flex justify-center mb-6">
-        <button 
+        <button
+          type="button"
           onClick={() => setShowLogoutDialog(true)}
           className="p-2 text-[#9A9CA2] hover:text-red-500 transition-colors duration-200 group relative"
           title="Logout"
@@ -138,20 +171,24 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#f0ecff] to-[#e8e3ff] flex items-center justify-center mb-4">
                 <LuLogOut className="w-5 h-5 text-[#8771FF]" />
               </div>
-              <h3 className="text-base font-semibold text-[#101011] mb-1">Log out of Setter?</h3>
+              <h3 className="text-base font-semibold text-[#101011] mb-1">
+                Log out of Setter?
+              </h3>
               <p className="text-sm text-[#9A9CA2]">
                 You'll need to sign in again to access your account.
               </p>
             </div>
             {/* Dialog Footer */}
             <div className="px-6 py-4 bg-[#FAFAFA] border-t border-[#F0F2F6] flex gap-3">
-              <button 
+              <button
+                type="button"
                 onClick={() => setShowLogoutDialog(false)}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-[#606266] bg-white border border-[#F0F2F6] hover:bg-[#F8F7FF] hover:border-[#F0F2F6] rounded-xl transition-all"
               >
                 Cancel
               </button>
-              <button 
+              <button
+                type="button"
                 onClick={async () => {
                   await resetCache();
                   await logout();
@@ -165,10 +202,8 @@ const Sidebar = ({ role, displayName, email, profileImageBase64 }: SidebarProps)
           </div>
         </div>
       )}
-
     </div>
   );
 };
 
 export default Sidebar;
-

@@ -25,3 +25,7 @@ export function parseCalendarMonthSlug(input: {
 export function toCalendarMonthPath(date: Date): string {
   return `/calendar/${getCalendarMonthSlug(date)}`;
 }
+
+export function getCurrentCalendarPath(): string {
+  return toCalendarMonthPath(new Date());
+}
