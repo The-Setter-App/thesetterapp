@@ -42,6 +42,7 @@ export interface LayeredCache {
     updater: (current: T | null) => T,
   ) => Promise<void>;
   delete: (key: string) => Promise<void>;
+  subscribe: (key: string, listener: () => void) => () => void;
   clear: () => Promise<void>;
   flush: () => Promise<void>;
   resetForDatabaseReset: () => void;
@@ -49,9 +50,18 @@ export interface LayeredCache {
 
 export function createLayeredCache(options: LayeredCacheOptions): LayeredCache {
   const memory = new Map<string, CacheValue>();
+  const listeners = new Map<string, Set<() => void>>();
   const writeMutex = new KeyedMutex();
   let idbDisabled = !isClientEnvironment();
   let idbFailureLogged = false;
+
+  const notifyKey = (key: string) => {
+    const keyListeners = listeners.get(key);
+    if (!keyListeners) return;
+    for (const listener of keyListeners) {
+      listener();
+    }
+  };
 
   const logStorageDisabled = (error: Error) => {
     if (idbFailureLogged) return;
@@ -105,6 +115,7 @@ export function createLayeredCache(options: LayeredCacheOptions): LayeredCache {
 
     set: async <T extends CacheValue>(key: string, value: T): Promise<void> => {
       memory.set(key, value);
+      notifyKey(key);
       if (idbDisabled) return;
 
       try {
@@ -129,6 +140,7 @@ export function createLayeredCache(options: LayeredCacheOptions): LayeredCache {
       await writeMutex.runExclusive(key, async () => {
         memory.delete(key);
         writer.dropPendingKey(key);
+        notifyKey(key);
         if (idbDisabled) return;
 
         try {
@@ -139,9 +151,28 @@ export function createLayeredCache(options: LayeredCacheOptions): LayeredCache {
       });
     },
 
+    subscribe: (key: string, listener: () => void): (() => void) => {
+      const keyListeners = listeners.get(key) ?? new Set<() => void>();
+      keyListeners.add(listener);
+      listeners.set(key, keyListeners);
+
+      return () => {
+        const currentListeners = listeners.get(key);
+        if (!currentListeners) return;
+        currentListeners.delete(listener);
+        if (currentListeners.size === 0) {
+          listeners.delete(key);
+        }
+      };
+    },
+
     clear: async (): Promise<void> => {
+      const keysToNotify = new Set([...memory.keys(), ...listeners.keys()]);
       memory.clear();
       writer.clearPending();
+      for (const key of keysToNotify) {
+        notifyKey(key);
+      }
       if (idbDisabled) return;
 
       try {

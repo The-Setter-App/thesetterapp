@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import InboxSidebar from "@/components/inbox/InboxSidebar";
-import InboxSseBridge from "@/components/inbox/InboxSseBridge";
 import { InboxSyncProvider } from "@/components/inbox/InboxSyncContext";
 
 export default function InboxLayout({
@@ -132,7 +131,6 @@ export default function InboxLayout({
         markChatReady,
       }}
     >
-      <InboxSseBridge />
       <div className="relative flex h-screen overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />

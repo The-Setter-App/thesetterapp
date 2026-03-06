@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import CalendarCacheWarmupWorker from "@/components/calendar/CalendarCacheWarmupWorker";
 import InboxCacheWarmupWorker from "@/components/inbox/InboxCacheWarmupWorker";
-import InboxRealtimeCacheWorker from "@/components/inbox/InboxRealtimeCacheWorker";
+import InboxSseBridge from "@/components/inbox/InboxSseBridge";
 import Sidebar from "@/components/layout/Sidebar";
 import LeadsCacheWarmupWorker from "@/components/leads/LeadsCacheWarmupWorker";
 import { requireCurrentUser } from "@/lib/currentUser";
@@ -19,8 +20,9 @@ export default async function MainLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8F7FF]">
+      <CalendarCacheWarmupWorker enabled={canAccessInbox(user.role)} />
       <InboxCacheWarmupWorker />
-      <InboxRealtimeCacheWorker enabled={canAccessInbox(user.role)} />
+      <InboxSseBridge enabled={canAccessInbox(user.role)} />
       <LeadsCacheWarmupWorker enabled={canAccessInbox(user.role)} />
       <Sidebar
         role={user.role}

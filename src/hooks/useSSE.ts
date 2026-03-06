@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { subscribeWorkspaceEventSource } from "@/lib/realtime/workspaceEventSource";
 import type { SSEEvent } from "@/types/inbox";
 
 interface UseSSEOptions {
@@ -10,7 +11,6 @@ interface UseSSEOptions {
 export function useSSE(url: string, options: UseSSEOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   // Use refs to keep callbacks fresh without triggering re-connection
   const optionsRef = useRef(options);
@@ -20,41 +20,30 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
   });
 
   useEffect(() => {
-    // Create EventSource connection
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-      optionsRef.current.onOpen?.();
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const message: SSEEvent = JSON.parse(event.data);
+    const unsubscribe = subscribeWorkspaceEventSource(url, {
+      onOpen: () => {
+        setIsConnected(true);
+        setError(null);
+        optionsRef.current.onOpen?.();
+      },
+      onMessage: (message) => {
         optionsRef.current.onMessage?.(message);
-      } catch (err) {
-        console.error("[SSE] Failed to parse message:", err);
-      }
-    };
+      },
+      onError: (event) => {
+        setIsConnected(false);
+        setError(new Error("SSE connection error"));
+        optionsRef.current.onError?.(event);
+      },
+    });
 
-    eventSource.onerror = (event) => {
-      setIsConnected(false);
-      setError(new Error("SSE connection error"));
-      optionsRef.current.onError?.(event);
-    };
-
-    // Cleanup on unmount
     return () => {
-      eventSource.close();
-      eventSourceRef.current = null;
+      unsubscribe();
     };
   }, [url]);
 
   return {
     isConnected,
     error,
-    close: () => eventSourceRef.current?.close(),
+    close: () => undefined,
   };
 }

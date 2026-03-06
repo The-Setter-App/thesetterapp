@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getInboxConnectionState, getInboxUsers } from "@/app/actions/inbox";
-import { useSSE } from "@/hooks/useSSE";
 import {
   getCachedLeads,
   getCachedLeadsTimestamp,
+  getCachedUsers,
   setCachedLeads,
+  subscribeCachedUsers,
 } from "@/lib/cache";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
@@ -14,6 +15,10 @@ import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";
 import { isStatusType } from "@/lib/status/config";
+import {
+  detailIncludesDomain,
+  subscribeSyncDomainsInvalidated,
+} from "@/lib/sync/domainInvalidation";
 import { PRESET_TAG_ROWS } from "@/lib/tags/config";
 import type { LeadRow, SortConfig } from "@/types/leads";
 import type { StatusType } from "@/types/status";
@@ -25,26 +30,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type DateRangeFilter = "7d" | "14d" | "30d" | "gt30d" | "all";
 export type PaymentFilter = "all" | "paid" | "unpaid";
-
-function toRelativeInteractedFromTimestamp(timestampMs: number): string {
-  const diffMs = Date.now() - timestampMs;
-  if (!Number.isFinite(diffMs) || diffMs < 0) return "N/A";
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return `${seconds} sec${seconds === 1 ? "" : "s"} ago`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
-
-  const months = Math.floor(days / 30);
-  return `${months} month${months === 1 ? "" : "s"} ago`;
-}
 
 function parseCashLabel(value: string): number {
   const numeric = Number.parseFloat(value.replace(/[^0-9.-]+/g, ""));
@@ -113,6 +98,11 @@ export function useLeadsController() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const refetchTimerRef = useRef<number | null>(null);
+  const baseRowsRef = useRef<LeadRow[]>([]);
+
+  useEffect(() => {
+    baseRowsRef.current = baseRows;
+  }, [baseRows]);
 
   const updateRows = useCallback((updater: (rows: LeadRow[]) => LeadRow[]) => {
     setBaseRows((prev) => {
@@ -428,63 +418,45 @@ export function useLeadsController() {
     setCurrentPage(1);
   }, []);
 
-  const refreshRowTimestamp = useCallback(
-    (conversationId: string, timestampMs: number, fromMe: boolean) => {
-      updateRows((prev) =>
-        prev.map((row) => {
-          if (row.id !== conversationId) return row;
-          const nextCount = fromMe
-            ? row.messageCount || 0
-            : (row.messageCount || 0) + 1;
-          return {
-            ...row,
-            updatedAtMs: timestampMs,
-            interacted: toRelativeInteractedFromTimestamp(timestampMs),
-            messageCount: nextCount > 0 ? nextCount : undefined,
-          };
-        }),
-      );
-    },
-    [updateRows],
-  );
-
-  useSSE("/api/sse", {
-    onMessage: (message) => {
-      if (message.type === "user_status_updated") {
-        if (!isStatusType(message.data.status)) return;
-        updateRows((prev) =>
-          prev.map((row) =>
-            row.id === message.data.conversationId
-              ? { ...row, status: message.data.status }
-              : row,
-          ),
+  useEffect(() => {
+    const syncRowsFromUsersCache = () => {
+      getCachedUsers()
+        .then((cachedUsers) => {
+          if (!Array.isArray(cachedUsers)) return;
+          const mapped = mapInboxUsersToLeadRows(cachedUsers);
+          setBaseRows(mapped);
+          setCachedLeads(mapped).catch((cacheError) =>
+            console.error("[Leads] Failed to cache leads:", cacheError),
+          );
+        })
+        .catch((error) =>
+          console.error("[Leads] Failed to sync rows from users cache:", error),
         );
+    };
+
+    return subscribeCachedUsers(syncRowsFromUsersCache);
+  }, []);
+
+  useEffect(() => {
+    return subscribeSyncDomainsInvalidated((detail) => {
+      if (!detailIncludesDomain(detail, "leads")) return;
+
+      const needsForcedRefresh =
+        detail.eventType === "conversation_priority_updated" ||
+        detail.eventType === "calendly_call_updated";
+
+      if (!needsForcedRefresh && baseRowsRef.current.length > 0) {
+        return;
       }
 
-      if (message.type === "new_message" || message.type === "message_echo") {
-        const eventTs =
-          typeof message.data.timestamp === "number"
-            ? message.data.timestamp
-            : Date.now();
-        const isFromMe =
-          Boolean(message.data.fromMe) || message.type === "message_echo";
-
-        const rowExists = baseRows.some(
-          (row) => row.id === message.data.conversationId,
-        );
-        if (!rowExists) {
-          if (refetchTimerRef.current)
-            window.clearTimeout(refetchTimerRef.current);
-          refetchTimerRef.current = window.setTimeout(() => {
-            loadRows({ force: true });
-          }, 500);
-          return;
-        }
-
-        refreshRowTimestamp(message.data.conversationId, eventTs, isFromMe);
+      if (refetchTimerRef.current) {
+        window.clearTimeout(refetchTimerRef.current);
       }
-    },
-  });
+      refetchTimerRef.current = window.setTimeout(() => {
+        loadRows({ force: true });
+      }, 500);
+    });
+  }, [loadRows]);
 
   useEffect(() => {
     const handleLocalStatusSync = (event: Event) => {

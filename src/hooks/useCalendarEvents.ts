@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type CalendarIsoRange,
   getCachedCalendarCallsForRange,
-  getUncoveredCalendarCallRanges,
-  mergeCachedCalendarCallsForRange,
-  mergeCachedConversationCallsFromWorkspace,
+  subscribeCachedCalendarCallsWorkspaceState,
 } from "@/lib/cache";
+import { warmCalendarRangesToCache } from "@/lib/calendar/cacheWarmup";
 import type { WorkspaceCalendarCallEvent } from "@/types/calendly";
 
 interface UseCalendarEventsInput {
@@ -38,60 +37,24 @@ function toIsoFromMs(value: number): string {
   return new Date(value).toISOString();
 }
 
-async function fetchCalendarRange(input: {
-  range: CalendarIsoRange;
-  signal: AbortSignal;
-}): Promise<WorkspaceCalendarCallEvent[]> {
-  const params = new URLSearchParams({
-    from: input.range.fromIso,
-    to: input.range.toIso,
-  });
-  const response = await fetch(`/api/calendar/events?${params.toString()}`, {
-    cache: "no-store",
-    signal: input.signal,
-  });
-  const data = (await response.json()) as {
-    events?: WorkspaceCalendarCallEvent[];
-    error?: string;
-  };
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to load calendar events.");
-  }
-  return Array.isArray(data.events) ? data.events : [];
-}
-
-async function fetchAndCacheRanges(input: {
-  ranges: CalendarIsoRange[];
-  signal: AbortSignal;
-}): Promise<WorkspaceCalendarCallEvent[]> {
-  if (input.ranges.length === 0) return [];
-
-  const fetchedSlices = await Promise.all(
-    input.ranges.map((range) =>
-      fetchCalendarRange({ range, signal: input.signal }),
-    ),
-  );
-  const fetchedEvents = fetchedSlices.flat();
-
-  await Promise.all(
-    input.ranges.map(async (range, index) => {
-      await mergeCachedCalendarCallsForRange({
-        fromIso: range.fromIso,
-        toIso: range.toIso,
-        events: fetchedSlices[index] ?? [],
-      });
-    }),
-  );
-  await mergeCachedConversationCallsFromWorkspace(fetchedEvents);
-  return fetchedEvents;
-}
-
 export function useCalendarEvents(
   input: UseCalendarEventsInput,
 ): UseCalendarEventsResult {
   const [events, setEvents] = useState<WorkspaceCalendarCallEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cacheRevision, setCacheRevision] = useState(0);
+  const cacheRevisionRef = useRef(cacheRevision);
+
+  useEffect(() => {
+    cacheRevisionRef.current = cacheRevision;
+  }, [cacheRevision]);
+
+  useEffect(() => {
+    return subscribeCachedCalendarCallsWorkspaceState(() => {
+      setCacheRevision((prev) => prev + 1);
+    });
+  }, []);
 
   useEffect(() => {
     if (!input.enabled) {
@@ -103,6 +66,7 @@ export function useCalendarEvents(
 
     const controller = new AbortController();
     let active = true;
+    const loadRevision = cacheRevision;
 
     (async () => {
       let hasCachedData = false;
@@ -111,7 +75,7 @@ export function useCalendarEvents(
           fromIso: input.fromIso,
           toIso: input.toIso,
         });
-        if (!active) return;
+        if (!active || loadRevision !== cacheRevisionRef.current) return;
 
         hasCachedData = cachedRange.events.length > 0;
         setEvents(cachedRange.events);
@@ -121,21 +85,17 @@ export function useCalendarEvents(
           fromIso: input.fromIso,
           toIso: input.toIso,
         };
-        const uncoveredRanges =
-          await getUncoveredCalendarCallRanges(targetRange);
-        if (!active) return;
-        if (uncoveredRanges.length === 0) {
+        setLoading(!hasCachedData);
+        const fetchedEvents = await warmCalendarRangesToCache({
+          ranges: [targetRange],
+          signal: controller.signal,
+        });
+        if (!active || loadRevision !== cacheRevisionRef.current) return;
+        if (fetchedEvents.length === 0) {
           setLoading(false);
           setError("");
           return;
         }
-
-        setLoading(!hasCachedData);
-        const fetchedEvents = await fetchAndCacheRanges({
-          ranges: uncoveredRanges,
-          signal: controller.signal,
-        });
-        if (!active) return;
 
         const merged = mergeEventsById(cachedRange.events, fetchedEvents);
         setEvents(merged);
@@ -157,17 +117,8 @@ export function useCalendarEvents(
             },
           ];
 
-          const uncoveredLookaheads = (
-            await Promise.all(
-              lookaheadTargets.map((range) =>
-                getUncoveredCalendarCallRanges(range),
-              ),
-            )
-          ).flat();
-
-          if (!active || uncoveredLookaheads.length === 0) return;
-          await fetchAndCacheRanges({
-            ranges: uncoveredLookaheads,
+          await warmCalendarRangesToCache({
+            ranges: lookaheadTargets,
             signal: controller.signal,
           });
         }
@@ -192,7 +143,7 @@ export function useCalendarEvents(
       active = false;
       controller.abort();
     };
-  }, [input.enabled, input.fromIso, input.toIso]);
+  }, [cacheRevision, input.enabled, input.fromIso, input.toIso]);
 
   return { events, loading, error };
 }

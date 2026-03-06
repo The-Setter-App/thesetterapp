@@ -7,21 +7,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { useSSE } from "@/hooks/useSSE";
+import {
+  detailIncludesDomain,
+  subscribeSyncDomainsInvalidated,
+} from "@/lib/sync/domainInvalidation";
 import type { DashboardSnapshot } from "@/types/dashboard";
-import type { SSEEvent } from "@/types/inbox";
 
 const DASHBOARD_REFRESH_DEBOUNCE_MS = 900;
-
-function shouldRefreshDashboard(message: SSEEvent): boolean {
-  return (
-    message.type === "new_message" ||
-    message.type === "message_echo" ||
-    message.type === "messages_synced" ||
-    message.type === "user_status_updated" ||
-    message.type === "calendly_call_updated"
-  );
-}
 
 export function useDashboardSnapshot(initialSnapshot: DashboardSnapshot) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
@@ -78,12 +70,12 @@ export function useDashboardSnapshot(initialSnapshot: DashboardSnapshot) {
     [refreshSnapshot],
   );
 
-  useSSE("/api/sse", {
-    onMessage: (message) => {
-      if (!shouldRefreshDashboard(message)) return;
+  useEffect(() => {
+    return subscribeSyncDomainsInvalidated((detail) => {
+      if (!detailIncludesDomain(detail, "dashboard")) return;
       scheduleRefresh();
-    },
-  });
+    });
+  }, [scheduleRefresh]);
 
   useEffect(() => {
     if (!snapshot.hasConnectedAccounts || bootstrapStartedRef.current) return;
