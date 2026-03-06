@@ -1,20 +1,6 @@
 import { NextRequest } from 'next/server';
-import { EventEmitter } from 'events';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
-import type { SSEEvent } from '@/types/inbox';
-
-// Global event emitter for SSE broadcasts
-export const sseEmitter = new EventEmitter();
-sseEmitter.setMaxListeners(100); // Support up to 100 concurrent connections
-
-interface WorkspaceScopedSseEvent {
-  workspaceOwnerEmail: string;
-  event: SSEEvent;
-}
-
-export function emitWorkspaceSseEvent(workspaceOwnerEmail: string, event: SSEEvent): void {
-  sseEmitter.emit('message', { workspaceOwnerEmail, event } satisfies WorkspaceScopedSseEvent);
-}
+import { onWorkspaceSseEvent, type WorkspaceScopedSseEvent } from '@/lib/inbox/sseBus';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +32,7 @@ export async function GET(request: NextRequest) {
       };
 
       // Register listener
-      sseEmitter.on('message', messageHandler);
+      const unsubscribe = onWorkspaceSseEvent(messageHandler);
 
       // Heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
@@ -55,7 +41,7 @@ export async function GET(request: NextRequest) {
 
       // Cleanup on close
       request.signal.addEventListener('abort', () => {
-        sseEmitter.off('message', messageHandler);
+        unsubscribe();
         clearInterval(heartbeat);
         controller.close();
       });

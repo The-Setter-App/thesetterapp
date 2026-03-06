@@ -17,6 +17,11 @@ export interface CalendlyConnection {
   schedulingUrl: string;
   isConnected: boolean;
   connectedAt: string;
+  oauthAccessTokenExpiresAt: string;
+  oauthScope?: string;
+  oauthTokenType?: string;
+  calendlyUserUri?: string;
+  organizationUri?: string;
   webhookSubscriptionUri?: string;
 }
 
@@ -45,8 +50,7 @@ export interface WorkspaceCalendarCallEvent extends ConversationCallEvent {
   amount?: string;
 }
 
-export interface CalendlyConnectionInput {
-  personalAccessToken: string;
+export interface CalendlySchedulingUrlInput {
   schedulingUrl: string;
 }
 
@@ -70,8 +74,18 @@ export interface CalendlyWebhookEventPayload {
       utm_content?: string;
       salesforce_uuid?: string;
     };
-    event_type?: {
+    event_type?:
+      | string
+      | {
+          uri?: string;
+          name?: string;
+        };
+    scheduled_event?: {
+      uri?: string;
       name?: string;
+      start_time?: string;
+      end_time?: string;
+      timezone?: string;
     };
     name?: string;
     email?: string;

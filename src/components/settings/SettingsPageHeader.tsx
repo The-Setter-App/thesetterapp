@@ -23,12 +23,14 @@ const ROUTE_COPY: Record<
     viewerDescription: "Manage your workspace profile.",
   },
   "/settings/team": {
-    ownerDescription: "Assign Setter and Closer roles for your shared workspace.",
+    ownerDescription:
+      "Assign Setter and Closer roles for your shared workspace.",
     teamDescription: "Review workspace ownership and assigned team members.",
     viewerDescription: "Team settings require an active subscription.",
   },
   "/settings/socials": {
-    ownerDescription: "Connect and manage Instagram business accounts used by Inbox.",
+    ownerDescription:
+      "Connect and manage Instagram business accounts used by Inbox.",
   },
   "/settings/tags": {
     ownerDescription:
@@ -37,7 +39,7 @@ const ROUTE_COPY: Record<
   },
   "/settings/integration": {
     ownerDescription:
-      "Connect the channels and workspace tools that power your lead conversations and pipeline.",
+      "Connect and manage workspace integrations from a single hub.",
   },
 };
 

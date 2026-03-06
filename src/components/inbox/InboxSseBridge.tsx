@@ -17,6 +17,7 @@ import {
   mapRealtimePayloadToMessage,
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
+import { syncConversationCallsCache } from "@/lib/inbox/realtime/calendlyCallSync";
 import { reconcilePendingMessages } from "@/lib/inbox/realtime/reconcilePending";
 import {
   mergeUsersWithLocalRecency,
@@ -119,6 +120,13 @@ export default function InboxSseBridge() {
       }
 
       emitInboxSseEvent(message);
+
+      if (message.type === "calendly_call_updated") {
+        syncConversationCallsCache(message.data.conversationId).catch((error) =>
+          console.error("[InboxSseBridge] Failed to sync calls cache:", error),
+        );
+        return;
+      }
 
       if (!isMessageEvent(message)) return;
 

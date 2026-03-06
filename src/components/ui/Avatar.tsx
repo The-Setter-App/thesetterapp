@@ -1,3 +1,5 @@
+import { AppImage } from "@/components/ui/AppImage";
+
 interface AvatarProps {
   src?: string | null;
   alt?: string;
@@ -17,10 +19,11 @@ export function Avatar({ src, alt, fallback, size = 'md', className = '' }: Avat
 
   return (
     <div className={`relative inline-block rounded-full overflow-hidden bg-[#F4F5F8] ${sizes[size]} ${className}`}>
-      <img 
+      <AppImage
         src={src || "/images/no_profile.jpg"} 
         alt={alt || fallback || "Avatar"} 
         className="w-full h-full object-cover"
+        loadingMode="lazy"
       />
     </div>
   );

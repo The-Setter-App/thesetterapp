@@ -1,6 +1,7 @@
 "use client";
 
 import { LuEyeOff } from "react-icons/lu";
+import { AppImage } from "@/components/ui/AppImage";
 import { User } from '@/types/inbox';
 
 interface ChatHeaderProps {
@@ -20,10 +21,11 @@ export default function ChatHeader({ user, showVisible, onToggleVisible }: ChatH
   return (
     <div className="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
       <div className="flex items-center">
-        <img 
+        <AppImage
           src={user?.avatar || "/images/no_profile.jpg"} 
           alt={user?.name || "User"} 
           className="w-10 h-10 rounded-full object-cover mr-3" 
+          loadingMode="eager"
         />
         <div>
           <div className="font-bold text-sm text-gray-900">{user?.name?.replace('@', '') || 'Loading...'}</div>

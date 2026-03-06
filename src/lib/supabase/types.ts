@@ -46,7 +46,13 @@ export interface InstagramAccountRow {
 export interface WorkspaceCalendlyConnectionRow {
   id: string;
   workspace_owner_email: string;
-  personal_access_token: string;
+  oauth_access_token: string;
+  oauth_refresh_token: string;
+  oauth_access_token_expires_at: string;
+  oauth_scope: string | null;
+  oauth_token_type: string | null;
+  calendly_user_uri: string | null;
+  organization_uri: string | null;
   scheduling_url: string;
   webhook_signing_key: string;
   webhook_subscription_uri: string | null;

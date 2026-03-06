@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import CalendarDayView from "@/components/calendar/CalendarDayView";
+import CalendarContentSkeleton from "@/components/calendar/CalendarContentSkeleton";
 import CalendarIntegrationRequiredState from "@/components/calendar/CalendarIntegrationRequiredState";
 import CalendarMonthGrid from "@/components/calendar/CalendarMonthGrid";
 import CalendarSidebar from "@/components/calendar/CalendarSidebar";
@@ -49,7 +50,11 @@ export default function CalendarPageClient({
     [currentDate, viewMode],
   );
 
-  const { events: workspaceCallEvents, error: eventsError } = useCalendarEvents(
+  const {
+    events: workspaceCallEvents,
+    loading: eventsLoading,
+    error: eventsError,
+  } = useCalendarEvents(
     {
       enabled: calendlyConnected,
       fromIso: visibleRange.fromIso,
@@ -123,6 +128,8 @@ export default function CalendarPageClient({
     const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     return event.date === todayKey;
   }).length;
+  const showCalendarLoadingState =
+    connectionLoading || (calendlyConnected && eventsLoading && events.length === 0);
   const showIntegrationState = !connectionLoading && !calendlyConnected;
   const showCalendarShell = !eventsError && !showIntegrationState;
 
@@ -153,13 +160,15 @@ export default function CalendarPageClient({
         </div>
       ) : null}
 
+      {showCalendarLoadingState ? <CalendarContentSkeleton compact /> : null}
+
       {showIntegrationState ? (
         <CalendarIntegrationRequiredState
           canManageIntegration={canManageIntegration}
         />
       ) : null}
 
-      {showCalendarShell ? (
+      {showCalendarShell && !showCalendarLoadingState ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {viewMode === "month" ? (

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { StatusIcon } from "@/components/icons/StatusIcon";
+import { AppImage } from "@/components/ui/AppImage";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
@@ -209,10 +210,11 @@ export default function DetailsPanelHeader({
 
   return (
     <div className="flex flex-col items-center px-6 pb-4 pt-8">
-      <img
+      <AppImage
         src={user.avatar || "/images/no_profile.jpg"}
         alt={user.name}
         className="mb-4 h-16 w-16 rounded-full object-cover"
+        loadingMode="eager"
       />
 
       <h3 className="text-xl font-bold text-gray-900">{displayName}</h3>
@@ -358,10 +360,11 @@ export default function DetailsPanelHeader({
           <div className="ml-1 flex flex-col">
             <div className="mb-0.5 text-[10px] text-gray-400">Setter</div>
             <div className="flex items-center">
-              <img
+              <AppImage
                 src="https://randomuser.me/api/portraits/men/8.jpg"
                 className="mr-2 h-6 w-6 rounded-full"
                 alt="Setter"
+                loadingMode="lazy"
               />
               <div className="truncate text-xs font-bold">Caleb Bruiners</div>
             </div>
@@ -371,10 +374,11 @@ export default function DetailsPanelHeader({
           <div className="ml-1 flex flex-col">
             <div className="mb-0.5 text-[10px] text-gray-400">Closer</div>
             <div className="flex items-center">
-              <img
+              <AppImage
                 src="https://randomuser.me/api/portraits/men/9.jpg"
                 className="mr-2 h-6 w-6 rounded-full"
                 alt="Closer"
+                loadingMode="lazy"
               />
               <div className="truncate text-xs font-bold">Andrew James</div>
             </div>

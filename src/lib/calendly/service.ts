@@ -1,13 +1,20 @@
 import { createHmac } from "node:crypto";
-import { emitWorkspaceSseEvent } from "@/app/api/sse/route";
+import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   createCalendlyWebhookSubscription,
   deleteCalendlyWebhookSubscription,
+  getCalendlyCurrentUser,
   parseCalendlyWebhookBody,
-  validateCalendlyTokenAndGetOrganization,
 } from "@/lib/calendly/client";
 import {
+  type CalendlyOAuthTokenSet,
+  exchangeCalendlyOAuthCode,
+  refreshCalendlyOAuthToken,
+  toOAuthAccessTokenExpiresAtIso,
+} from "@/lib/calendly/oauth";
+import {
   buildCallEventId,
+  type CalendlyConnectionSecret,
   consumeCalendlyInviteIfUnused,
   createCalendlyInvite,
   disconnectCalendlyConnection,
@@ -22,6 +29,8 @@ import {
   getCalendlyInvite,
   getConversationCallEvents,
   getWorkspaceCallEventsByRange,
+  updateCalendlyConnectionOAuthTokens,
+  updateCalendlyConnectionSchedulingUrl,
   upsertCalendlyConnection,
   upsertConversationCallEvent,
 } from "@/lib/calendly/repository";
@@ -37,7 +46,7 @@ import { normalizeStatusKey } from "@/lib/status/config";
 import { listWorkspaceStatusNames } from "@/lib/tagsRepository";
 import type {
   CalendlyCallStatus,
-  CalendlyConnectionInput,
+  CalendlySchedulingUrlInput,
   WorkspaceCalendarCallEvent,
 } from "@/types/calendly";
 
@@ -105,6 +114,56 @@ function resolveJoinUrl(payload: {
   return undefined;
 }
 
+function resolveCallTitle(payload: {
+  event_type?:
+    | string
+    | {
+        uri?: string;
+        name?: string;
+      };
+  scheduled_event?: {
+    name?: string;
+  };
+}): string {
+  const eventTypeField = payload.event_type;
+  if (eventTypeField && typeof eventTypeField === "object") {
+    const explicitName = eventTypeField.name?.trim();
+    if (explicitName) return explicitName;
+  }
+
+  const scheduledName = payload.scheduled_event?.name?.trim();
+  if (scheduledName) return scheduledName;
+
+  return "Scheduled Call";
+}
+
+function resolveScheduledWindow(input: {
+  payload: {
+    start_time?: string;
+    end_time?: string;
+    timezone?: string;
+    scheduled_event?: {
+      start_time?: string;
+      end_time?: string;
+      timezone?: string;
+    };
+  };
+  webhookCreatedAt?: string;
+}): { startTime: string; endTime: string; timezone: string } {
+  const scheduledEvent = input.payload.scheduled_event;
+  const startTime =
+    scheduledEvent?.start_time ||
+    input.payload.start_time ||
+    input.webhookCreatedAt ||
+    new Date().toISOString();
+  const endTime =
+    scheduledEvent?.end_time || input.payload.end_time || startTime;
+  const timezone =
+    scheduledEvent?.timezone || input.payload.timezone || "UTC";
+
+  return { startTime, endTime, timezone };
+}
+
 function verifyWebhookSignature(input: {
   rawBody: string;
   signatureHeader: string | null;
@@ -127,55 +186,160 @@ function verifyWebhookSignature(input: {
   return expected === incoming;
 }
 
-export async function connectCalendlyForWorkspace(
-  workspaceOwnerEmail: string,
-  input: CalendlyConnectionInput,
-) {
-  const personalAccessToken = input.personalAccessToken.trim();
-  if (personalAccessToken.length < 20) {
-    throw new Error("Personal access token appears invalid.");
-  }
-  const schedulingUrl = normalizeCalendlyUrl(input.schedulingUrl);
+const ACCESS_TOKEN_REFRESH_WINDOW_MS = 2 * 60 * 1000;
 
-  await validateCalendlyTokenAndGetOrganization(personalAccessToken);
-  const previous =
-    await getCalendlyConnectionSecretByOwnerEmail(workspaceOwnerEmail);
-  const signingKey = generateWebhookSigningKey();
+function isTokenRefreshRequired(expiresAtIso: string): boolean {
+  const expiresAtMs = new Date(expiresAtIso).getTime();
+  if (!Number.isFinite(expiresAtMs)) return true;
+  return expiresAtMs - Date.now() <= ACCESS_TOKEN_REFRESH_WINDOW_MS;
+}
+
+function toMaskedOauthCredential(accessToken: string): string {
+  const trimmed = accessToken.trim();
+  const suffix = trimmed.slice(-4);
+  return `OAuth ****${suffix || "****"}`;
+}
+
+function buildCalendlyWebhookUrl(integrationId: string): string {
+  return `${getAppUrl()}/api/integrations/calendly/webhook/${encodeURIComponent(integrationId)}`;
+}
+
+function toCalendlyConnectionUpsertInput(input: {
+  workspaceOwnerEmail: string;
+  tokenSet: CalendlyOAuthTokenSet;
+  oauthAccessTokenExpiresAt: string;
+  user: {
+    userUri: string;
+    organizationUri: string;
+  };
+  schedulingUrl: string;
+  webhookSigningKey: string;
+  webhookSubscriptionUri?: string;
+}) {
+  return {
+    workspaceOwnerEmail: input.workspaceOwnerEmail,
+    oauthAccessToken: input.tokenSet.accessToken,
+    oauthRefreshToken: input.tokenSet.refreshToken,
+    oauthAccessTokenExpiresAt: input.oauthAccessTokenExpiresAt,
+    oauthScope: input.tokenSet.scope,
+    oauthTokenType: input.tokenSet.tokenType,
+    calendlyUserUri: input.user.userUri,
+    organizationUri: input.user.organizationUri,
+    schedulingUrl: input.schedulingUrl,
+    webhookSigningKey: input.webhookSigningKey,
+    webhookSubscriptionUri: input.webhookSubscriptionUri,
+  };
+}
+
+async function deletePreviousWebhookIfPresent(
+  previous: CalendlyConnectionSecret | null,
+) {
+  if (!previous?.webhookSubscriptionUri) return;
+  await deleteCalendlyWebhookSubscription({
+    accessToken: previous.oauthAccessToken,
+    webhookSubscriptionUri: previous.webhookSubscriptionUri,
+  });
+}
+
+async function ensureFreshConnectionSecret(
+  secret: CalendlyConnectionSecret,
+): Promise<CalendlyConnectionSecret> {
+  if (!isTokenRefreshRequired(secret.oauthAccessTokenExpiresAt)) {
+    return secret;
+  }
+
+  const refreshed = await refreshCalendlyOAuthToken({
+    refreshToken: secret.oauthRefreshToken,
+  });
+  const oauthAccessTokenExpiresAt = toOAuthAccessTokenExpiresAtIso(
+    refreshed.expiresInSeconds,
+  );
+  await updateCalendlyConnectionOAuthTokens({
+    workspaceOwnerEmail: secret.workspaceOwnerEmail,
+    oauthAccessToken: refreshed.accessToken,
+    oauthRefreshToken: refreshed.refreshToken,
+    oauthAccessTokenExpiresAt,
+    oauthScope: refreshed.scope,
+    oauthTokenType: refreshed.tokenType,
+  });
+
+  return {
+    ...secret,
+    oauthAccessToken: refreshed.accessToken,
+    oauthRefreshToken: refreshed.refreshToken,
+    oauthAccessTokenExpiresAt,
+    oauthScope: refreshed.scope,
+    oauthTokenType: refreshed.tokenType,
+  };
+}
+
+export async function connectCalendlyForWorkspaceOAuth(input: {
+  workspaceOwnerEmail: string;
+  authorizationCode: string;
+  redirectUri: string;
+}) {
+  const tokenSet = await exchangeCalendlyOAuthCode({
+    code: input.authorizationCode,
+    redirectUri: input.redirectUri,
+  });
+  const currentUser = await getCalendlyCurrentUser(tokenSet.accessToken);
+  if (!currentUser.schedulingUrl) {
+    throw new Error(
+      "Calendly account did not provide a default scheduling URL.",
+    );
+  }
+  const schedulingUrl = normalizeCalendlyUrl(currentUser.schedulingUrl || "");
+  const previous = await getCalendlyConnectionSecretByOwnerEmail(
+    input.workspaceOwnerEmail,
+  );
+  const webhookSigningKey = generateWebhookSigningKey();
+  const oauthAccessTokenExpiresAt = toOAuthAccessTokenExpiresAtIso(
+    tokenSet.expiresInSeconds,
+  );
 
   const provisional = await upsertCalendlyConnection({
-    workspaceOwnerEmail,
-    personalAccessToken,
-    schedulingUrl,
-    webhookSigningKey: signingKey,
-    webhookSubscriptionUri: undefined,
+    ...toCalendlyConnectionUpsertInput({
+      workspaceOwnerEmail: input.workspaceOwnerEmail,
+      tokenSet,
+      oauthAccessTokenExpiresAt,
+      user: {
+        userUri: currentUser.userUri,
+        organizationUri: currentUser.organizationUri,
+      },
+      schedulingUrl,
+      webhookSigningKey,
+    }),
   });
 
   try {
-    const webhookUrl = `${getAppUrl()}/api/integrations/calendly/webhook/${encodeURIComponent(provisional.id)}`;
+    const webhookUrl = buildCalendlyWebhookUrl(provisional.id);
     const webhook = await createCalendlyWebhookSubscription({
-      personalAccessToken,
+      accessToken: tokenSet.accessToken,
+      organizationUri: currentUser.organizationUri,
       webhookUrl,
-      signingKey,
+      signingKey: webhookSigningKey,
     });
 
     const updated = await upsertCalendlyConnection({
-      workspaceOwnerEmail,
-      personalAccessToken,
-      schedulingUrl,
-      webhookSigningKey: signingKey,
-      webhookSubscriptionUri: webhook.resourceUri,
+      ...toCalendlyConnectionUpsertInput({
+        workspaceOwnerEmail: input.workspaceOwnerEmail,
+        tokenSet,
+        oauthAccessTokenExpiresAt,
+        user: {
+          userUri: currentUser.userUri,
+          organizationUri: currentUser.organizationUri,
+        },
+        schedulingUrl,
+        webhookSigningKey,
+        webhookSubscriptionUri: webhook.resourceUri,
+      }),
     });
 
-    if (previous?.webhookSubscriptionUri) {
-      await deleteCalendlyWebhookSubscription({
-        personalAccessToken: previous.personalAccessToken,
-        webhookSubscriptionUri: previous.webhookSubscriptionUri,
-      });
-    }
+    await deletePreviousWebhookIfPresent(previous);
 
     return updated;
   } catch (error) {
-    await disconnectCalendlyConnection(workspaceOwnerEmail);
+    await disconnectCalendlyConnection(input.workspaceOwnerEmail);
     throw error;
   }
 }
@@ -186,9 +350,10 @@ export async function disconnectCalendlyForWorkspace(
   const existing =
     await getCalendlyConnectionSecretByOwnerEmail(workspaceOwnerEmail);
   if (existing) {
+    const freshSecret = await ensureFreshConnectionSecret(existing);
     await deleteCalendlyWebhookSubscription({
-      personalAccessToken: existing.personalAccessToken,
-      webhookSubscriptionUri: existing.webhookSubscriptionUri,
+      accessToken: freshSecret.oauthAccessToken,
+      webhookSubscriptionUri: freshSecret.webhookSubscriptionUri,
     });
   }
   await disconnectCalendlyConnection(workspaceOwnerEmail);
@@ -196,6 +361,54 @@ export async function disconnectCalendlyForWorkspace(
 
 export async function getCalendlyConnectionState(workspaceOwnerEmail: string) {
   return getCalendlyConnectionByOwnerEmail(workspaceOwnerEmail);
+}
+
+export async function getCalendlyConnectionSettingsState(
+  workspaceOwnerEmail: string,
+) {
+  const connection =
+    await getCalendlyConnectionByOwnerEmail(workspaceOwnerEmail);
+  if (!connection) return { connected: false as const };
+
+  const secret =
+    await getCalendlyConnectionSecretByOwnerEmail(workspaceOwnerEmail);
+  const credentialPreview = secret
+    ? toMaskedOauthCredential(secret.oauthAccessToken)
+    : "OAuth ********";
+
+  return {
+    connected: true as const,
+    connectedAt: connection.connectedAt,
+    schedulingUrl: connection.schedulingUrl,
+    credentialPreview,
+  };
+}
+
+export async function updateCalendlySchedulingUrlForWorkspace(
+  workspaceOwnerEmail: string,
+  input: CalendlySchedulingUrlInput,
+) {
+  const schedulingUrl = normalizeCalendlyUrl(input.schedulingUrl);
+  const updated = await updateCalendlyConnectionSchedulingUrl({
+    workspaceOwnerEmail,
+    schedulingUrl,
+  });
+  if (!updated) {
+    throw new Error("Calendly is not connected.");
+  }
+
+  const secret =
+    await getCalendlyConnectionSecretByOwnerEmail(workspaceOwnerEmail);
+  const credentialPreview = secret
+    ? toMaskedOauthCredential(secret.oauthAccessToken)
+    : "OAuth ********";
+
+  return {
+    connected: true as const,
+    connectedAt: updated.connectedAt,
+    schedulingUrl: updated.schedulingUrl,
+    credentialPreview,
+  };
 }
 
 export async function buildTrackedBookingLink(input: {
@@ -358,9 +571,12 @@ export async function handleCalendlyWebhook(input: {
     }
   }
 
-  const startTime =
-    payload.start_time || body.created_at || new Date().toISOString();
-  const endTime = payload.end_time || startTime;
+  const scheduledWindow = resolveScheduledWindow({
+    payload,
+    webhookCreatedAt: body.created_at,
+  });
+  const startTime = scheduledWindow.startTime;
+  const endTime = scheduledWindow.endTime;
   const eventId = buildCallEventId({
     ownerEmail: connection.workspaceOwnerEmail,
     calendlyEventUri: payload.event,
@@ -374,10 +590,10 @@ export async function handleCalendlyWebhook(input: {
     conversationId,
     eventType: normalizedEventType,
     status,
-    title: payload.event_type?.name || "Scheduled Call",
+    title: resolveCallTitle(payload),
     startTime,
     endTime,
-    timezone: payload.timezone || "UTC",
+    timezone: scheduledWindow.timezone,
     joinUrl: resolveJoinUrl(payload),
     cancelUrl: payload.cancel_url,
     rescheduleUrl: payload.reschedule_url,
@@ -393,6 +609,14 @@ export async function handleCalendlyWebhook(input: {
     conversationId,
     status,
   });
+
+  if (conversationId) {
+    emitWorkspaceSseEvent(connection.workspaceOwnerEmail, {
+      type: "calendly_call_updated",
+      timestamp: new Date().toISOString(),
+      data: { conversationId, callId: eventId },
+    });
+  }
 
   return { accepted: true, conversationId };
 }

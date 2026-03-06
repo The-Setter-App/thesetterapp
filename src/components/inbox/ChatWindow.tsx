@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
+import { AppImage } from "@/components/ui/AppImage";
+import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
 import type { Message } from '@/types/inbox';
 import AudioMessage from './AudioMessage';
 import StatusUpdateEvent from './StatusUpdateEvent';
@@ -213,6 +215,8 @@ export default function ChatWindow({
             const previous = index > 0 ? messages[index - 1] : undefined;
             const showSeparator = shouldShowTimeSeparator(msg, previous);
             const separatorLabel = showSeparator ? formatSeparatorTime(msg) : '';
+            const resolvedAttachmentUrl =
+              resolveAppMediaSrc(msg.attachmentUrl) || msg.attachmentUrl;
 
             return (
               <div key={msg.id}>
@@ -247,15 +251,16 @@ export default function ChatWindow({
                           {!loadedMediaByMessageId[msg.id] && (
                             <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
                           )}
-                          <img
-                            src={msg.attachmentUrl}
+                          <AppImage
+                            src={resolvedAttachmentUrl}
                             alt="Attachment"
                             className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? 'opacity-100' : 'opacity-0'}`}
+                            loadingMode="lazy"
                             onLoad={() => {
                               markMediaLoaded(msg.id);
                               keepBottomIfPinned();
                             }}
-                            onClick={() => setSelectedImage(msg.attachmentUrl || null)}
+                            onClick={() => setSelectedImage(resolvedAttachmentUrl || null)}
                           />
                         </div>
                         {msg.text && (
@@ -278,7 +283,7 @@ export default function ChatWindow({
                             <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
                           )}
                           <video
-                            src={msg.attachmentUrl}
+                            src={resolvedAttachmentUrl}
                             controls
                             onLoadedMetadata={() => {
                               markMediaLoaded(msg.id);
@@ -295,7 +300,7 @@ export default function ChatWindow({
                     {msg.type === 'audio' && (
                       <AudioMessage
                         messageId={msg.id}
-                        src={msg.attachmentUrl || ''}
+                        src={resolvedAttachmentUrl || ''}
                         duration={msg.duration}
                         isOwn={msg.fromMe}
                         onDurationResolved={onAudioDurationResolved}
@@ -321,10 +326,12 @@ export default function ChatWindow({
           })}
 
           {statusUpdate && (
-            <StatusUpdateEvent
-              status={statusUpdate.status}
-              timestamp={statusUpdate.timestamp}
-            />
+            <div className="pt-5">
+              <StatusUpdateEvent
+                status={statusUpdate.status}
+                timestamp={statusUpdate.timestamp}
+              />
+            </div>
           )}
 
           {/* Scroll anchor */}
@@ -348,10 +355,11 @@ export default function ChatWindow({
             </svg>
           </button>
 
-          <img
+          <AppImage
             src={selectedImage}
             alt="Expanded attachment"
             className="max-h-[85vh] w-full max-w-5xl  object-contain"
+            loadingMode="eager"
             onClick={(event) => event.stopPropagation()}
           />
         </div>

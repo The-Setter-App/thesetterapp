@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const PROFILE_IMAGES_BUCKET = "profile-images";
-const DEFAULT_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 function normalizeObjectPath(path: string): string {
   try {
@@ -32,28 +31,18 @@ function parseImageDataUrl(dataUrl: string): { mimeType: string; bytes: Buffer }
   return { mimeType, bytes };
 }
 
-function getSignedUrlTtlSeconds(): number {
-  const raw = process.env.PROFILE_IMAGE_SIGNED_URL_TTL_SECONDS;
-  if (!raw) return DEFAULT_SIGNED_URL_TTL_SECONDS;
-
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_SIGNED_URL_TTL_SECONDS;
-  }
-  return parsed;
+function buildProfileImageProxyPath(path: string): string {
+  const segments = path
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+  return `/api/profile-images/${segments.join("/")}`;
 }
 
 export async function resolveProfileImageUrl(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   const normalizedPath = normalizeObjectPath(path);
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase.storage
-    .from(PROFILE_IMAGES_BUCKET)
-    .createSignedUrl(normalizedPath, getSignedUrlTtlSeconds());
-  if (error || !data?.signedUrl) {
-    return null;
-  }
-  return data.signedUrl;
+  return buildProfileImageProxyPath(normalizedPath);
 }
 
 export async function uploadProfileImageFromDataUrl(email: string, dataUrl: string): Promise<string> {

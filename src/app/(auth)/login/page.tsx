@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
 export default function LoginPage() {
@@ -136,10 +137,11 @@ export default function LoginPage() {
     >
       <header className="absolute top-0 left-0 w-full">
         <div className="mx-auto w-full max-w-[1800px] px-6 md:px-8 pt-5 md:pt-6 pl-40 md:pl-60 flex justify-start">
-        <img
+        <AppImage
           src="/images/setter-header.png"
           alt="Setter"
           className="w-[76px] md:w-[120px] h-auto"
+          loadingMode="eager"
         />
         </div>
       </header>

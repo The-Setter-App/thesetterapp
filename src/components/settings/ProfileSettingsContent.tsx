@@ -4,6 +4,7 @@ import { Camera, KeyRound, Mail, Trash2, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
+import { AppImage } from "@/components/ui/AppImage";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { fileToOptimizedProfileDataUrl } from "@/lib/profileImage";
@@ -150,10 +151,11 @@ export default function ProfileSettingsContent({ user }: { user: AppUser }) {
                 </p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-[#F0F2F6] bg-white">
-                    <img
+                    <AppImage
                       src={profileImageBase64 || "/images/no_profile.jpg"}
                       alt="Profile preview"
                       className="h-full w-full object-cover"
+                      loadingMode="eager"
                     />
                   </div>
                   <div className="min-w-0">

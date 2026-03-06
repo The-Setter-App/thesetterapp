@@ -4,7 +4,7 @@ import { getInstagramAccountById } from '@/lib/userRepository';
 import { decryptData } from '@/lib/crypto';
 import { findConversationById, saveOrUpdateLocalAudioMessage, saveVoiceNoteBlobToGridFs, updateConversationMetadata } from '@/lib/inboxRepository';
 import { getRelativeTime } from '@/lib/mappers';
-import { emitWorkspaceSseEvent } from '../sse/route';
+import { emitWorkspaceSseEvent } from '@/lib/inbox/sseBus';
 import { AccessError, requireInboxWorkspaceContext } from '@/lib/workspace';
 import { parseAttachmentType, validateAttachmentUpload } from '@/lib/attachmentValidation';
 
