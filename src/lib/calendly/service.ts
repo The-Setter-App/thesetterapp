@@ -3,6 +3,7 @@ import {
   createCalendlyWebhookSubscription,
   deleteCalendlyWebhookSubscription,
   getCalendlyCurrentUser,
+  getCalendlyInviteeDetails,
   parseCalendlyWebhookBody,
 } from "@/lib/calendly/client";
 import {
@@ -26,10 +27,13 @@ import {
   getCalendlyConnectionSecretById,
   getCalendlyConnectionSecretByOwnerEmail,
   getCalendlyInvite,
+  getCallEventById,
   getConversationCallEvents,
+  getWorkspaceCallEventById,
   getWorkspaceCallEventsByRange,
   updateCalendlyConnectionOAuthTokens,
   updateCalendlyConnectionSchedulingUrl,
+  updateCallEventPreCallAnswers,
   upsertCalendlyConnection,
   upsertConversationCallEvent,
 } from "@/lib/calendly/repository";
@@ -46,6 +50,7 @@ import { normalizeStatusKey } from "@/lib/status/config";
 import { listWorkspaceStatusNames } from "@/lib/tagsRepository";
 import type {
   CalendlyCallStatus,
+  CalendlyQuestionAnswer,
   CalendlySchedulingUrlInput,
   WorkspaceCalendarCallEvent,
 } from "@/types/calendly";
@@ -163,6 +168,54 @@ function resolveScheduledWindow(input: {
   return { startTime, endTime, timezone };
 }
 
+function resolveInviteeUri(payload: {
+  invitee?: string;
+  uri?: string;
+}): string | undefined {
+  const inviteeUri = payload.invitee?.trim();
+  if (inviteeUri) return inviteeUri;
+
+  const resourceUri = payload.uri?.trim();
+  return resourceUri || undefined;
+}
+
+function normalizeCalendlyPreCallAnswers(
+  answers: CalendlyQuestionAnswer[],
+): CalendlyQuestionAnswer[] {
+  return answers
+    .map((answer, index) => ({
+      question: answer.question.trim(),
+      answer: answer.answer.trim(),
+      position:
+        Number.isFinite(answer.position) && answer.position >= 0
+          ? answer.position
+          : index,
+    }))
+    .filter((answer) => answer.question.length > 0 && answer.answer.length > 0)
+    .sort((a, b) => a.position - b.position);
+}
+
+function resolveWebhookPreCallAnswers(payload: {
+  questions_and_answers?: Array<{
+    question?: string;
+    answer?: string;
+    position?: number;
+  }>;
+}): CalendlyQuestionAnswer[] | undefined {
+  const answers = normalizeCalendlyPreCallAnswers(
+    (payload.questions_and_answers ?? []).map((answer, index) => ({
+      question: typeof answer.question === "string" ? answer.question : "",
+      answer: typeof answer.answer === "string" ? answer.answer : "",
+      position:
+        typeof answer.position === "number" && Number.isFinite(answer.position)
+          ? answer.position
+          : index,
+    })),
+  );
+
+  return answers.length > 0 ? answers : undefined;
+}
+
 function verifyWebhookSignature(input: {
   rawBody: string;
   signatureHeader: string | null;
@@ -270,6 +323,64 @@ async function ensureFreshConnectionSecret(
     oauthScope: refreshed.scope,
     oauthTokenType: refreshed.tokenType,
   };
+}
+
+async function maybeFetchCalendlyPreCallAnswers(input: {
+  ownerEmail: string;
+  inviteeUri?: string;
+}): Promise<CalendlyQuestionAnswer[] | undefined> {
+  const inviteeUri = input.inviteeUri?.trim();
+  if (!inviteeUri) return undefined;
+
+  const secret = await getCalendlyConnectionSecretByOwnerEmail(
+    input.ownerEmail,
+  );
+  if (!secret) return undefined;
+
+  const freshSecret = await ensureFreshConnectionSecret(secret);
+  const invitee = await getCalendlyInviteeDetails({
+    accessToken: freshSecret.oauthAccessToken,
+    inviteeUri,
+  });
+  const normalizedAnswers = normalizeCalendlyPreCallAnswers(
+    invitee.questionsAndAnswers,
+  );
+  return normalizedAnswers.length > 0 ? normalizedAnswers : undefined;
+}
+
+async function ensureCallEventPreCallAnswers(input: {
+  ownerEmail: string;
+  eventId: string;
+}): Promise<void> {
+  const existing = await getCallEventById({
+    ownerEmail: input.ownerEmail,
+    id: input.eventId,
+  });
+  if (!existing) {
+    throw new Error("Call event not found.");
+  }
+  if ((existing.preCallAnswers?.length ?? 0) > 0) {
+    return;
+  }
+  if (!existing.calendlyInviteeUri) {
+    return;
+  }
+
+  try {
+    const answers = await maybeFetchCalendlyPreCallAnswers({
+      ownerEmail: input.ownerEmail,
+      inviteeUri: existing.calendlyInviteeUri,
+    });
+    if (!answers) return;
+
+    await updateCallEventPreCallAnswers({
+      ownerEmail: input.ownerEmail,
+      id: input.eventId,
+      preCallAnswers: answers,
+    });
+  } catch (error) {
+    console.warn("[CalendlyService] Failed to enrich pre-call answers.", error);
+  }
 }
 
 export async function connectCalendlyForWorkspaceOAuth(input: {
@@ -501,6 +612,7 @@ export async function handleCalendlyWebhook(input: {
   }
 
   const payload = body.payload || {};
+  const inviteeUri = resolveInviteeUri(payload);
   const isRescheduled =
     eventType === "invitee.created" && isRescheduledCreatedEvent(payload);
   const normalizedEventType = isRescheduled ? "invitee.rescheduled" : eventType;
@@ -579,9 +691,10 @@ export async function handleCalendlyWebhook(input: {
   const eventId = buildCallEventId({
     ownerEmail: connection.workspaceOwnerEmail,
     calendlyEventUri: payload.event,
-    calendlyInviteeUri: payload.invitee,
+    calendlyInviteeUri: inviteeUri,
     startTime,
   });
+  const webhookPreCallAnswers = resolveWebhookPreCallAnswers(payload);
 
   await upsertConversationCallEvent({
     ownerEmail: connection.workspaceOwnerEmail,
@@ -599,7 +712,19 @@ export async function handleCalendlyWebhook(input: {
     inviteeName: payload.name,
     inviteeEmail: payload.email,
     calendlyEventUri: payload.event,
-    calendlyInviteeUri: payload.invitee,
+    calendlyInviteeUri: inviteeUri,
+    preCallAnswers:
+      webhookPreCallAnswers ??
+      (await maybeFetchCalendlyPreCallAnswers({
+        ownerEmail: connection.workspaceOwnerEmail,
+        inviteeUri,
+      }).catch((error) => {
+        console.warn(
+          "[CalendlyService] Failed to fetch pre-call answers during webhook sync.",
+          error,
+        );
+        return undefined;
+      })),
     rawPayload: parsedRaw,
   });
 
@@ -679,5 +804,20 @@ export async function getWorkspaceCalendarCalls(input: {
     ownerEmail: input.workspaceOwnerEmail,
     fromIso: range.fromIso,
     toIso: range.toIso,
+  });
+}
+
+export async function getWorkspaceCalendarCallDetail(input: {
+  workspaceOwnerEmail: string;
+  eventId: string;
+}): Promise<WorkspaceCalendarCallEvent | null> {
+  await ensureCallEventPreCallAnswers({
+    ownerEmail: input.workspaceOwnerEmail,
+    eventId: input.eventId,
+  });
+
+  return getWorkspaceCallEventById({
+    ownerEmail: input.workspaceOwnerEmail,
+    id: input.eventId,
   });
 }

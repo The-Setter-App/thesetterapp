@@ -7,30 +7,30 @@ import {
   Clock,
   DollarSign,
   Phone,
-  User,
 } from "lucide-react";
 import { useState } from "react";
 import CalendarEventCard from "@/components/calendar/CalendarEventCard";
+import CalendarEventDetailsPanel from "@/components/calendar/CalendarEventDetailsPanel";
 import type { CalendarEvent } from "@/components/calendar/calendarEventModel";
-import {
-  EVENT_STATUS_CONFIG,
-  EVENT_TYPE_CONFIG,
-} from "@/components/calendar/calendarEventModel";
+import { EVENT_TYPE_CONFIG } from "@/components/calendar/calendarEventModel";
 import {
   DAY_NAMES,
-  formatHour,
   getMonthGridDays,
   isSameDay,
   isToday,
   MONTH_NAMES,
   toDateKey,
 } from "@/components/calendar/calendarUtils";
+import type { WorkspaceCalendarCallEvent } from "@/types/calendly";
 
 interface CalendarSidebarProps {
   currentDate: Date;
   events: CalendarEvent[];
   onDateSelect: (date: Date) => void;
   selectedEvent: CalendarEvent | null;
+  selectedEventDetail: WorkspaceCalendarCallEvent | null;
+  selectedEventDetailLoading: boolean;
+  selectedEventDetailError: string;
   onCloseEventDetail: () => void;
 }
 
@@ -39,6 +39,9 @@ export default function CalendarSidebar({
   events,
   onDateSelect,
   selectedEvent,
+  selectedEventDetail,
+  selectedEventDetailLoading,
+  selectedEventDetailError,
   onCloseEventDetail,
 }: CalendarSidebarProps) {
   const [miniMonth, setMiniMonth] = useState(
@@ -84,7 +87,13 @@ export default function CalendarSidebar({
       <div className="flex-1 overflow-y-auto">
         {/* Selected event detail */}
         {selectedEvent ? (
-          <EventDetailView event={selectedEvent} onClose={onCloseEventDetail} />
+          <CalendarEventDetailsPanel
+            event={selectedEvent}
+            detail={selectedEventDetail}
+            detailLoading={selectedEventDetailLoading}
+            detailError={selectedEventDetailError}
+            onClose={onCloseEventDetail}
+          />
         ) : (
           <>
             {/* Mini Calendar */}
@@ -276,117 +285,5 @@ export default function CalendarSidebar({
         )}
       </div>
     </aside>
-  );
-}
-
-/** Detail view shown when an event is clicked */
-function EventDetailView({
-  event,
-  onClose,
-}: {
-  event: CalendarEvent;
-  onClose: () => void;
-}) {
-  const typeConfig = EVENT_TYPE_CONFIG[event.type];
-  const statusConfig = EVENT_STATUS_CONFIG[event.status];
-
-  return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#F0F2F6] p-4">
-        <h3 className="text-sm font-semibold text-[#101011]">Event Details</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#9A9CA2] hover:bg-[#F8F7FF] hover:text-[#606266]"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div className="p-4">
-        {/* Type badge */}
-        <div className="mb-4">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${typeConfig.bgClass} ${typeConfig.textClass} ${typeConfig.borderClass}`}
-          >
-            <span className={`h-2 w-2 rounded-full ${typeConfig.dotClass}`} />
-            {typeConfig.label}
-          </span>
-        </div>
-
-        {/* Lead name */}
-        <h4 className="mb-1 text-lg font-bold text-[#101011]">
-          {event.leadName}
-        </h4>
-        <p className="mb-4 text-sm text-[#606266]">{event.title}</p>
-
-        {/* Details */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 rounded-xl border border-[#F0F2F6] bg-[#FBFBFD] p-3">
-            <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F0FF]">
-              <Clock size={14} className="text-[#8771FF]" />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#9A9CA2]">
-                Time
-              </p>
-              <p className="text-sm font-medium text-[#101011]">
-                {formatHour(event.startHour)} ·{" "}
-                {event.duration >= 1
-                  ? `${event.duration}h`
-                  : `${event.duration * 60}m`}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-xl border border-[#F0F2F6] bg-[#FBFBFD] p-3">
-            <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F0FF]">
-              <User size={14} className="text-[#8771FF]" />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#9A9CA2]">
-                Assigned To
-              </p>
-              <p className="text-sm font-medium text-[#101011]">
-                {event.assignedTo}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-xl border border-[#F0F2F6] bg-[#FBFBFD] p-3">
-            <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F0FF]">
-              <CalendarClock size={14} className="text-[#8771FF]" />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#9A9CA2]">
-                Status
-              </p>
-              <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusConfig.bgClass} ${statusConfig.textClass} ${statusConfig.borderClass}`}
-              >
-                {statusConfig.label}
-              </span>
-            </div>
-          </div>
-
-          {event.amount ? (
-            <div className="flex items-center gap-3 rounded-xl border border-[#F0F2F6] bg-[#FBFBFD] p-3">
-              <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
-                <DollarSign size={14} className="text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase text-[#9A9CA2]">
-                  Deal Value
-                </p>
-                <p className="text-sm font-bold text-emerald-700">
-                  {event.amount}
-                </p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
   );
 }

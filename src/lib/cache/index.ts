@@ -12,6 +12,7 @@ import {
 
 export type {
   CalendarCallsWorkspaceCacheRecord,
+  CalendarEventDetailCacheRecord,
   CalendarIsoRange,
   ConversationCallsCacheRecord,
   ConversationDetailsCacheState,
@@ -21,6 +22,7 @@ export type {
 export {
   getCachedCalendarCallsForRange,
   getCachedCalendarCallsWorkspaceState,
+  getCachedCalendarEventDetail,
   getCachedConversationCalls,
   getCachedConversationDetails,
   getCachedConversationDetailsState,
@@ -29,6 +31,7 @@ export {
   getCachedMessages,
   getCachedUsers,
   getHotCachedCalendarCallsWorkspaceState,
+  getHotCachedCalendarEventDetail,
   getHotCachedConversationCalls,
   getHotCachedConversationDetails,
   getHotCachedConversationDetailsState,
@@ -39,8 +42,10 @@ export {
   markCachedConversationDetailsSynced,
   mergeCachedCalendarCallsForRange,
   mergeCachedCalendarCallsFromConversation,
+  mergeCachedCalendarEventDetail,
   mergeCachedConversationCallsFromWorkspace,
   removeCachedConversationsByAccount,
+  setCachedCalendarEventDetail,
   setCachedConversationCalls,
   setCachedConversationDetails,
   setCachedConversationDetailsFromRemote,

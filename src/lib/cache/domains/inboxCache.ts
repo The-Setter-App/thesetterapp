@@ -59,6 +59,11 @@ export interface CalendarCallsWorkspaceCacheRecord {
   updatedAt: number;
 }
 
+export interface CalendarEventDetailCacheRecord {
+  event: WorkspaceCalendarCallEvent;
+  fetchedAt: number;
+}
+
 export interface CalendarIsoRange {
   fromIso: string;
   toIso: string;
@@ -113,7 +118,13 @@ function mergeCallsById<T extends { id: string }>(
     merged.set(item.id, item);
   }
   for (const item of incoming) {
-    merged.set(item.id, item);
+    const current = merged.get(item.id);
+    merged.set(
+      item.id,
+      current && typeof current === "object" && typeof item === "object"
+        ? ({ ...current, ...item } as T)
+        : item,
+    );
   }
   return Array.from(merged.values());
 }
@@ -424,6 +435,48 @@ export async function getCachedCalendarCallsWorkspaceState(): Promise<CalendarCa
   );
 }
 
+function calendarEventDetailKey(eventId: string): string {
+  return `calendar_event_detail_${eventId.trim()}`;
+}
+
+export async function getCachedCalendarEventDetail(
+  eventId: string,
+): Promise<CalendarEventDetailCacheRecord | null> {
+  const normalized = eventId.trim();
+  if (!normalized) return null;
+  return inboxCache.get<CalendarEventDetailCacheRecord>(
+    calendarEventDetailKey(normalized),
+  );
+}
+
+export function getHotCachedCalendarEventDetail(
+  eventId: string,
+): CalendarEventDetailCacheRecord | null {
+  const normalized = eventId.trim();
+  if (!normalized) return null;
+  return (
+    inboxCache.peek<CalendarEventDetailCacheRecord>(
+      calendarEventDetailKey(normalized),
+    ) ?? null
+  );
+}
+
+export async function setCachedCalendarEventDetail(
+  eventId: string,
+  event: WorkspaceCalendarCallEvent,
+): Promise<void> {
+  const normalized = eventId.trim();
+  if (!normalized) return;
+
+  await inboxCache.set<CalendarEventDetailCacheRecord>(
+    calendarEventDetailKey(normalized),
+    {
+      event,
+      fetchedAt: Date.now(),
+    },
+  );
+}
+
 export function getHotCachedCalendarCallsWorkspaceState(): CalendarCallsWorkspaceCacheRecord | null {
   return (
     inboxCache.peek<CalendarCallsWorkspaceCacheRecord>(
@@ -622,6 +675,38 @@ export async function mergeCachedConversationCallsFromWorkspace(
       );
     }),
   );
+}
+
+export async function mergeCachedCalendarEventDetail(
+  event: WorkspaceCalendarCallEvent,
+): Promise<void> {
+  await setCachedCalendarEventDetail(event.id, event);
+
+  await inboxCache.update<CalendarCallsWorkspaceCacheRecord>(
+    CALENDAR_CALLS_CACHE_KEY,
+    (current) => {
+      const base: CalendarCallsWorkspaceCacheRecord = current ?? {
+        events: [],
+        coveredRanges: [],
+        updatedAt: 0,
+      };
+      return {
+        ...base,
+        events: mergeCallsById(base.events, [event]),
+        updatedAt: Date.now(),
+      };
+    },
+  );
+
+  if (event.conversationId?.trim()) {
+    await inboxCache.update<ConversationCallsCacheRecord>(
+      conversationCallsKey(event.conversationId),
+      (current) => ({
+        calls: mergeCallsById(current?.calls ?? [], [event]),
+        fetchedAt: Date.now(),
+      }),
+    );
+  }
 }
 
 export async function removeCachedConversationsByAccount(

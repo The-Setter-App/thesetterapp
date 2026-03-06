@@ -11,6 +11,17 @@ export type CalendlyCallStatus =
   | "rescheduled"
   | "unknown";
 
+export type CalendlyPreCallAnswersStatus =
+  | "available"
+  | "missing"
+  | "unavailable";
+
+export interface CalendlyQuestionAnswer {
+  question: string;
+  answer: string;
+  position: number;
+}
+
 export interface CalendlyConnection {
   id: string;
   workspaceOwnerEmail: string;
@@ -41,6 +52,8 @@ export interface ConversationCallEvent {
   inviteeEmail?: string;
   calendlyEventUri?: string;
   calendlyInviteeUri?: string;
+  preCallAnswers?: CalendlyQuestionAnswer[];
+  preCallAnswersStatus?: CalendlyPreCallAnswersStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +75,7 @@ export interface CalendlyWebhookEventPayload {
   created_at?: string;
   event?: string;
   payload?: {
+    uri?: string;
     event?: string;
     invitee?: string;
     old_invitee?: string;
@@ -101,5 +115,10 @@ export interface CalendlyWebhookEventPayload {
       join_url?: string;
       status?: string;
     };
+    questions_and_answers?: Array<{
+      question?: string;
+      answer?: string;
+      position?: number;
+    }>;
   };
 }

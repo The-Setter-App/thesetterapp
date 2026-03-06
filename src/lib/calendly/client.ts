@@ -26,6 +26,17 @@ interface CalendlyApiErrorResponse {
   details?: Array<{ message?: string }>;
 }
 
+interface CalendlyApiInviteeResponse {
+  resource?: {
+    uri?: string;
+    questions_and_answers?: Array<{
+      question?: string;
+      answer?: string;
+      position?: number;
+    }>;
+  };
+}
+
 async function readCalendlyError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as CalendlyApiErrorResponse;
@@ -154,4 +165,61 @@ export async function deleteCalendlyWebhookSubscription(input: {
       error,
     );
   }
+}
+
+export async function getCalendlyInviteeDetails(input: {
+  accessToken: string;
+  inviteeUri: string;
+}): Promise<{
+  uri: string;
+  questionsAndAnswers: Array<{
+    question: string;
+    answer: string;
+    position: number;
+  }>;
+}> {
+  const inviteeUri = input.inviteeUri.trim();
+  if (!inviteeUri) {
+    throw new Error("Calendly invitee URI is required.");
+  }
+
+  const response = await fetch(inviteeUri, {
+    method: "GET",
+    headers: getAuthHeaders(input.accessToken),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const reason = await readCalendlyError(response);
+    throw new Error(`Failed to load Calendly invitee details: ${reason}`);
+  }
+
+  const data = (await response.json()) as CalendlyApiInviteeResponse;
+  const resourceUri = data.resource?.uri?.trim() || inviteeUri;
+  const questionsAndAnswers = (data.resource?.questions_and_answers ?? [])
+    .map((item, index) => {
+      const question =
+        typeof item.question === "string" ? item.question.trim() : "";
+      const answer = typeof item.answer === "string" ? item.answer.trim() : "";
+      if (!question || !answer) return null;
+
+      return {
+        question,
+        answer,
+        position:
+          typeof item.position === "number" && Number.isFinite(item.position)
+            ? item.position
+            : index,
+      };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        question: string;
+        answer: string;
+        position: number;
+      } => Boolean(item),
+    );
+
+  return { uri: resourceUri, questionsAndAnswers };
 }
