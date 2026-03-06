@@ -6,10 +6,7 @@ import {
   getCalendarWarmupRanges,
   warmCalendarRangesToCache,
 } from "@/lib/calendar/cacheWarmup";
-import {
-  isCalendarMonthSlug,
-  parseCalendarMonthSlug,
-} from "@/lib/calendarRoute";
+import { parseCalendarPathname } from "@/lib/calendarRoute";
 
 interface CalendarCacheWarmupWorkerProps {
   enabled: boolean;
@@ -23,22 +20,7 @@ const CALENDAR_CONNECTION_STATE_TTL_MS = 60 * 1000;
 const CALENDAR_BACKGROUND_REFRESH_MS = 60 * 1000;
 
 function resolveCalendarAnchorDate(pathname: string | null): Date {
-  if (!pathname?.startsWith("/calendar")) {
-    return new Date();
-  }
-
-  const segments = pathname.split("/").filter(Boolean);
-  const monthSlug = segments[1] ?? "";
-  if (!isCalendarMonthSlug(monthSlug)) {
-    return new Date();
-  }
-
-  return (
-    parseCalendarMonthSlug({
-      month: monthSlug,
-      year: new Date().getFullYear(),
-    }) ?? new Date()
-  );
+  return parseCalendarPathname(pathname) ?? new Date();
 }
 
 async function fetchCalendlyConnectionState(

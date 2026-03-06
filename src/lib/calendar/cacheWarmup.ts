@@ -10,6 +10,7 @@ import {
 import type { WorkspaceCalendarCallEvent } from "@/types/calendly";
 
 export const CALENDAR_CACHE_WARMUP_LOOKAHEAD_MONTHS = 1;
+export const CALENDAR_CACHE_WARMUP_LOOKBEHIND_MONTHS = 1;
 
 function normalizeRangeKey(range: CalendarIsoRange): string {
   return `${range.fromIso}|${range.toIso}`;
@@ -27,7 +28,7 @@ export function getCalendarWarmupRanges(anchorDate: Date): CalendarIsoRange[] {
   const ranges: CalendarIsoRange[] = [];
 
   for (
-    let offset = 0;
+    let offset = -CALENDAR_CACHE_WARMUP_LOOKBEHIND_MONTHS;
     offset <= CALENDAR_CACHE_WARMUP_LOOKAHEAD_MONTHS;
     offset += 1
   ) {
