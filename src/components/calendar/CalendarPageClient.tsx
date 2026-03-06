@@ -6,6 +6,7 @@ import CalendarContentSkeleton from "@/components/calendar/CalendarContentSkelet
 import CalendarDayView from "@/components/calendar/CalendarDayView";
 import CalendarIntegrationRequiredState from "@/components/calendar/CalendarIntegrationRequiredState";
 import CalendarMonthGrid from "@/components/calendar/CalendarMonthGrid";
+import CalendarSelectedEventDialog from "@/components/calendar/CalendarSelectedEventDialog";
 import CalendarSidebar from "@/components/calendar/CalendarSidebar";
 import type { CalendarViewMode } from "@/components/calendar/CalendarToolbar";
 import CalendarToolbar from "@/components/calendar/CalendarToolbar";
@@ -19,6 +20,7 @@ import {
   addWeeks,
 } from "@/components/calendar/calendarUtils";
 import PageHeader from "@/components/layout/PageHeader";
+import { useCalendarEventDetail } from "@/hooks/useCalendarEventDetail";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
 import { toCalendarMonthPath } from "@/lib/calendarRoute";
@@ -64,6 +66,14 @@ export default function CalendarPageClient({
     () => mapWorkspaceCallEventsToCalendarEvents(workspaceCallEvents),
     [workspaceCallEvents],
   );
+  const {
+    eventDetail: selectedEventDetail,
+    loading: selectedEventDetailLoading,
+    error: selectedEventDetailError,
+  } = useCalendarEventDetail({
+    enabled: calendlyConnected && selectedEvent !== null,
+    eventId: selectedEvent?.id ?? null,
+  });
 
   useEffect(() => {
     if (!initialDate) return;
@@ -197,7 +207,18 @@ export default function CalendarPageClient({
             events={events}
             onDateSelect={handleDateSelect}
             selectedEvent={selectedEvent}
+            selectedEventDetail={selectedEventDetail}
+            selectedEventDetailLoading={selectedEventDetailLoading}
+            selectedEventDetailError={selectedEventDetailError}
             onCloseEventDetail={handleCloseEventDetail}
+          />
+
+          <CalendarSelectedEventDialog
+            event={selectedEvent}
+            detail={selectedEventDetail}
+            detailLoading={selectedEventDetailLoading}
+            detailError={selectedEventDetailError}
+            onClose={handleCloseEventDetail}
           />
         </div>
       ) : null}

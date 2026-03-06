@@ -79,6 +79,7 @@ export interface InboxCallEventRow {
   reschedule_url: string | null;
   invitee_name: string | null;
   invitee_email: string | null;
+  pre_call_answers: unknown;
   raw_payload: unknown;
   created_at: string;
   updated_at: string;

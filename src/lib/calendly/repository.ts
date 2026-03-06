@@ -10,6 +10,8 @@ import type {
 import type {
   CalendlyCallStatus,
   CalendlyConnection,
+  CalendlyPreCallAnswersStatus,
+  CalendlyQuestionAnswer,
   ConversationCallEvent,
   WorkspaceCalendarCallEvent,
 } from "@/types/calendly";
@@ -19,6 +21,8 @@ const INBOX_CALL_EVENTS_TABLE = "inbox_call_events";
 const CONVERSATIONS_TABLE = "inbox_conversations";
 const MESSAGES_TABLE = "inbox_messages";
 const INVITES_TABLE = "inbox_calendly_invites";
+const CALL_EVENT_SELECT_COLUMNS =
+  "owner_email,id,conversation_id,calendly_event_uri,calendly_invitee_uri,event_type,status,title,start_time,end_time,timezone,join_url,cancel_url,reschedule_url,invitee_name,invitee_email,pre_call_answers,raw_payload,created_at,updated_at";
 const CONNECTION_SELECT_COLUMNS =
   "id,workspace_owner_email,oauth_access_token,oauth_refresh_token,oauth_access_token_expires_at,oauth_scope,oauth_token_type,calendly_user_uri,organization_uri,scheduling_url,webhook_signing_key,webhook_subscription_uri,is_connected,connected_at,created_at,updated_at";
 
@@ -75,6 +79,7 @@ function mapConnectionSecretRow(
 }
 
 function mapCallRow(row: InboxCallEventRow): ConversationCallEvent {
+  const preCallAnswers = toCalendlyQuestionAnswers(row.pre_call_answers);
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -101,9 +106,68 @@ function mapCallRow(row: InboxCallEventRow): ConversationCallEvent {
     inviteeEmail: row.invitee_email ?? undefined,
     calendlyEventUri: row.calendly_event_uri ?? undefined,
     calendlyInviteeUri: row.calendly_invitee_uri ?? undefined,
+    preCallAnswers,
+    preCallAnswersStatus: resolvePreCallAnswersStatus({
+      answers: preCallAnswers,
+      rawPayload: row.raw_payload,
+    }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function toCalendlyQuestionAnswers(
+  value: unknown,
+): CalendlyQuestionAnswer[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const answers = value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const typed = item as {
+        question?: unknown;
+        answer?: unknown;
+        position?: unknown;
+      };
+      const question =
+        typeof typed.question === "string" ? typed.question.trim() : "";
+      const answer =
+        typeof typed.answer === "string" ? typed.answer.trim() : "";
+      if (!question || !answer) return null;
+
+      const position =
+        typeof typed.position === "number" && Number.isFinite(typed.position)
+          ? typed.position
+          : index;
+      return { question, answer, position };
+    })
+    .filter((item): item is CalendlyQuestionAnswer => Boolean(item));
+
+  return answers.length > 0 ? answers : undefined;
+}
+
+function resolvePreCallAnswersStatus(input: {
+  answers?: CalendlyQuestionAnswer[];
+  rawPayload: unknown;
+}): CalendlyPreCallAnswersStatus {
+  if ((input.answers?.length ?? 0) > 0) {
+    return "available";
+  }
+
+  if (!input.rawPayload || typeof input.rawPayload !== "object") {
+    return "missing";
+  }
+  const typed = input.rawPayload as {
+    payload?: { invitee?: unknown; uri?: unknown };
+  };
+  const inviteeUri =
+    typeof typed.payload?.invitee === "string" && typed.payload.invitee.trim()
+      ? typed.payload.invitee
+      : typeof typed.payload?.uri === "string" && typed.payload.uri.trim()
+        ? typed.payload.uri
+        : "";
+
+  return inviteeUri.length > 0 ? "missing" : "unavailable";
 }
 
 function toLeadNameFromConversationPayload(payload: unknown): string {
@@ -338,6 +402,7 @@ export async function upsertConversationCallEvent(input: {
   inviteeEmail?: string;
   calendlyEventUri?: string;
   calendlyInviteeUri?: string;
+  preCallAnswers?: CalendlyQuestionAnswer[];
   rawPayload: unknown;
 }): Promise<void> {
   const supabase = getInboxSupabase();
@@ -359,6 +424,7 @@ export async function upsertConversationCallEvent(input: {
       reschedule_url: input.rescheduleUrl ?? null,
       invitee_name: input.inviteeName ?? null,
       invitee_email: input.inviteeEmail ?? null,
+      pre_call_answers: input.preCallAnswers ?? null,
       raw_payload: input.rawPayload ?? {},
       updated_at: new Date().toISOString(),
     },
@@ -378,9 +444,7 @@ export async function getConversationCallEvents(
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(INBOX_CALL_EVENTS_TABLE)
-    .select(
-      "owner_email,id,conversation_id,calendly_event_uri,calendly_invitee_uri,event_type,status,title,start_time,end_time,timezone,join_url,cancel_url,reschedule_url,invitee_name,invitee_email,raw_payload,created_at,updated_at",
-    )
+    .select(CALL_EVENT_SELECT_COLUMNS)
     .eq("owner_email", ownerEmail)
     .eq("conversation_id", conversationId)
     .order("start_time", { ascending: false })
@@ -404,9 +468,7 @@ export async function getWorkspaceCallEventsByRange(input: {
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(INBOX_CALL_EVENTS_TABLE)
-    .select(
-      "owner_email,id,conversation_id,calendly_event_uri,calendly_invitee_uri,event_type,status,title,start_time,end_time,timezone,join_url,cancel_url,reschedule_url,invitee_name,invitee_email,raw_payload,created_at,updated_at",
-    )
+    .select(CALL_EVENT_SELECT_COLUMNS)
     .eq("owner_email", input.ownerEmail)
     .gte("start_time", input.fromIso)
     .lt("start_time", input.toIso)
@@ -477,6 +539,89 @@ export async function getWorkspaceCallEventsByRange(input: {
       amount: conversationDetails?.amount,
     };
   });
+}
+
+export async function getCallEventById(input: {
+  ownerEmail: string;
+  id: string;
+}): Promise<ConversationCallEvent | null> {
+  const supabase = getInboxSupabase();
+  const { data, error } = await supabase
+    .from(INBOX_CALL_EVENTS_TABLE)
+    .select(CALL_EVENT_SELECT_COLUMNS)
+    .eq("owner_email", input.ownerEmail)
+    .eq("id", input.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `[CalendlyRepository] Failed to load call event by id: ${error.message}`,
+    );
+  }
+
+  if (!data) return null;
+  return mapCallRow(data as InboxCallEventRow);
+}
+
+export async function getWorkspaceCallEventById(input: {
+  ownerEmail: string;
+  id: string;
+}): Promise<WorkspaceCalendarCallEvent | null> {
+  const call = await getCallEventById(input);
+  if (!call) return null;
+
+  let leadName = call.inviteeName || call.inviteeEmail || "Unknown lead";
+  let amount: string | undefined;
+
+  if (call.conversationId) {
+    const supabase = getInboxSupabase();
+    const { data, error } = await supabase
+      .from(CONVERSATIONS_TABLE)
+      .select("payload")
+      .eq("owner_email", input.ownerEmail)
+      .eq("id", call.conversationId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(
+        `[CalendlyRepository] Failed to load conversation for call event by id: ${error.message}`,
+      );
+    }
+
+    if (data) {
+      const payload = (data as { payload?: unknown }).payload;
+      leadName = toLeadNameFromConversationPayload(payload) || leadName;
+      amount = toAmountFromConversationPayload(payload);
+    }
+  }
+
+  return {
+    ...call,
+    leadName,
+    amount,
+  };
+}
+
+export async function updateCallEventPreCallAnswers(input: {
+  ownerEmail: string;
+  id: string;
+  preCallAnswers: CalendlyQuestionAnswer[];
+}): Promise<void> {
+  const supabase = getInboxSupabase();
+  const { error } = await supabase
+    .from(INBOX_CALL_EVENTS_TABLE)
+    .update({
+      pre_call_answers: input.preCallAnswers,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("owner_email", input.ownerEmail)
+    .eq("id", input.id);
+
+  if (error) {
+    throw new Error(
+      `[CalendlyRepository] Failed to update pre-call answers: ${error.message}`,
+    );
+  }
 }
 
 export async function findConversationIdByContactEmail(input: {
