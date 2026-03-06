@@ -54,6 +54,9 @@ export {
   setCachedMessagePageMeta,
   setCachedMessages,
   setCachedUsers,
+  subscribeCachedCalendarCallsWorkspaceState,
+  subscribeCachedCalendarEventDetail,
+  subscribeCachedUsers,
   updateCachedMessages,
 } from "@/lib/cache/domains/inboxCache";
 export {

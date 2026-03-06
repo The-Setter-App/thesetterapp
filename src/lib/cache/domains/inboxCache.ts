@@ -30,6 +30,7 @@ const CONVERSATION_DETAILS_CACHE_PREFIX = "conversation_details_";
 const CONVERSATION_SUMMARY_CACHE_PREFIX = "conversation_summary_";
 const CONVERSATION_CALLS_CACHE_PREFIX = "conversation_calls_";
 const CALENDAR_CALLS_CACHE_KEY = "calendar_calls_workspace";
+export const CALENDAR_CALLS_COVERAGE_STALE_MS = 60 * 1000;
 
 export interface ConversationSummaryCacheRecord {
   summary: ConversationSummary | null;
@@ -145,6 +146,10 @@ function isRangeCovered(
   }
 
   return coveredRanges.some((range) => {
+    const fetchedAt = typeof range.fetchedAt === "number" ? range.fetchedAt : 0;
+    if (Date.now() - fetchedAt > CALENDAR_CALLS_COVERAGE_STALE_MS) {
+      return false;
+    }
     const rangeFrom = Date.parse(range.fromIso);
     const rangeTo = Date.parse(range.toIso);
     if (
@@ -192,6 +197,10 @@ type StoredConversationDetails =
 
 export async function getCachedUsers(): Promise<User[] | null> {
   return inboxCache.get<User[]>(USERS_CACHE_KEY);
+}
+
+export function subscribeCachedUsers(listener: () => void): () => void {
+  return inboxCache.subscribe(USERS_CACHE_KEY, listener);
 }
 
 export function getHotCachedUsers(): User[] | null {
@@ -435,6 +444,12 @@ export async function getCachedCalendarCallsWorkspaceState(): Promise<CalendarCa
   );
 }
 
+export function subscribeCachedCalendarCallsWorkspaceState(
+  listener: () => void,
+): () => void {
+  return inboxCache.subscribe(CALENDAR_CALLS_CACHE_KEY, listener);
+}
+
 function calendarEventDetailKey(eventId: string): string {
   return `calendar_event_detail_${eventId.trim()}`;
 }
@@ -447,6 +462,17 @@ export async function getCachedCalendarEventDetail(
   return inboxCache.get<CalendarEventDetailCacheRecord>(
     calendarEventDetailKey(normalized),
   );
+}
+
+export function subscribeCachedCalendarEventDetail(
+  eventId: string,
+  listener: () => void,
+): () => void {
+  const normalized = eventId.trim();
+  if (!normalized) {
+    return () => undefined;
+  }
+  return inboxCache.subscribe(calendarEventDetailKey(normalized), listener);
 }
 
 export function getHotCachedCalendarEventDetail(
@@ -612,6 +638,12 @@ export async function mergeCachedCalendarCallsFromConversation(
     ...call,
     leadName: call.inviteeName || call.inviteeEmail || "Unknown lead",
   }));
+
+  await Promise.all(
+    workspaceEvents.map((event) =>
+      setCachedCalendarEventDetail(event.id, event),
+    ),
+  );
 
   await inboxCache.update<CalendarCallsWorkspaceCacheRecord>(
     CALENDAR_CALLS_CACHE_KEY,

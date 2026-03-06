@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getCachedCalendarEventDetail,
   mergeCachedCalendarEventDetail,
+  subscribeCachedCalendarEventDetail,
 } from "@/lib/cache";
 import type { WorkspaceCalendarCallEvent } from "@/types/calendly";
 
@@ -25,6 +26,21 @@ export function useCalendarEventDetail(
     useState<WorkspaceCalendarCallEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cacheRevision, setCacheRevision] = useState(0);
+  const cacheRevisionRef = useRef(cacheRevision);
+
+  useEffect(() => {
+    cacheRevisionRef.current = cacheRevision;
+  }, [cacheRevision]);
+
+  useEffect(() => {
+    const eventId = input.eventId?.trim() || "";
+    if (!input.enabled || !eventId) return;
+
+    return subscribeCachedCalendarEventDetail(eventId, () => {
+      setCacheRevision((prev) => prev + 1);
+    });
+  }, [input.enabled, input.eventId]);
 
   useEffect(() => {
     const eventId = input.eventId?.trim() || "";
@@ -37,12 +53,13 @@ export function useCalendarEventDetail(
 
     const controller = new AbortController();
     let active = true;
+    const loadRevision = cacheRevision;
 
     (async () => {
       let hasCachedData = false;
       try {
         const cached = await getCachedCalendarEventDetail(eventId);
-        if (!active) return;
+        if (!active || loadRevision !== cacheRevisionRef.current) return;
 
         if (cached?.event) {
           hasCachedData = true;
@@ -68,9 +85,15 @@ export function useCalendarEventDetail(
           throw new Error(data.error || "Failed to load event details.");
         }
 
-        if (!active || !data.event) return;
+        if (
+          !active ||
+          loadRevision !== cacheRevisionRef.current ||
+          !data.event
+        ) {
+          return;
+        }
         await mergeCachedCalendarEventDetail(data.event);
-        if (!active) return;
+        if (!active || loadRevision !== cacheRevisionRef.current) return;
 
         setEventDetail(data.event);
         setError("");
@@ -93,7 +116,7 @@ export function useCalendarEventDetail(
       active = false;
       controller.abort();
     };
-  }, [input.enabled, input.eventId]);
+  }, [cacheRevision, input.enabled, input.eventId]);
 
   return { eventDetail, loading, error };
 }

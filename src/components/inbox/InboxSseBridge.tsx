@@ -19,6 +19,11 @@ import {
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
 import { reconcilePendingMessages } from "@/lib/inbox/realtime/reconcilePending";
+import { subscribeWorkspaceEventSource } from "@/lib/realtime/workspaceEventSource";
+import {
+  emitSyncDomainsInvalidated,
+  resolveInvalidatedDomainsForSseEvent,
+} from "@/lib/sync/domainInvalidation";
 import type { SSEEvent, SSEMessageData, User } from "@/types/inbox";
 import {
   mergeUsersWithLocalRecency,
@@ -54,7 +59,11 @@ function createUpdatedUserSnapshot(params: {
   };
 }
 
-export default function InboxSseBridge() {
+interface InboxSseBridgeProps {
+  enabled: boolean;
+}
+
+export default function InboxSseBridge({ enabled }: InboxSseBridgeProps) {
   const usersRef = useRef<User[] | null>(null);
   const refreshQueuedRef = useRef(false);
   const refreshPromiseRef = useRef<Promise<void>>(Promise.resolve());
@@ -108,109 +117,114 @@ export default function InboxSseBridge() {
   }, []);
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/sse");
+    if (!enabled) return;
 
-    eventSource.onmessage = (event) => {
-      let message: SSEEvent;
-      try {
-        message = JSON.parse(event.data) as SSEEvent;
-      } catch (error) {
-        console.error("[InboxSseBridge] Failed to parse SSE message:", error);
-        return;
-      }
+    const unsubscribe = subscribeWorkspaceEventSource("/api/sse", {
+      onMessage: (message: SSEEvent) => {
+        emitInboxSseEvent(message);
+        const invalidatedDomains =
+          resolveInvalidatedDomainsForSseEvent(message);
+        if (invalidatedDomains.length > 0) {
+          emitSyncDomainsInvalidated({
+            domains: invalidatedDomains,
+            source: "sse",
+            eventType: message.type,
+          });
+        }
 
-      emitInboxSseEvent(message);
+        if (message.type === "calendly_call_updated") {
+          syncConversationCallsCache(message.data.conversationId).catch(
+            (error) =>
+              console.error(
+                "[InboxSseBridge] Failed to sync calls cache:",
+                error,
+              ),
+          );
+          return;
+        }
 
-      if (message.type === "calendly_call_updated") {
-        syncConversationCallsCache(message.data.conversationId).catch((error) =>
-          console.error("[InboxSseBridge] Failed to sync calls cache:", error),
+        if (!isMessageEvent(message)) return;
+
+        const data = message.data;
+        const users = usersRef.current ?? [];
+        const matchedConversation =
+          users.length > 0
+            ? findConversationForRealtimeMessage(users, data)
+            : null;
+        const targetConversationId =
+          matchedConversation?.id || data.conversationId || null;
+        if (!targetConversationId) {
+          scheduleUsersRefresh();
+          return;
+        }
+
+        const dispatchedData =
+          data.conversationId && data.conversationId === targetConversationId
+            ? data
+            : { ...data, conversationId: targetConversationId };
+
+        emitInboxRealtimeMessage({
+          type: message.type,
+          data: dispatchedData,
+        });
+
+        const canonicalMessage = mapRealtimePayloadToMessage(
+          message.type,
+          dispatchedData,
         );
-        return;
-      }
 
-      if (!isMessageEvent(message)) return;
+        updateCachedMessages(targetConversationId, (existing) => {
+          const base = Array.isArray(existing) ? existing : [];
+          const reconciled =
+            message.type === "message_echo"
+              ? reconcilePendingMessages({
+                  existing: base,
+                  eventType: message.type,
+                  data: dispatchedData,
+                }).messages
+              : base;
 
-      const data = message.data;
-      const users = usersRef.current ?? [];
-      const matchedConversation =
-        users.length > 0
-          ? findConversationForRealtimeMessage(users, data)
-          : null;
-      const targetConversationId =
-        matchedConversation?.id || data.conversationId || null;
-      if (!targetConversationId) {
-        scheduleUsersRefresh();
-        return;
-      }
+          return mergeMessageCacheSnapshots(reconciled, [
+            { ...canonicalMessage, pending: false },
+          ]);
+        }).catch((error) =>
+          console.error(
+            "[InboxSseBridge] Failed to update message cache:",
+            error,
+          ),
+        );
 
-      const dispatchedData =
-        data.conversationId && data.conversationId === targetConversationId
-          ? data
-          : { ...data, conversationId: targetConversationId };
+        if (!matchedConversation) {
+          scheduleUsersRefresh();
+          return;
+        }
 
-      emitInboxRealtimeMessage({
-        type: message.type,
-        data: dispatchedData,
-      });
+        const nextUsers = sortUsersByRecency(
+          users.map((user) =>
+            user.id === matchedConversation.id
+              ? createUpdatedUserSnapshot({
+                  user,
+                  eventType: message.type,
+                  data: dispatchedData,
+                })
+              : user,
+          ),
+        );
 
-      const canonicalMessage = mapRealtimePayloadToMessage(
-        message.type,
-        dispatchedData,
-      );
-
-      updateCachedMessages(targetConversationId, (existing) => {
-        const base = Array.isArray(existing) ? existing : [];
-        const reconciled =
-          message.type === "message_echo"
-            ? reconcilePendingMessages({
-                existing: base,
-                eventType: message.type,
-                data: dispatchedData,
-              }).messages
-            : base;
-
-        return mergeMessageCacheSnapshots(reconciled, [
-          { ...canonicalMessage, pending: false },
-        ]);
-      }).catch((error) =>
-        console.error(
-          "[InboxSseBridge] Failed to update message cache:",
-          error,
-        ),
-      );
-
-      if (!matchedConversation) {
-        scheduleUsersRefresh();
-        return;
-      }
-
-      const nextUsers = sortUsersByRecency(
-        users.map((user) =>
-          user.id === matchedConversation.id
-            ? createUpdatedUserSnapshot({
-                user,
-                eventType: message.type,
-                data: dispatchedData,
-              })
-            : user,
-        ),
-      );
-
-      usersRef.current = nextUsers;
-      setCachedUsers(nextUsers).catch((error) =>
-        console.error("[InboxSseBridge] Failed to write users cache:", error),
-      );
-    };
-
-    eventSource.onerror = () => {
-      // EventSource handles reconnects automatically; reconciliation is triggered
-      // by the consumers when they observe the next "connected" event.
-    };
+        usersRef.current = nextUsers;
+        setCachedUsers(nextUsers).catch((error) =>
+          console.error("[InboxSseBridge] Failed to write users cache:", error),
+        );
+      },
+      onError: () => {
+        // Shared EventSource handles reconnects automatically.
+      },
+    });
 
     return () => {
-      eventSource.close();
+      unsubscribe();
     };
-  }, [scheduleUsersRefresh]);
+  }, [enabled, scheduleUsersRefresh]);
 
   return null;
 }
