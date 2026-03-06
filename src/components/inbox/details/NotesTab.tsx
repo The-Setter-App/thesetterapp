@@ -21,10 +21,15 @@ export default function NotesTab({ notes, onChange }: NotesTabProps) {
         />
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <p className="text-[11px] text-[#9A9CA2]">Saved per conversation. Keep key context here for the team.</p>
-        <p className={`text-[11px] ${remaining < 200 ? "text-amber-600" : "text-[#9A9CA2]"}`}>{remaining} left</p>
+        <p className="text-[11px] text-[#9A9CA2]">
+          Saved per conversation. Keep key context here for the team.
+        </p>
+        <p
+          className={`text-[11px] ${remaining < 200 ? "text-amber-600" : "text-[#9A9CA2]"}`}
+        >
+          {remaining} left
+        </p>
       </div>
     </div>
   );
 }
-

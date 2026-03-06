@@ -8,4 +8,3 @@ export default async function SetterAiChatPage({
   const { chatId } = await params;
   return <SetterAiClient initialChatId={chatId} />;
 }
-

@@ -1,4 +1,4 @@
-export type AttachmentType = 'image' | 'audio' | 'video' | 'file';
+export type AttachmentType = "image" | "audio" | "video" | "file";
 
 interface AttachmentValidationRule {
   maxBytes: number;
@@ -12,32 +12,46 @@ interface AttachmentValidationError {
 
 const MB = 1024 * 1024;
 
-const ATTACHMENT_VALIDATION_RULES: Record<AttachmentType, AttachmentValidationRule> = {
+const ATTACHMENT_VALIDATION_RULES: Record<
+  AttachmentType,
+  AttachmentValidationRule
+> = {
   image: {
     maxBytes: 10 * MB,
-    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
   },
   audio: {
     maxBytes: 25 * MB,
-    allowedMimeTypes: ['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/wav'],
+    allowedMimeTypes: [
+      "audio/mpeg",
+      "audio/mp4",
+      "audio/ogg",
+      "audio/webm",
+      "audio/wav",
+    ],
   },
   video: {
     maxBytes: 50 * MB,
-    allowedMimeTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
+    allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"],
   },
   file: {
     maxBytes: 25 * MB,
     allowedMimeTypes: [
-      'application/pdf',
-      'text/plain',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      "application/pdf",
+      "text/plain",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ],
   },
 };
 
 function isAttachmentType(value: string): value is AttachmentType {
-  return value === 'image' || value === 'audio' || value === 'video' || value === 'file';
+  return (
+    value === "image" ||
+    value === "audio" ||
+    value === "video" ||
+    value === "file"
+  );
 }
 
 function isAllowedMimeType(
@@ -50,16 +64,18 @@ function isAllowedMimeType(
   }
 
   // Browsers can emit audio recorder MIME variants like audio/x-m4a.
-  if (attachmentType === 'audio' && normalizedMimeType.startsWith('audio/')) {
+  if (attachmentType === "audio" && normalizedMimeType.startsWith("audio/")) {
     return true;
   }
 
   return false;
 }
 
-export function parseAttachmentType(rawType: FormDataEntryValue | null): AttachmentType | null {
-  if (typeof rawType !== 'string' || rawType.trim().length === 0) {
-    return 'image';
+export function parseAttachmentType(
+  rawType: FormDataEntryValue | null,
+): AttachmentType | null {
+  if (typeof rawType !== "string" || rawType.trim().length === 0) {
+    return "image";
   }
 
   const normalizedType = rawType.trim().toLowerCase();
@@ -76,32 +92,38 @@ export function validateAttachmentUpload(
 ): AttachmentValidationError | null {
   const rule = ATTACHMENT_VALIDATION_RULES[attachmentType];
   const mimeType = file.type.trim().toLowerCase();
-  const normalizedMimeType = mimeType.split(';', 1)[0]?.trim() ?? '';
+  const normalizedMimeType = mimeType.split(";", 1)[0]?.trim() ?? "";
 
   if (!mimeType) {
     return {
-      error: 'File MIME type is required',
+      error: "File MIME type is required",
       status: 400,
     };
   }
 
-  if (!isAllowedMimeType(normalizedMimeType, attachmentType, rule.allowedMimeTypes)) {
+  if (
+    !isAllowedMimeType(
+      normalizedMimeType,
+      attachmentType,
+      rule.allowedMimeTypes,
+    )
+  ) {
     return {
-      error: 'Unsupported file type for attachment',
+      error: "Unsupported file type for attachment",
       status: 415,
     };
   }
 
   if (file.size <= 0) {
     return {
-      error: 'File is empty',
+      error: "File is empty",
       status: 400,
     };
   }
 
   if (file.size > rule.maxBytes) {
     return {
-      error: 'Attachment exceeds the maximum allowed size',
+      error: "Attachment exceeds the maximum allowed size",
       status: 413,
     };
   }

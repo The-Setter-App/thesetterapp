@@ -35,7 +35,11 @@ export function buildContentSecurityPolicy({
   };
 
   if (isDevelopment) {
-    directives["connect-src"] = [...BASE_DIRECTIVES["connect-src"], "ws:", "wss:"];
+    directives["connect-src"] = [
+      ...BASE_DIRECTIVES["connect-src"],
+      "ws:",
+      "wss:",
+    ];
   }
 
   return Object.entries(directives)

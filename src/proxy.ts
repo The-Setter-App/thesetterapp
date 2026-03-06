@@ -1,16 +1,24 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { decrypt } from '@/lib/auth';
-import { buildContentSecurityPolicy } from '@/lib/security/csp';
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { decrypt } from "@/lib/auth";
+import { buildContentSecurityPolicy } from "@/lib/security/csp";
 
 // 1. Specify protected and public routes
-const protectedRoutes = ['/dashboard', '/inbox', '/settings', '/calendar', '/leads', '/setter-ai', '/onboarding'];
-const publicRoutes = ['/login', '/'];
-const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
+const protectedRoutes = [
+  "/dashboard",
+  "/inbox",
+  "/settings",
+  "/calendar",
+  "/leads",
+  "/setter-ai",
+  "/onboarding",
+];
+const publicRoutes = ["/login", "/"];
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
 
 function applyContentSecurityPolicy(response: NextResponse): NextResponse {
   response.headers.set(
-    'Content-Security-Policy',
+    "Content-Security-Policy",
     buildContentSecurityPolicy({
       isDevelopment: IS_DEVELOPMENT,
     }),
@@ -21,18 +29,20 @@ function applyContentSecurityPolicy(response: NextResponse): NextResponse {
 export async function proxy(request: NextRequest) {
   // 2. Check if the current route is protected or public
   const path = request.nextUrl.pathname;
-  const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route));
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    path.startsWith(route),
+  );
   const isPublicRoute = publicRoutes.includes(path);
 
   // 3. Decrypt the session from the cookie
-  const cookie = request.cookies.get('session')?.value;
+  const cookie = request.cookies.get("session")?.value;
   const session = cookie ? await decrypt(cookie).catch(() => null) : null;
   const isAuthenticated = Boolean(session?.email);
 
   // 4. Redirect to /login if the user is not authenticated
   if (isProtectedRoute && !isAuthenticated) {
-    const response = NextResponse.redirect(new URL('/login', request.nextUrl));
-    if (cookie) response.cookies.delete('session');
+    const response = NextResponse.redirect(new URL("/login", request.nextUrl));
+    if (cookie) response.cookies.delete("session");
     return applyContentSecurityPolicy(response);
   }
 
@@ -40,17 +50,17 @@ export async function proxy(request: NextRequest) {
   if (
     isPublicRoute &&
     isAuthenticated &&
-    !request.nextUrl.pathname.startsWith('/dashboard')
+    !request.nextUrl.pathname.startsWith("/dashboard")
   ) {
-    return applyContentSecurityPolicy(NextResponse.redirect(new URL('/dashboard', request.nextUrl)));
+    return applyContentSecurityPolicy(
+      NextResponse.redirect(new URL("/dashboard", request.nextUrl)),
+    );
   }
 
-  return applyContentSecurityPolicy(
-    NextResponse.next(),
-  );
+  return applyContentSecurityPolicy(NextResponse.next());
 }
 
 // Routes Middleware should not run on
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
 };

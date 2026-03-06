@@ -34,7 +34,13 @@ export function getMonthGridDays(year: number, month: number): Date[] {
 
   const days: Date[] = [];
   for (let i = 0; i < 42; i++) {
-    days.push(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
+    days.push(
+      new Date(
+        gridStart.getFullYear(),
+        gridStart.getMonth(),
+        gridStart.getDate() + i,
+      ),
+    );
   }
   return days;
 }
@@ -42,11 +48,17 @@ export function getMonthGridDays(year: number, month: number): Date[] {
 /** Returns the 7 days of the week containing the given date */
 export function getWeekDays(date: Date): Date[] {
   const dayOfWeek = date.getDay();
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - dayOfWeek);
+  const start = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() - dayOfWeek,
+  );
 
   const days: Date[] = [];
   for (let i = 0; i < 7; i++) {
-    days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+    days.push(
+      new Date(start.getFullYear(), start.getMonth(), start.getDate() + i),
+    );
   }
   return days;
 }
@@ -62,7 +74,9 @@ export function formatHour(hour: number): string {
   const m = Math.round((hour - h) * 60);
   const suffix = h < 12 ? "AM" : "PM";
   const display = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${display} ${suffix}` : `${display}:${String(m).padStart(2, "0")} ${suffix}`;
+  return m === 0
+    ? `${display} ${suffix}`
+    : `${display}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
 /** Returns true if two dates are the same calendar day */

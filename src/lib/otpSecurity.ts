@@ -1,7 +1,7 @@
-import { createHmac } from 'node:crypto';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { createHmac } from "node:crypto";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-type OtpRateLimitAction = 'send' | 'verify';
+type OtpRateLimitAction = "send" | "verify";
 
 interface OtpRateLimitRow {
   key: string;
@@ -35,7 +35,10 @@ const DEFAULT_VERIFY_POLICY: OtpRateLimitPolicy = {
   blockSeconds: 900,
 };
 
-const OTP_HASH_SECRET = process.env.OTP_HASH_SECRET?.trim() || process.env.ENCRYPTION_KEY?.trim() || '';
+const OTP_HASH_SECRET =
+  process.env.OTP_HASH_SECRET?.trim() ||
+  process.env.ENCRYPTION_KEY?.trim() ||
+  "";
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -44,7 +47,7 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 }
 
 function getPolicy(action: OtpRateLimitAction): OtpRateLimitPolicy {
-  if (action === 'send') {
+  if (action === "send") {
     return {
       windowSeconds: parsePositiveInt(
         process.env.OTP_SEND_LIMIT_WINDOW_SECONDS,
@@ -82,32 +85,38 @@ function getRetryAfterSeconds(blockedUntil: Date, now: Date): number {
   return seconds > 0 ? seconds : 1;
 }
 
-function buildRateLimitKey(action: OtpRateLimitAction, scope: 'email' | 'ip', value: string): string {
+function buildRateLimitKey(
+  action: OtpRateLimitAction,
+  scope: "email" | "ip",
+  value: string,
+): string {
   return `otp:${action}:${scope}:${value}`;
 }
 
 function getOtpHashSecret(): string {
   if (!OTP_HASH_SECRET || OTP_HASH_SECRET.length < 16) {
-    throw new Error('OTP hash secret is not configured');
+    throw new Error("OTP hash secret is not configured");
   }
   return OTP_HASH_SECRET;
 }
 
 export function hashOtp(email: string, otp: string): string {
-  return createHmac('sha256', getOtpHashSecret()).update(`${email}:${otp}`).digest('hex');
+  return createHmac("sha256", getOtpHashSecret())
+    .update(`${email}:${otp}`)
+    .digest("hex");
 }
 
 export function getClientIp(headers: Headers): string {
-  const forwardedFor = headers.get('x-forwarded-for');
+  const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
-    const first = forwardedFor.split(',')[0]?.trim();
+    const first = forwardedFor.split(",")[0]?.trim();
     if (first) return first;
   }
 
-  const realIp = headers.get('x-real-ip')?.trim();
+  const realIp = headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
 
-  return 'unknown';
+  return "unknown";
 }
 
 async function consumeRateLimitKey(
@@ -120,14 +129,14 @@ async function consumeRateLimitKey(
   const nowIso = now.toISOString();
 
   const { data } = await supabase
-    .from('otp_rate_limits')
-    .select('key,action,count,window_started_at,blocked_until,updated_at')
-    .eq('key', key)
+    .from("otp_rate_limits")
+    .select("key,action,count,window_started_at,blocked_until,updated_at")
+    .eq("key", key)
     .maybeSingle();
 
   const row = data as OtpRateLimitRow | null;
   if (!row) {
-    await supabase.from('otp_rate_limits').insert({
+    await supabase.from("otp_rate_limits").insert({
       key,
       action,
       count: 1,
@@ -149,18 +158,20 @@ async function consumeRateLimitKey(
   }
 
   const windowStartedAt = new Date(row.window_started_at);
-  const windowExpiresAt = new Date(windowStartedAt.getTime() + policy.windowSeconds * 1000);
+  const windowExpiresAt = new Date(
+    windowStartedAt.getTime() + policy.windowSeconds * 1000,
+  );
 
   if (windowExpiresAt.getTime() <= now.getTime()) {
     await supabase
-      .from('otp_rate_limits')
+      .from("otp_rate_limits")
       .update({
         count: 1,
         window_started_at: nowIso,
         blocked_until: null,
         updated_at: nowIso,
       })
-      .eq('key', key);
+      .eq("key", key);
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
@@ -168,13 +179,13 @@ async function consumeRateLimitKey(
   if (nextCount > policy.maxAttempts) {
     const blockedUntil = new Date(now.getTime() + policy.blockSeconds * 1000);
     await supabase
-      .from('otp_rate_limits')
+      .from("otp_rate_limits")
       .update({
         count: nextCount,
         blocked_until: blockedUntil.toISOString(),
         updated_at: nowIso,
       })
-      .eq('key', key);
+      .eq("key", key);
 
     return {
       allowed: false,
@@ -183,13 +194,13 @@ async function consumeRateLimitKey(
   }
 
   await supabase
-    .from('otp_rate_limits')
+    .from("otp_rate_limits")
     .update({
       count: nextCount,
       blocked_until: null,
       updated_at: nowIso,
     })
-    .eq('key', key);
+    .eq("key", key);
 
   return { allowed: true, retryAfterSeconds: 0 };
 }
@@ -220,9 +231,9 @@ export async function enforceOtpSendRateLimit(
   email: string,
   ipAddress: string,
 ): Promise<OtpRateLimitDecision> {
-  return enforceRateLimitKeys('send', [
-    buildRateLimitKey('send', 'email', email),
-    buildRateLimitKey('send', 'ip', ipAddress),
+  return enforceRateLimitKeys("send", [
+    buildRateLimitKey("send", "email", email),
+    buildRateLimitKey("send", "ip", ipAddress),
   ]);
 }
 
@@ -230,16 +241,16 @@ export async function enforceOtpVerifyRateLimit(
   email: string,
   ipAddress: string,
 ): Promise<OtpRateLimitDecision> {
-  return enforceRateLimitKeys('verify', [
-    buildRateLimitKey('verify', 'email', email),
-    buildRateLimitKey('verify', 'ip', ipAddress),
+  return enforceRateLimitKeys("verify", [
+    buildRateLimitKey("verify", "email", email),
+    buildRateLimitKey("verify", "ip", ipAddress),
   ]);
 }
 
 export async function resetOtpVerifyEmailLimit(email: string): Promise<void> {
   const supabase = getSupabaseServerClient();
   await supabase
-    .from('otp_rate_limits')
+    .from("otp_rate_limits")
     .delete()
-    .eq('key', buildRateLimitKey('verify', 'email', email));
+    .eq("key", buildRateLimitKey("verify", "email", email));
 }

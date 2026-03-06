@@ -11,7 +11,10 @@ export default function DisconnectCacheCleanup({
   useEffect(() => {
     if (!disconnectedAccountId) return;
     removeCachedConversationsByAccount(disconnectedAccountId).catch((error) => {
-      console.error("[DisconnectCacheCleanup] Failed to clear IndexedDB cache:", error);
+      console.error(
+        "[DisconnectCacheCleanup] Failed to clear IndexedDB cache:",
+        error,
+      );
     });
   }, [disconnectedAccountId]);
 

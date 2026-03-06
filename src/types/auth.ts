@@ -1,5 +1,5 @@
-export type TeamMemberRole = 'setter' | 'closer';
-export type UserRole = 'owner' | TeamMemberRole | 'viewer';
+export type TeamMemberRole = "setter" | "closer";
+export type UserRole = "owner" | TeamMemberRole | "viewer";
 
 export interface TeamMember {
   email: string;

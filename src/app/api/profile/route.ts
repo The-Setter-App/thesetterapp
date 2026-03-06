@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 import {
   exceedsProfileImageSizeLimit,
   isValidProfileImageDataUrl,
   MAX_DISPLAY_NAME_LENGTH,
   normalizeDisplayName,
-} from '@/lib/profileValidation';
-import { revalidateSettingsUserCache } from '@/lib/settingsCache';
-import { updateUserProfile } from '@/lib/userRepository';
+} from "@/lib/profileValidation";
+import { revalidateSettingsUserCache } from "@/lib/settingsCache";
+import { updateUserProfile } from "@/lib/userRepository";
 
 interface UpdateProfileBody {
   displayName?: unknown;
@@ -16,7 +16,7 @@ interface UpdateProfileBody {
 }
 
 function isHttpUrl(value: string): boolean {
-  return value.startsWith('http://') || value.startsWith('https://');
+  return value.startsWith("http://") || value.startsWith("https://");
 }
 
 function parseBoolean(value: unknown): boolean {
@@ -27,33 +27,47 @@ export async function PATCH(request: Request) {
   try {
     const session = await getSession();
     if (!session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = (await request.json()) as UpdateProfileBody;
-    const displayName = typeof body.displayName === 'string' ? normalizeDisplayName(body.displayName) : '';
+    const displayName =
+      typeof body.displayName === "string"
+        ? normalizeDisplayName(body.displayName)
+        : "";
     if (!displayName) {
-      return NextResponse.json({ error: 'Display name is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Display name is required" },
+        { status: 400 },
+      );
     }
     if (displayName.length > MAX_DISPLAY_NAME_LENGTH) {
       return NextResponse.json(
-        { error: `Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer` },
-        { status: 400 }
+        {
+          error: `Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer`,
+        },
+        { status: 400 },
       );
     }
 
     let profileImageBase64: string | null | undefined;
-    if (typeof body.profileImageBase64 === 'string') {
+    if (typeof body.profileImageBase64 === "string") {
       if (isValidProfileImageDataUrl(body.profileImageBase64)) {
         if (exceedsProfileImageSizeLimit(body.profileImageBase64)) {
-          return NextResponse.json({ error: 'Profile image is too large' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Profile image is too large" },
+            { status: 400 },
+          );
         }
         profileImageBase64 = body.profileImageBase64;
       } else if (isHttpUrl(body.profileImageBase64)) {
         // Existing stored image URL sent back by client; treat as no image mutation.
         profileImageBase64 = undefined;
       } else {
-        return NextResponse.json({ error: 'Invalid profile image format' }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid profile image format" },
+          { status: 400 },
+        );
       }
     } else if (body.profileImageBase64 === null) {
       profileImageBase64 = null;
@@ -76,7 +90,10 @@ export async function PATCH(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Failed to update profile', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Failed to update profile", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

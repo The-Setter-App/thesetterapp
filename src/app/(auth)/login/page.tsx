@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [step, setStep] = useState<"email" | "otp">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sendCooldownSeconds, setSendCooldownSeconds] = useState(0);
@@ -41,7 +41,9 @@ export default function LoginPage() {
     }
   };
 
-  const parseResponseJsonSafe = async <T,>(res: Response): Promise<T | null> => {
+  const parseResponseJsonSafe = async <T,>(
+    res: Response,
+  ): Promise<T | null> => {
     try {
       return (await res.json()) as T;
     } catch {
@@ -59,30 +61,38 @@ export default function LoginPage() {
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (sendCooldownSeconds > 0) {
-      setError(`Please wait ${formatCooldown(sendCooldownSeconds)} before retrying.`);
+      setError(
+        `Please wait ${formatCooldown(sendCooldownSeconds)} before retrying.`,
+      );
       return;
     }
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch('/api/auth/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (!res.ok) {
         if (res.status === 429) {
-          const retryAfter = Number.parseInt(res.headers.get("Retry-After") || "60", 10);
-          const cooldown = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+          const retryAfter = Number.parseInt(
+            res.headers.get("Retry-After") || "60",
+            10,
+          );
+          const cooldown =
+            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
           setSendCooldownSeconds(cooldown);
-          throw new Error(`Too many attempts. Try again in ${formatCooldown(cooldown)}.`);
+          throw new Error(
+            `Too many attempts. Try again in ${formatCooldown(cooldown)}.`,
+          );
         }
         throw new Error(await parseResponseError(res, "Failed to send OTP"));
       }
 
-      setStep('otp');
+      setStep("otp");
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
@@ -96,20 +106,29 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch('/api/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
       });
 
-      const data = await parseResponseJsonSafe<{ error?: string; requiresOnboarding?: boolean }>(res);
+      const data = await parseResponseJsonSafe<{
+        error?: string;
+        requiresOnboarding?: boolean;
+      }>(res);
       if (!res.ok) {
         if (res.status === 429) {
-          const retryAfter = Number.parseInt(res.headers.get("Retry-After") || "60", 10);
-          const cooldown = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
-          throw new Error(`Too many verification attempts. Try again in ${formatCooldown(cooldown)}.`);
+          const retryAfter = Number.parseInt(
+            res.headers.get("Retry-After") || "60",
+            10,
+          );
+          const cooldown =
+            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+          throw new Error(
+            `Too many verification attempts. Try again in ${formatCooldown(cooldown)}.`,
+          );
         }
-        throw new Error(data?.error || 'Invalid OTP');
+        throw new Error(data?.error || "Invalid OTP");
       }
 
       // Successful login
@@ -119,7 +138,7 @@ export default function LoginPage() {
         console.error("Failed to reset cache on login:", e);
       }
 
-      router.push(data?.requiresOnboarding ? '/onboarding' : '/dashboard');
+      router.push(data?.requiresOnboarding ? "/onboarding" : "/dashboard");
       router.refresh(); // Refresh to update server components with new session
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -132,36 +151,36 @@ export default function LoginPage() {
     <div
       className="min-h-screen relative"
       style={{
-        background: 'linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.3) 50%, #FFFFFF 100%)'
+        background:
+          "linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.3) 50%, #FFFFFF 100%)",
       }}
     >
       <header className="absolute top-0 left-0 w-full">
         <div className="mx-auto w-full max-w-[1800px] px-6 md:px-8 pt-5 md:pt-6 pl-40 md:pl-60 flex justify-start">
-        <AppImage
-          src="/images/setter-header.png"
-          alt="Setter"
-          className="w-[76px] md:w-[120px] h-auto"
-          loadingMode="eager"
-        />
+          <AppImage
+            src="/images/setter-header.png"
+            alt="Setter"
+            className="w-[76px] md:w-[120px] h-auto"
+            loadingMode="eager"
+          />
         </div>
       </header>
 
       <div className="min-h-screen flex items-center justify-center px-4 pb-8 pt-24 md:pt-28">
         <div className="bg-white bg-opacity-70 shadow-xl rounded-2xl px-10 py-8 flex flex-col items-center w-full max-w-md">
-        
           {/* Title */}
           <h2
             className="text-center mt-0 mb-3 text-gray-900 font-bold"
-            style={{ fontFamily: 'Inter, sans-serif', fontSize: 18 }}
+            style={{ fontFamily: "Inter, sans-serif", fontSize: 18 }}
           >
-            {step === 'email' ? "Let's Get Started" : "Check Your Inbox"}
+            {step === "email" ? "Let's Get Started" : "Check Your Inbox"}
           </h2>
-          
+
           <p
             className="text-center mb-6 text-gray-700 font-bold"
-            style={{ fontFamily: 'Inter, sans-serif', fontSize: 14 }}
+            style={{ fontFamily: "Inter, sans-serif", fontSize: 14 }}
           >
-            {step === 'email' 
+            {step === "email"
               ? "Enter your email to access your Setter account — we’ll get you in fast."
               : `We sent a code to ${email}. Enter it below to verify.`}
           </p>
@@ -174,12 +193,15 @@ export default function LoginPage() {
           )}
 
           {/* Forms */}
-          {step === 'email' ? (
-            <form onSubmit={handleSendOTP} className="w-full flex flex-col items-center">
+          {step === "email" ? (
+            <form
+              onSubmit={handleSendOTP}
+              className="w-full flex flex-col items-center"
+            >
               <label
                 htmlFor="email"
                 className="self-start text-gray-800 mb-1 font-bold"
-                style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}
+                style={{ fontFamily: "Inter, sans-serif", fontSize: 13 }}
               >
                 Enter your email
               </label>
@@ -189,13 +211,13 @@ export default function LoginPage() {
                 placeholder="name@gmail.com"
                 className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
               />
               <button
                 type="submit"
-                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${email && !loading ? 'bg-[#8771FF] text-white hover:bg-[#6d5ed6]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${email && !loading ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
                 disabled={!email || loading || sendCooldownSeconds > 0}
               >
                 {loading
@@ -206,11 +228,14 @@ export default function LoginPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOTP} className="w-full flex flex-col items-center">
+            <form
+              onSubmit={handleVerifyOTP}
+              className="w-full flex flex-col items-center"
+            >
               <label
                 htmlFor="otp"
                 className="self-start text-gray-800 mb-1 font-bold"
-                style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}
+                style={{ fontFamily: "Inter, sans-serif", fontSize: 13 }}
               >
                 Enter OTP Code
               </label>
@@ -220,21 +245,24 @@ export default function LoginPage() {
                 placeholder="123456"
                 className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400 tracking-widest text-center text-lg"
                 value={otp}
-                onChange={e => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value)}
                 required
                 disabled={loading}
                 maxLength={6}
               />
               <button
                 type="submit"
-                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${otp.length >= 4 && !loading ? 'bg-[#8771FF] text-white hover:bg-[#6d5ed6]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${otp.length >= 4 && !loading ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
                 disabled={!otp || loading}
               >
                 {loading ? "Verifying..." : "Verify & Login"}
               </button>
               <button
                 type="button"
-                onClick={() => { setStep('email'); setError(""); }}
+                onClick={() => {
+                  setStep("email");
+                  setError("");
+                }}
                 className="text-sm text-gray-500 hover:text-gray-800 mt-2"
               >
                 Change email
@@ -244,8 +272,26 @@ export default function LoginPage() {
 
           {/* Terms and Privacy */}
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Continue to accept <a href="https://thesetter.app/legal-pages/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="underline hover:text-violet-700">terms & conditions</a><br />
-            and <a href="https://thesetter.app/legal-pages/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline hover:text-violet-700">privacy policy</a>.
+            Continue to accept{" "}
+            <a
+              href="https://thesetter.app/legal-pages/terms-and-conditions"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-violet-700"
+            >
+              terms & conditions
+            </a>
+            <br />
+            and{" "}
+            <a
+              href="https://thesetter.app/legal-pages/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-violet-700"
+            >
+              privacy policy
+            </a>
+            .
           </p>
         </div>
       </div>

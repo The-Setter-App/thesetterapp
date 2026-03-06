@@ -20,7 +20,10 @@ export async function GET(
 
   const { path } = await context.params;
   if (!Array.isArray(path) || path.length === 0) {
-    return NextResponse.json({ error: "Image path is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Image path is required" },
+      { status: 400 },
+    );
   }
 
   const objectPath = path.join("/");

@@ -1,5 +1,8 @@
-import type { DashboardMessageStats, DashboardSnapshot } from '@/types/dashboard';
-import type { User } from '@/types/inbox';
+import type {
+  DashboardMessageStats,
+  DashboardSnapshot,
+} from "@/types/dashboard";
+import type { User } from "@/types/inbox";
 
 interface ConversationSummary {
   qualified: number;
@@ -20,7 +23,7 @@ interface MessageSummary {
 
 function parseRevenueAmount(rawAmount: string | undefined): number | null {
   if (!rawAmount) return null;
-  const numeric = Number.parseFloat(rawAmount.replace(/[^0-9.-]/g, ''));
+  const numeric = Number.parseFloat(rawAmount.replace(/[^0-9.-]/g, ""));
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return numeric;
 }
@@ -34,13 +37,13 @@ function summarizeConversations(users: User[]): ConversationSummary {
   let revenueConversations = 0;
 
   for (const user of users) {
-    if (user.status === 'Qualified') {
+    if (user.status === "Qualified") {
       qualified += 1;
       conversionCount += 1;
-    } else if (user.status === 'Booked') {
+    } else if (user.status === "Booked") {
       booked += 1;
       conversionCount += 1;
-    } else if (user.status === 'Won') {
+    } else if (user.status === "Won") {
       closed += 1;
       conversionCount += 1;
     }
@@ -137,7 +140,8 @@ export function buildDashboardSnapshot(
   );
   const revenuePerCall =
     conversationSummary.revenueConversations > 0
-      ? conversationSummary.totalRevenue / conversationSummary.revenueConversations
+      ? conversationSummary.totalRevenue /
+        conversationSummary.revenueConversations
       : 0;
   const avgReplyTimeMs =
     messageSummary.replyPairs > 0

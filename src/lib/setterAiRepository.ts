@@ -37,7 +37,9 @@ function normalizeEmail(email: string): string {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function buildDefaultTitleFromText(text: string): string {
@@ -79,7 +81,11 @@ function getCached<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
   return cached.value;
 }
 
-function setCached<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): void {
+function setCached<T>(
+  map: Map<string, CacheEntry<T>>,
+  key: string,
+  value: T,
+): void {
   map.set(key, {
     value,
     expiresAt: Date.now() + CACHE_TTL_MS,
@@ -94,13 +100,17 @@ function invalidateMessageCache(email: string, sessionId: string): void {
   messagesCache.delete(`messages:${email}:${sessionId}`);
 }
 
-export async function listSetterAiSessionsByEmail(email: string): Promise<ChatSession[]> {
+export async function listSetterAiSessionsByEmail(
+  email: string,
+): Promise<ChatSession[]> {
   const normalizedEmail = normalizeEmail(email);
 
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("setter_ai_sessions")
-    .select("id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label")
+    .select(
+      "id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label",
+    )
     .eq("email", normalizedEmail)
     .order("updated_at", { ascending: false });
 
@@ -108,7 +118,10 @@ export async function listSetterAiSessionsByEmail(email: string): Promise<ChatSe
   return sessions;
 }
 
-export async function createSetterAiSession(email: string, title?: string): Promise<ChatSession> {
+export async function createSetterAiSession(
+  email: string,
+  title?: string,
+): Promise<ChatSession> {
   const normalizedEmail = normalizeEmail(email);
   const safeTitle =
     typeof title === "string" && title.trim()
@@ -128,7 +141,9 @@ export async function createSetterAiSession(email: string, title?: string): Prom
       linked_inbox_conversation_id: null,
       linked_inbox_conversation_label: null,
     })
-    .select("id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label")
+    .select(
+      "id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label",
+    )
     .single();
 
   if (error || !data) {
@@ -139,14 +154,19 @@ export async function createSetterAiSession(email: string, title?: string): Prom
   return mapSessionRow(data as SessionRow);
 }
 
-export async function getSetterAiSessionById(email: string, sessionId: string): Promise<ChatSession | null> {
+export async function getSetterAiSessionById(
+  email: string,
+  sessionId: string,
+): Promise<ChatSession | null> {
   const normalizedEmail = normalizeEmail(email);
   if (!isUuid(sessionId)) return null;
 
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("setter_ai_sessions")
-    .select("id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label")
+    .select(
+      "id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label",
+    )
     .eq("email", normalizedEmail)
     .eq("id", sessionId)
     .maybeSingle();
@@ -158,17 +178,22 @@ export async function getSetterAiSessionById(email: string, sessionId: string): 
 export async function updateSetterAiSessionLeadLink(
   email: string,
   sessionId: string,
-  link: { linkedInboxConversationId: string | null; linkedInboxConversationLabel: string | null },
+  link: {
+    linkedInboxConversationId: string | null;
+    linkedInboxConversationLabel: string | null;
+  },
 ): Promise<ChatSession | null> {
   const normalizedEmail = normalizeEmail(email);
   if (!isUuid(sessionId)) return null;
 
   const linkedInboxConversationId =
-    typeof link.linkedInboxConversationId === "string" && link.linkedInboxConversationId.trim().length > 0
+    typeof link.linkedInboxConversationId === "string" &&
+    link.linkedInboxConversationId.trim().length > 0
       ? link.linkedInboxConversationId.trim().slice(0, 120)
       : null;
   const linkedInboxConversationLabel =
-    typeof link.linkedInboxConversationLabel === "string" && link.linkedInboxConversationLabel.trim().length > 0
+    typeof link.linkedInboxConversationLabel === "string" &&
+    link.linkedInboxConversationLabel.trim().length > 0
       ? link.linkedInboxConversationLabel.trim().slice(0, 120)
       : null;
 
@@ -182,7 +207,9 @@ export async function updateSetterAiSessionLeadLink(
     })
     .eq("id", sessionId)
     .eq("email", normalizedEmail)
-    .select("id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label")
+    .select(
+      "id,email,title,created_at,updated_at,last_message_preview,linked_inbox_conversation_id,linked_inbox_conversation_label",
+    )
     .maybeSingle();
 
   if (!data) return null;
@@ -192,7 +219,10 @@ export async function updateSetterAiSessionLeadLink(
   return mapSessionRow(data as SessionRow);
 }
 
-export async function listSetterAiMessages(email: string, sessionId: string): Promise<Message[]> {
+export async function listSetterAiMessages(
+  email: string,
+  sessionId: string,
+): Promise<Message[]> {
   const normalizedEmail = normalizeEmail(email);
   if (!isUuid(sessionId)) return [];
 
@@ -217,13 +247,21 @@ export async function buildSetterAiModelContext(
   email: string,
   sessionId: string,
   incomingUserMessage: string,
-  params?: { maxHistory?: number; systemPrompt?: string; leadContextBlock?: string | null; maxTotalChars?: number },
+  params?: {
+    maxHistory?: number;
+    systemPrompt?: string;
+    leadContextBlock?: string | null;
+    maxTotalChars?: number;
+  },
 ): Promise<Array<{ role: "system" | "user" | "assistant"; content: string }>> {
   const safeIncomingMessage = incomingUserMessage.trim().slice(0, 8000);
   const maxHistory = params?.maxHistory ?? 30;
   const maxTotalChars = params?.maxTotalChars ?? 24000;
   const previousMessages = await listSetterAiMessages(email, sessionId);
-  const context: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+  const context: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }> = [];
 
   const systemPrompt =
     typeof params?.systemPrompt === "string" && params.systemPrompt.trim()
@@ -234,21 +272,35 @@ export async function buildSetterAiModelContext(
   }
 
   const leadContextBlock =
-    typeof params?.leadContextBlock === "string" && params.leadContextBlock.trim()
+    typeof params?.leadContextBlock === "string" &&
+    params.leadContextBlock.trim()
       ? params.leadContextBlock.trim().slice(0, 8000)
       : "";
   const userMessageWithLeadContext = leadContextBlock
-    ? ["this is the leads context:", leadContextBlock, "", "this is my message:", safeIncomingMessage].join("\n").slice(0, 12000)
+    ? [
+        "this is the leads context:",
+        leadContextBlock,
+        "",
+        "this is my message:",
+        safeIncomingMessage,
+      ]
+        .join("\n")
+        .slice(0, 12000)
     : safeIncomingMessage;
 
   const history = previousMessages.slice(-maxHistory).map((message) => ({
-    role: (message.role === "user" ? "user" : "assistant") as "user" | "assistant",
+    role: (message.role === "user" ? "user" : "assistant") as
+      | "user"
+      | "assistant",
     content: message.text.trim().slice(0, 8000),
   }));
 
   const baseChars = context.reduce((sum, item) => sum + item.content.length, 0);
   const incomingChars = userMessageWithLeadContext.length;
-  const remainingForHistory = Math.max(maxTotalChars - baseChars - incomingChars, 0);
+  const remainingForHistory = Math.max(
+    maxTotalChars - baseChars - incomingChars,
+    0,
+  );
 
   if (remainingForHistory > 0) {
     const selected: typeof history = [];
@@ -283,7 +335,10 @@ export async function appendSetterAiExchangeAfterStream(
 
   const safeUserText = userText.trim().slice(0, 8000);
   const safeAiText = aiText.trim().slice(0, 8000);
-  const safeRequestId = typeof requestId === "string" && requestId.trim().length > 0 ? requestId.trim().slice(0, 120) : undefined;
+  const safeRequestId =
+    typeof requestId === "string" && requestId.trim().length > 0
+      ? requestId.trim().slice(0, 120)
+      : undefined;
   if (!safeUserText || !safeAiText) {
     throw new Error("Cannot persist empty exchange");
   }
@@ -319,7 +374,9 @@ export async function appendSetterAiExchangeAfterStream(
     throw new Error(rpcResult.error.message);
   }
 
-  const shouldSetTitle = (count ?? 0) === 0 && (sessionRow as { title: string }).title === "New Conversation";
+  const shouldSetTitle =
+    (count ?? 0) === 0 &&
+    (sessionRow as { title: string }).title === "New Conversation";
   if (shouldSetTitle) {
     await supabase
       .from("setter_ai_sessions")

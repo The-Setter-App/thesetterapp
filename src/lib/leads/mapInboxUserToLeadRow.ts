@@ -1,5 +1,5 @@
-import type { LeadRow } from "@/types/leads";
 import type { User } from "@/types/inbox";
+import type { LeadRow } from "@/types/leads";
 
 function toTitleFromHandle(rawName: string): string {
   const trimmed = rawName.trim();
@@ -62,7 +62,10 @@ export function mapInboxUserToLeadRow(user: User): LeadRow {
     id: user.id,
     name: displayName,
     handle: toHandle(user.name),
-    messageCount: typeof user.unread === "number" && user.unread > 0 ? user.unread : undefined,
+    messageCount:
+      typeof user.unread === "number" && user.unread > 0
+        ? user.unread
+        : undefined,
     status: user.status,
     cash: toCashLabel(user.paymentDetails?.amount),
     assignedTo: "N/A",

@@ -2,6 +2,28 @@
 
 import PageHeaderSkeleton from "@/components/layout/PageHeaderSkeleton";
 
+const FEATURE_CARD_IDS = [
+  "feature-card-1",
+  "feature-card-2",
+  "feature-card-3",
+  "feature-card-4",
+] as const;
+const LIST_ROW_IDS = [
+  "list-row-1",
+  "list-row-2",
+  "list-row-3",
+  "list-row-4",
+  "list-row-5",
+] as const;
+const DETAIL_CARD_IDS = [
+  "detail-card-1",
+  "detail-card-2",
+  "detail-card-3",
+  "detail-card-4",
+  "detail-card-5",
+  "detail-card-6",
+] as const;
+
 function DefaultSkeletonBody() {
   return (
     <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6 lg:px-8">
@@ -11,16 +33,22 @@ function DefaultSkeletonBody() {
             <div className="h-6 w-52 animate-pulse rounded bg-[#ECE9FF]" />
             <div className="mt-3 h-4 w-72 animate-pulse rounded bg-[#F4F5F8]" />
             <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-2xl bg-[#F8F7FF]" />
+              {FEATURE_CARD_IDS.map((cardId) => (
+                <div
+                  key={cardId}
+                  className="h-24 animate-pulse rounded-2xl bg-[#F8F7FF]"
+                />
               ))}
             </div>
           </div>
           <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
             <div className="h-5 w-36 animate-pulse rounded bg-[#ECE9FF]" />
             <div className="mt-5 space-y-3">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="h-14 animate-pulse rounded-xl bg-[#F4F5F8]" />
+              {LIST_ROW_IDS.map((rowId) => (
+                <div
+                  key={rowId}
+                  className="h-14 animate-pulse rounded-xl bg-[#F4F5F8]"
+                />
               ))}
             </div>
           </div>
@@ -29,8 +57,8 @@ function DefaultSkeletonBody() {
         <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
           <div className="h-5 w-28 animate-pulse rounded bg-[#ECE9FF]" />
           <div className="mt-5 space-y-4">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="rounded-2xl bg-[#F8F7FF] p-4">
+            {DETAIL_CARD_IDS.map((cardId) => (
+              <div key={cardId} className="rounded-2xl bg-[#F8F7FF] p-4">
                 <div className="h-4 w-32 animate-pulse rounded bg-[#ECE9FF]" />
                 <div className="mt-3 h-3 w-full animate-pulse rounded bg-[#F4F5F8]" />
                 <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-[#F4F5F8]" />

@@ -19,7 +19,11 @@ export function InboxSyncProvider({
   value: InboxSyncContextValue;
   children: React.ReactNode;
 }) {
-  return <InboxSyncContext.Provider value={value}>{children}</InboxSyncContext.Provider>;
+  return (
+    <InboxSyncContext.Provider value={value}>
+      {children}
+    </InboxSyncContext.Provider>
+  );
 }
 
 export function useInboxSync(): InboxSyncContextValue {
@@ -29,4 +33,3 @@ export function useInboxSync(): InboxSyncContextValue {
   }
   return context;
 }
-

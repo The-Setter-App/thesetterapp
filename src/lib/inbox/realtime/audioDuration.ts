@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
 
@@ -9,7 +9,9 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
 }
 
-export function resolveAudioDurationFromUrl(url: string): Promise<string | null> {
+export function resolveAudioDurationFromUrl(
+  url: string,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const audio = new Audio();
     const resolvedUrl = resolveAppMediaSrc(url) || url;

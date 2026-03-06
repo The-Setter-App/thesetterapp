@@ -19,16 +19,25 @@ export async function POST(
 
     if (!result.accepted) {
       if (result.reason === "unknown_integration") {
-        return NextResponse.json({ error: "Unknown integration." }, { status: 404 });
+        return NextResponse.json(
+          { error: "Unknown integration." },
+          { status: 404 },
+        );
       }
       if (result.reason === "invalid_signature") {
-        return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
+        return NextResponse.json(
+          { error: "Invalid signature." },
+          { status: 401 },
+        );
       }
     }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[CalendlyWebhook] Failed to process webhook:", error);
-    return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook processing failed." },
+      { status: 500 },
+    );
   }
 }

@@ -1,8 +1,8 @@
-import type { Message, SSEMessageData } from "@/types/inbox";
 import {
   mapRealtimePayloadToMessage,
   type RealtimeMessageEventType,
 } from "@/lib/inbox/realtime/messageMapping";
+import type { Message, SSEMessageData } from "@/types/inbox";
 
 type ReconcileResult = {
   messages: Message[];
@@ -39,7 +39,10 @@ export function reconcilePendingMessages(params: {
     if (candidate.type !== canonical.type) return false;
 
     if (canonical.type === "text") {
-      return normalizeText(candidate.text) === canonicalText && canonicalText.length > 0;
+      return (
+        normalizeText(candidate.text) === canonicalText &&
+        canonicalText.length > 0
+      );
     }
 
     const candidateTimestampMs = Date.parse(candidate.timestamp || "");
@@ -47,7 +50,9 @@ export function reconcilePendingMessages(params: {
       Number.isFinite(candidateTimestampMs) &&
       Number.isFinite(canonicalTimestampMs)
     ) {
-      return Math.abs(candidateTimestampMs - canonicalTimestampMs) <= matchWindowMs;
+      return (
+        Math.abs(candidateTimestampMs - canonicalTimestampMs) <= matchWindowMs
+      );
     }
 
     return true;
@@ -86,4 +91,3 @@ export function reconcilePendingMessages(params: {
   );
   return { messages: next, matchedTempId: matched.id };
 }
-

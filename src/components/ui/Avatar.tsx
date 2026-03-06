@@ -4,11 +4,17 @@ interface AvatarProps {
   src?: string | null;
   alt?: string;
   fallback?: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
-export function Avatar({ src, alt, fallback, size = 'md', className = '' }: AvatarProps) {
+export function Avatar({
+  src,
+  alt,
+  fallback,
+  size = "md",
+  className = "",
+}: AvatarProps) {
   const sizes = {
     xs: "w-6 h-6 text-[10px]",
     sm: "w-8 h-8 text-xs",
@@ -18,14 +24,15 @@ export function Avatar({ src, alt, fallback, size = 'md', className = '' }: Avat
   };
 
   return (
-    <div className={`relative inline-block rounded-full overflow-hidden bg-[#F4F5F8] ${sizes[size]} ${className}`}>
+    <div
+      className={`relative inline-block rounded-full overflow-hidden bg-[#F4F5F8] ${sizes[size]} ${className}`}
+    >
       <AppImage
-        src={src || "/images/no_profile.jpg"} 
-        alt={alt || fallback || "Avatar"} 
+        src={src || "/images/no_profile.jpg"}
+        alt={alt || fallback || "Avatar"}
         className="w-full h-full object-cover"
         loadingMode="lazy"
       />
     </div>
   );
 }
-

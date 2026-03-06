@@ -1,24 +1,27 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { getInboxUsers } from "@/app/actions/inbox";
 import {
-  getCachedUsers,
   getCachedMessages,
+  getCachedUsers,
   setCachedUsers,
   updateCachedMessages,
 } from "@/lib/cache";
 import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
+import { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
 import { syncConversationCallsCache } from "@/lib/inbox/realtime/calendlyCallSync";
 import {
   buildRealtimePreviewText,
   mapRealtimePayloadToMessage,
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
-import { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
-import { mergeUsersWithLocalRecency, sortUsersByRecency } from "./sidebar/utils";
 import type { SSEEvent, SSEMessageData } from "@/types/inbox";
-import { usePathname } from "next/navigation";
+import {
+  mergeUsersWithLocalRecency,
+  sortUsersByRecency,
+} from "./sidebar/utils";
 
 interface InboxRealtimeCacheWorkerProps {
   enabled: boolean;
@@ -49,13 +52,20 @@ export default function InboxRealtimeCacheWorker({
           const mergedUsers = mergeUsersWithLocalRecency(users, freshUsers);
           await setCachedUsers(mergedUsers);
           users = mergedUsers;
-          matchedConversation = findConversationForRealtimeMessage(mergedUsers, data);
+          matchedConversation = findConversationForRealtimeMessage(
+            mergedUsers,
+            data,
+          );
         } catch (error) {
-          console.error("[InboxRealtimeCacheWorker] Failed to fetch fresh users:", error);
+          console.error(
+            "[InboxRealtimeCacheWorker] Failed to fetch fresh users:",
+            error,
+          );
         }
       }
 
-      const targetConversationId = matchedConversation?.id || data.conversationId || null;
+      const targetConversationId =
+        matchedConversation?.id || data.conversationId || null;
       if (!targetConversationId) return;
 
       if (matchedConversation) {
@@ -116,13 +126,15 @@ export default function InboxRealtimeCacheWorker({
             const attachmentUrl = message.attachmentUrl;
             if (!attachmentUrl) continue;
 
-            const resolvedDuration = await resolveAudioDurationFromUrl(attachmentUrl);
+            const resolvedDuration =
+              await resolveAudioDurationFromUrl(attachmentUrl);
             if (!resolvedDuration) continue;
 
             await updateCachedMessages(targetConversationId, (existing) => {
               if (!existing) return [];
               return existing.map((entry) => {
-                if (entry.id !== message.id || entry.type !== "audio") return entry;
+                if (entry.id !== message.id || entry.type !== "audio")
+                  return entry;
                 if (entry.duration === resolvedDuration) return entry;
                 return { ...entry, duration: resolvedDuration };
               });
@@ -145,7 +157,10 @@ export default function InboxRealtimeCacheWorker({
             .catch(() => undefined)
             .then(() => syncConversationCallsCache(message.data.conversationId))
             .catch((error) => {
-              console.error("[InboxRealtimeCacheWorker] Calls cache sync failed:", error);
+              console.error(
+                "[InboxRealtimeCacheWorker] Calls cache sync failed:",
+                error,
+              );
             });
           return;
         }
@@ -158,10 +173,16 @@ export default function InboxRealtimeCacheWorker({
           .catch(() => undefined)
           .then(() => applyRealtimeCacheUpdate(message.type, message.data))
           .catch((error) => {
-            console.error("[InboxRealtimeCacheWorker] Realtime cache update failed:", error);
+            console.error(
+              "[InboxRealtimeCacheWorker] Realtime cache update failed:",
+              error,
+            );
           });
       } catch (error) {
-        console.error("[InboxRealtimeCacheWorker] Failed to parse SSE message:", error);
+        console.error(
+          "[InboxRealtimeCacheWorker] Failed to parse SSE message:",
+          error,
+        );
       }
     };
 

@@ -67,7 +67,9 @@ function normalizeContactDetails(
         ? value.phoneNumber
         : DEFAULT_CONTACT_DETAILS.phoneNumber,
     email:
-      typeof value?.email === "string" ? value.email : DEFAULT_CONTACT_DETAILS.email,
+      typeof value?.email === "string"
+        ? value.email
+        : DEFAULT_CONTACT_DETAILS.email,
   };
 }
 
@@ -181,7 +183,8 @@ export function applyConversationDetailsLocalPatch(
   patch: ConversationDetailsPendingPatch,
 ): ConversationDetailsCacheState {
   const normalizedPatch = normalizeConversationDetailsPendingPatch(patch);
-  const baseDetails = currentState?.details ?? normalizeConversationDetails(null);
+  const baseDetails =
+    currentState?.details ?? normalizeConversationDetails(null);
   const basePending = currentState?.pending ?? {};
 
   return {
@@ -190,9 +193,12 @@ export function applyConversationDetailsLocalPatch(
         typeof normalizedPatch.notes === "string"
           ? normalizedPatch.notes
           : baseDetails.notes,
-      paymentDetails: normalizedPatch.paymentDetails ?? baseDetails.paymentDetails,
-      timelineEvents: normalizedPatch.timelineEvents ?? baseDetails.timelineEvents,
-      contactDetails: normalizedPatch.contactDetails ?? baseDetails.contactDetails,
+      paymentDetails:
+        normalizedPatch.paymentDetails ?? baseDetails.paymentDetails,
+      timelineEvents:
+        normalizedPatch.timelineEvents ?? baseDetails.timelineEvents,
+      contactDetails:
+        normalizedPatch.contactDetails ?? baseDetails.contactDetails,
     },
     pending: {
       ...basePending,
@@ -229,21 +235,36 @@ export function mergeRemoteConversationDetails(
   }
 
   if (pending.paymentDetails) {
-    if (!paymentDetailsEqual(pending.paymentDetails, normalizedRemote.paymentDetails)) {
+    if (
+      !paymentDetailsEqual(
+        pending.paymentDetails,
+        normalizedRemote.paymentDetails,
+      )
+    ) {
       nextPaymentDetails = currentState.details.paymentDetails;
       nextPending.paymentDetails = pending.paymentDetails;
     }
   }
 
   if (Array.isArray(pending.timelineEvents)) {
-    if (!timelineEventsEqual(pending.timelineEvents, normalizedRemote.timelineEvents)) {
+    if (
+      !timelineEventsEqual(
+        pending.timelineEvents,
+        normalizedRemote.timelineEvents,
+      )
+    ) {
       nextTimelineEvents = currentState.details.timelineEvents;
       nextPending.timelineEvents = pending.timelineEvents;
     }
   }
 
   if (pending.contactDetails) {
-    if (!contactDetailsEqual(pending.contactDetails, normalizedRemote.contactDetails)) {
+    if (
+      !contactDetailsEqual(
+        pending.contactDetails,
+        normalizedRemote.contactDetails,
+      )
+    ) {
       nextContactDetails = currentState.details.contactDetails;
       nextPending.contactDetails = pending.contactDetails;
     }
@@ -292,7 +313,12 @@ export function clearSyncedConversationDetailsPending(
   if (normalizedPatch.paymentDetails) {
     const pendingPaymentDetails = nextPending.paymentDetails;
     if (pendingPaymentDetails) {
-      if (paymentDetailsEqual(pendingPaymentDetails, normalizedPatch.paymentDetails)) {
+      if (
+        paymentDetailsEqual(
+          pendingPaymentDetails,
+          normalizedPatch.paymentDetails,
+        )
+      ) {
         delete nextPending.paymentDetails;
         nextPaymentDetails = normalizedPatch.paymentDetails;
       }
@@ -304,7 +330,12 @@ export function clearSyncedConversationDetailsPending(
   if (Array.isArray(normalizedPatch.timelineEvents)) {
     const pendingTimelineEvents = nextPending.timelineEvents;
     if (Array.isArray(pendingTimelineEvents)) {
-      if (timelineEventsEqual(pendingTimelineEvents, normalizedPatch.timelineEvents)) {
+      if (
+        timelineEventsEqual(
+          pendingTimelineEvents,
+          normalizedPatch.timelineEvents,
+        )
+      ) {
         delete nextPending.timelineEvents;
         nextTimelineEvents = normalizedPatch.timelineEvents;
       }
@@ -316,7 +347,12 @@ export function clearSyncedConversationDetailsPending(
   if (normalizedPatch.contactDetails) {
     const pendingContactDetails = nextPending.contactDetails;
     if (pendingContactDetails) {
-      if (contactDetailsEqual(pendingContactDetails, normalizedPatch.contactDetails)) {
+      if (
+        contactDetailsEqual(
+          pendingContactDetails,
+          normalizedPatch.contactDetails,
+        )
+      ) {
         delete nextPending.contactDetails;
         nextContactDetails = normalizedPatch.contactDetails;
       }

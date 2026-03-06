@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TeamMemberRole } from "@/types/auth";
 
@@ -32,7 +32,8 @@ export default function TeamRoleDropdown({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  const selected = ROLE_OPTIONS.find((option) => option.value === value) || ROLE_OPTIONS[0];
+  const selected =
+    ROLE_OPTIONS.find((option) => option.value === value) || ROLE_OPTIONS[0];
 
   return (
     <div ref={containerRef} className="relative">
@@ -46,12 +47,15 @@ export default function TeamRoleDropdown({
         aria-expanded={open}
       >
         <span>{selected.label}</span>
-        <ChevronDown size={16} className={`text-[#606266] transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={16}
+          className={`text-[#606266] transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
         <div className="absolute z-20 mt-2 w-full rounded-xl border border-[#F0F2F6] bg-white p-1 shadow-sm">
-          <ul role="listbox" className="space-y-1">
+          <ul className="space-y-1">
             {ROLE_OPTIONS.map((option) => {
               const isActive = option.value === value;
               return (
@@ -71,7 +75,9 @@ export default function TeamRoleDropdown({
                     aria-selected={isActive}
                   >
                     <span>{option.label}</span>
-                    {isActive ? <Check size={14} className="text-[#8771FF]" /> : null}
+                    {isActive ? (
+                      <Check size={14} className="text-[#8771FF]" />
+                    ) : null}
                   </button>
                 </li>
               );

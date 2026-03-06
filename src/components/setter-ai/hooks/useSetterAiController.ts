@@ -27,10 +27,6 @@ import {
   unmarkSessionAsDeleted,
 } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerSessions";
 import {
-  getHotCachedSetterAiSessions,
-  getHotSetterAiLastEmail,
-} from "@/lib/cache";
-import {
   handleDeleteSession,
   handleNewChat,
   handleSelectSession,
@@ -38,6 +34,10 @@ import {
 import { syncLocalSessionToServer } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerSync";
 import { getLinkedLead } from "@/components/setter-ai/hooks/setterAiController/setterAiControllerViewModel";
 import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
+import {
+  getHotCachedSetterAiSessions,
+  getHotSetterAiLastEmail,
+} from "@/lib/cache";
 import type { Message } from "@/types/ai";
 import type { LeadConversationSummary } from "@/types/setterAiLeadContext";
 

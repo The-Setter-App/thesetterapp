@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import InboxSidebar from "@/components/inbox/InboxSidebar";
-import { InboxSyncProvider } from "@/components/inbox/InboxSyncContext";
 import InboxSseBridge from "@/components/inbox/InboxSseBridge";
+import { InboxSyncProvider } from "@/components/inbox/InboxSyncContext";
 
 export default function InboxLayout({
   children,
@@ -12,7 +12,8 @@ export default function InboxLayout({
   children: React.ReactNode;
 }) {
   const params = useParams<{ id?: string }>();
-  const selectedConversationId = typeof params?.id === "string" ? params.id : null;
+  const selectedConversationId =
+    typeof params?.id === "string" ? params.id : null;
   const isConversationRoute = Boolean(selectedConversationId);
 
   const [leftWidth, setLeftWidth] = useState(380);
@@ -25,12 +26,15 @@ export default function InboxLayout({
   const isResizingLeftRef = useRef(false);
   const gateTimerRef = useRef<number | null>(null);
 
-  const handleLeftResizeStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    isResizingLeftRef.current = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "ew-resize";
-  }, []);
+  const handleLeftResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      isResizingLeftRef.current = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "ew-resize";
+    },
+    [],
+  );
 
   const handleLeftResizeMove = useCallback((event: MouseEvent) => {
     if (!isResizingLeftRef.current) return;
@@ -64,7 +68,7 @@ export default function InboxLayout({
     setSidebarReady(false);
     setChatReady(false);
     setGateTimedOut(false);
-  }, [selectedConversationId, shouldRequireGate]);
+  }, [shouldRequireGate]);
 
   useEffect(() => {
     if (gateTimerRef.current) {
@@ -77,7 +81,9 @@ export default function InboxLayout({
     }
 
     gateTimerRef.current = window.setTimeout(() => {
-      console.warn("[InboxSync] Initial synchronized load timed out. Revealing UI.");
+      console.warn(
+        "[InboxSync] Initial synchronized load timed out. Revealing UI.",
+      );
       setGateTimedOut(true);
     }, 8000);
 
@@ -87,7 +93,7 @@ export default function InboxLayout({
         gateTimerRef.current = null;
       }
     };
-  }, [shouldRequireGate, sidebarReady, chatReady, epoch]);
+  }, [shouldRequireGate, sidebarReady, chatReady]);
 
   useEffect(() => {
     if (!shouldRequireGate) return;
@@ -100,13 +106,19 @@ export default function InboxLayout({
     }
   }, [shouldRequireGate, sidebarReady, chatReady, gateTimedOut]);
 
-  const markSidebarReady = useCallback((readyEpoch: number) => {
-    setSidebarReady((prev) => (readyEpoch === epoch ? true : prev));
-  }, [epoch]);
+  const markSidebarReady = useCallback(
+    (readyEpoch: number) => {
+      setSidebarReady((prev) => (readyEpoch === epoch ? true : prev));
+    },
+    [epoch],
+  );
 
-  const markChatReady = useCallback((readyEpoch: number) => {
-    setChatReady((prev) => (readyEpoch === epoch ? true : prev));
-  }, [epoch]);
+  const markChatReady = useCallback(
+    (readyEpoch: number) => {
+      setChatReady((prev) => (readyEpoch === epoch ? true : prev));
+    },
+    [epoch],
+  );
 
   const gateVisible = false;
 
@@ -124,11 +136,12 @@ export default function InboxLayout({
       <div className="relative flex h-screen overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
-          <div
+          <button
+            type="button"
             className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
             onMouseDown={handleLeftResizeStart}
             aria-label="Resize left sidebar"
-            role="separator"
+            tabIndex={0}
           />
           {children}
         </div>
@@ -136,4 +149,3 @@ export default function InboxLayout({
     </InboxSyncProvider>
   );
 }
-

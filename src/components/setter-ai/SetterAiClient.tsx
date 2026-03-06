@@ -1,9 +1,9 @@
 "use client";
 
+import PageHeader from "@/components/layout/PageHeader";
 import ChatArea from "@/components/setter-ai/ChatArea";
 import ChatSidebar from "@/components/setter-ai/ChatSidebar";
 import { useSetterAiController } from "@/components/setter-ai/hooks/useSetterAiController";
-import PageHeader from "@/components/layout/PageHeader";
 
 interface SetterAiClientProps {
   initialChatId?: string | null;

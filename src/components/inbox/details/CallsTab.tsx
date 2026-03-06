@@ -89,7 +89,10 @@ export default function CallsTab({
         setLoading(!cached);
         setError("");
 
-        const nextCalls = await refreshConversationCallsCache(conversationId, controller.signal);
+        const nextCalls = await refreshConversationCallsCache(
+          conversationId,
+          controller.signal,
+        );
         if (!active) return;
 
         setCalls(nextCalls);
@@ -123,7 +126,10 @@ export default function CallsTab({
       if (message.data.conversationId !== conversationId) return;
 
       refreshCalls().catch((refreshError) => {
-        console.error("[CallsTab] Failed to refresh after Calendly update:", refreshError);
+        console.error(
+          "[CallsTab] Failed to refresh after Calendly update:",
+          refreshError,
+        );
       });
     };
 

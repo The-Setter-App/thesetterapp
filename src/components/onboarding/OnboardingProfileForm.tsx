@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { Camera, UserRound } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/Button';
-import { AppImage } from '@/components/ui/AppImage';
-import { Input } from '@/components/ui/Input';
-import { fileToOptimizedProfileDataUrl } from '@/lib/profileImage';
+import { Camera, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
+import { AppImage } from "@/components/ui/AppImage";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { fileToOptimizedProfileDataUrl } from "@/lib/profileImage";
 import {
   exceedsProfileImageSizeLimit,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_PROFILE_IMAGE_BYTES,
   normalizeDisplayName,
-} from '@/lib/profileValidation';
+} from "@/lib/profileValidation";
 
 interface OnboardingProfileFormProps {
   initialDisplayName: string;
@@ -26,62 +26,76 @@ export default function OnboardingProfileForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [displayName, setDisplayName] = useState(initialDisplayName);
-  const [profileImageBase64, setProfileImageBase64] = useState(initialProfileImageBase64 ?? '');
-  const [error, setError] = useState('');
+  const [profileImageBase64, setProfileImageBase64] = useState(
+    initialProfileImageBase64 ?? "",
+  );
+  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const isSubmitDisabled = useMemo(
-    () => normalizeDisplayName(displayName).length === 0 || saving || uploadingImage,
-    [displayName, saving, uploadingImage]
+    () =>
+      normalizeDisplayName(displayName).length === 0 ||
+      saving ||
+      uploadingImage,
+    [displayName, saving, uploadingImage],
   );
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const inputElement = event.currentTarget;
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file');
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file");
       return;
     }
 
-    setError('');
+    setError("");
     setUploadingImage(true);
     try {
       const dataUrl = await fileToOptimizedProfileDataUrl(file);
       if (!dataUrl || exceedsProfileImageSizeLimit(dataUrl)) {
-        setError(`Profile image must be smaller than ${Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB`);
+        setError(
+          `Profile image must be smaller than ${Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB`,
+        );
         return;
       }
 
-      const response = await fetch('/api/profile/image', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/profile/image", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profileImageBase64: dataUrl,
         }),
       });
-      const payload = (await response.json()) as { error?: string; user?: { profileImageBase64?: string | null } };
+      const payload = (await response.json()) as {
+        error?: string;
+        user?: { profileImageBase64?: string | null };
+      };
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to upload image');
+        throw new Error(payload.error || "Failed to upload image");
       }
 
       setProfileImageBase64(payload.user?.profileImageBase64 ?? dataUrl);
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Failed to upload image');
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Failed to upload image",
+      );
     } finally {
       setUploadingImage(false);
-      inputElement.value = '';
+      inputElement.value = "";
     }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError('');
+    setError("");
 
     const normalizedName = normalizeDisplayName(displayName);
     if (!normalizedName) {
-      setError('Name is required');
+      setError("Name is required");
       return;
     }
 
@@ -92,9 +106,9 @@ export default function OnboardingProfileForm({
 
     setSaving(true);
     try {
-      const response = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: normalizedName,
           markOnboardingComplete: true,
@@ -102,13 +116,17 @@ export default function OnboardingProfileForm({
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to save profile');
+        throw new Error(payload.error || "Failed to save profile");
       }
 
-      router.push('/dashboard');
+      router.push("/dashboard");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to save profile');
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to save profile",
+      );
     } finally {
       setSaving(false);
     }
@@ -122,9 +140,12 @@ export default function OnboardingProfileForm({
             <div className="inline-flex items-center rounded-full bg-[rgba(135,113,255,0.1)] px-3 py-1 text-xs font-semibold text-[#8771FF]">
               First-time setup
             </div>
-            <h1 className="mt-4 text-2xl font-bold text-[#101011] md:text-3xl">Set up your profile</h1>
+            <h1 className="mt-4 text-2xl font-bold text-[#101011] md:text-3xl">
+              Set up your profile
+            </h1>
             <p className="mt-3 text-sm text-[#606266] md:text-base">
-              Add your account name and profile image. We&apos;ll use this in your sidebar and dashboard.
+              Add your account name and profile image. We&apos;ll use this in
+              your sidebar and dashboard.
             </p>
 
             <div className="mt-8 rounded-2xl border border-[#F0F2F6] bg-white p-5">
@@ -132,15 +153,19 @@ export default function OnboardingProfileForm({
               <div className="mt-4 flex items-center gap-3">
                 <div className="h-14 w-14 overflow-hidden rounded-full border border-[#F0F2F6] bg-[#F8F7FF]">
                   <AppImage
-                    src={profileImageBase64 || '/images/no_profile.jpg'}
+                    src={profileImageBase64 || "/images/no_profile.jpg"}
                     alt="Profile preview"
                     className="h-full w-full object-cover"
                     loadingMode="eager"
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#101011]">{normalizeDisplayName(displayName) || 'Your name'}</p>
-                  <p className="text-xs text-[#606266]">Shown across your workspace</p>
+                  <p className="text-sm font-semibold text-[#101011]">
+                    {normalizeDisplayName(displayName) || "Your name"}
+                  </p>
+                  <p className="text-xs text-[#606266]">
+                    Shown across your workspace
+                  </p>
                 </div>
               </div>
             </div>
@@ -149,7 +174,10 @@ export default function OnboardingProfileForm({
           <section className="p-6 md:p-10">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="profile-name" className="mb-2 block text-sm font-medium text-[#101011]">
+                <label
+                  htmlFor="profile-name"
+                  className="mb-2 block text-sm font-medium text-[#101011]"
+                >
                   Account name
                 </label>
                 <Input
@@ -163,12 +191,14 @@ export default function OnboardingProfileForm({
               </div>
 
               <div>
-                <p className="mb-2 block text-sm font-medium text-[#101011]">Profile image</p>
+                <p className="mb-2 block text-sm font-medium text-[#101011]">
+                  Profile image
+                </p>
                 <div className="rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 overflow-hidden rounded-full border border-[#F0F2F6] bg-white">
                       <AppImage
-                        src={profileImageBase64 || '/images/no_profile.jpg'}
+                        src={profileImageBase64 || "/images/no_profile.jpg"}
                         alt="Current profile"
                         className="h-full w-full object-cover"
                         loadingMode="eager"
@@ -184,9 +214,12 @@ export default function OnboardingProfileForm({
                         isLoading={uploadingImage}
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        {uploadingImage ? 'Uploading image...' : 'Upload image'}
+                        {uploadingImage ? "Uploading image..." : "Upload image"}
                       </Button>
-                      <p className="text-xs text-[#606266]">PNG/JPG up to {Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB</p>
+                      <p className="text-xs text-[#606266]">
+                        PNG/JPG up to{" "}
+                        {Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -200,10 +233,17 @@ export default function OnboardingProfileForm({
               </div>
 
               {error ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
               ) : null}
 
-              <Button type="submit" className="h-12 w-full rounded-xl" disabled={isSubmitDisabled} isLoading={saving}>
+              <Button
+                type="submit"
+                className="h-12 w-full rounded-xl"
+                disabled={isSubmitDisabled}
+                isLoading={saving}
+              >
                 Save and continue
               </Button>
               <p className="flex items-center justify-center gap-2 text-xs text-[#606266]">

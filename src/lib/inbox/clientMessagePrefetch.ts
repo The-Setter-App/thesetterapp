@@ -1,12 +1,12 @@
 "use client";
 
-import type { MessagePageResponse } from "@/types/inbox";
 import {
   getCachedMessagePageMeta,
   getCachedMessages,
   setCachedMessagePageMeta,
   setCachedMessages,
 } from "@/lib/cache";
+import type { MessagePageResponse } from "@/types/inbox";
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_MAX_CONVERSATIONS = 30;
@@ -171,4 +171,3 @@ export async function prefetchConversationMessagePagesToCache(params: {
   }
   await Promise.all(workers);
 }
-

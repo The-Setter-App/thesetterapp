@@ -1,12 +1,21 @@
-import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+} from "@/lib/inbox/repository/core";
 import type { ConversationSummary } from "@/types/inbox";
 
 function normalizeSummarySection(
   value: unknown,
   fallbackTitle: string,
 ): { title: string; points: string[] } {
-  const section = typeof value === "object" && value !== null ? (value as { title?: string; points?: string[] }) : null;
-  const title = section?.title && section.title.trim().length > 0 ? section.title.trim() : fallbackTitle;
+  const section =
+    typeof value === "object" && value !== null
+      ? (value as { title?: string; points?: string[] })
+      : null;
+  const title =
+    section?.title && section.title.trim().length > 0
+      ? section.title.trim()
+      : fallbackTitle;
   const points = Array.isArray(section?.points)
     ? section.points
         .filter((point) => typeof point === "string")
@@ -42,8 +51,14 @@ export async function getConversationSummary(
     generatedAt?: unknown;
   };
 
-  const clientSnapshot = normalizeSummarySection(summaryObject.clientSnapshot, "Client Snapshot");
-  const actionPlan = normalizeSummarySection(summaryObject.actionPlan, "Action Plan");
+  const clientSnapshot = normalizeSummarySection(
+    summaryObject.clientSnapshot,
+    "Client Snapshot",
+  );
+  const actionPlan = normalizeSummarySection(
+    summaryObject.actionPlan,
+    "Action Plan",
+  );
 
   if (clientSnapshot.points.length === 0 && actionPlan.points.length === 0) {
     return null;
@@ -53,7 +68,8 @@ export async function getConversationSummary(
     clientSnapshot,
     actionPlan,
     generatedAt:
-      typeof summaryObject.generatedAt === "string" && summaryObject.generatedAt.trim().length > 0
+      typeof summaryObject.generatedAt === "string" &&
+      summaryObject.generatedAt.trim().length > 0
         ? summaryObject.generatedAt
         : undefined,
   };
@@ -68,7 +84,10 @@ export async function updateConversationSummary(
 
   const generatedAt = new Date().toISOString();
   const normalizedSummary: ConversationSummary = {
-    clientSnapshot: normalizeSummarySection(summary.clientSnapshot, "Client Snapshot"),
+    clientSnapshot: normalizeSummarySection(
+      summary.clientSnapshot,
+      "Client Snapshot",
+    ),
     actionPlan: normalizeSummarySection(summary.actionPlan, "Action Plan"),
     generatedAt,
   };

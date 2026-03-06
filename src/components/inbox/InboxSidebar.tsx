@@ -9,15 +9,15 @@ import {
 } from "@/app/actions/inbox";
 import ConversationList from "@/components/inbox/ConversationList";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
-import {
-  getCachedUsers,
-  setCachedUsers,
-} from "@/lib/cache";
-import {
-  findConversationForRealtimeMessage,
-} from "@/lib/inbox/clientConversationSync";
+import { getCachedUsers, setCachedUsers } from "@/lib/cache";
+import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
 import { prefetchConversationDetailsBatchToCache } from "@/lib/inbox/clientDetailsPrefetch";
 import { prefetchConversationMessagePagesToCache } from "@/lib/inbox/clientMessagePrefetch";
+import {
+  type ConversationPreviewHydrationPayload,
+  dequeueConversationPreviewHydrations,
+  getQueuedConversationPreviewHydrations,
+} from "@/lib/inbox/clientPreviewSync";
 import {
   emitInboxConversationsRefreshed,
   INBOX_MESSAGE_EVENT,
@@ -28,21 +28,13 @@ import {
   buildStatusLookup,
   loadInboxStatusCatalog,
 } from "@/lib/inbox/clientStatusCatalog";
-import {
-  dequeueConversationPreviewHydrations,
-  getQueuedConversationPreviewHydrations,
-  type ConversationPreviewHydrationPayload,
-} from "@/lib/inbox/clientPreviewSync";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import {
   CONVERSATION_STATUS_SYNCED_EVENT,
   emitConversationStatusSynced,
   syncConversationStatusToClientCache,
 } from "@/lib/status/clientSync";
-import {
-  getInboxStatusColorClass,
-  isStatusType,
-} from "@/lib/status/config";
+import { getInboxStatusColorClass, isStatusType } from "@/lib/status/config";
 import { PRESET_TAG_ROWS } from "@/lib/tags/config";
 import type { SSEEvent, SSEMessageData, StatusType, User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
@@ -106,8 +98,8 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [statusCatalog, setStatusCatalog] = useState<TagRow[]>(PRESET_TAG_ROWS);
-  const [statusLookup, setStatusLookup] = useState<Record<string, TagRow>>(
-    () => buildStatusLookup(PRESET_TAG_ROWS),
+  const [statusLookup, setStatusLookup] = useState<Record<string, TagRow>>(() =>
+    buildStatusLookup(PRESET_TAG_ROWS),
   );
 
   const refetchInFlightRef = useRef(false);
@@ -143,7 +135,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     return {
       hasConnectedAccounts: Boolean(payload?.hasConnectedAccounts),
       connectedCount:
-        typeof payload?.connectedCount === "number" ? payload.connectedCount : 0,
+        typeof payload?.connectedCount === "number"
+          ? payload.connectedCount
+          : 0,
     };
   }, []);
 

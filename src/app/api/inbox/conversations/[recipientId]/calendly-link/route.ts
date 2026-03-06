@@ -10,11 +10,18 @@ export async function GET(
   context: { params: Promise<{ recipientId: string }> },
 ) {
   try {
-    const { workspaceOwnerEmail, sessionEmail } = await requireInboxWorkspaceContext();
+    const { workspaceOwnerEmail, sessionEmail } =
+      await requireInboxWorkspaceContext();
     const { recipientId: conversationId } = await context.params;
-    const conversation = await findConversationById(conversationId, workspaceOwnerEmail);
+    const conversation = await findConversationById(
+      conversationId,
+      workspaceOwnerEmail,
+    );
     if (!conversation) {
-      return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Conversation not found." },
+        { status: 404 },
+      );
     }
 
     const result = await buildTrackedBookingLink({
@@ -27,10 +34,15 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     const message =
-      error instanceof Error ? error.message : "Failed to generate Calendly link.";
+      error instanceof Error
+        ? error.message
+        : "Failed to generate Calendly link.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

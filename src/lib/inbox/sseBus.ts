@@ -1,4 +1,4 @@
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 import type { SSEEvent } from "@/types/inbox";
 
 export interface WorkspaceScopedSseEvent {
@@ -26,7 +26,10 @@ export function emitWorkspaceSseEvent(
   workspaceOwnerEmail: string,
   event: SSEEvent,
 ): void {
-  getSseBus().emit(SSE_BUS_EVENT, { workspaceOwnerEmail, event } satisfies WorkspaceScopedSseEvent);
+  getSseBus().emit(SSE_BUS_EVENT, {
+    workspaceOwnerEmail,
+    event,
+  } satisfies WorkspaceScopedSseEvent);
 }
 
 export function onWorkspaceSseEvent(

@@ -12,7 +12,9 @@ export type InboxSyncJobState = {
   heartbeatAt?: string;
 };
 
-export async function getInboxSyncJob(ownerEmail: string): Promise<InboxSyncJobState | null> {
+export async function getInboxSyncJob(
+  ownerEmail: string,
+): Promise<InboxSyncJobState | null> {
   const supabase = getInboxSupabase();
   const { data } = await supabase
     .from(SYNC_COLLECTION)
@@ -49,7 +51,10 @@ export async function getInboxSyncJob(ownerEmail: string): Promise<InboxSyncJobS
   };
 }
 
-export async function upsertInboxSyncJob(ownerEmail: string, updates: Partial<InboxSyncJobState>): Promise<void> {
+export async function upsertInboxSyncJob(
+  ownerEmail: string,
+  updates: Partial<InboxSyncJobState>,
+): Promise<void> {
   const supabase = getInboxSupabase();
   await supabase.from(SYNC_COLLECTION).upsert(
     {

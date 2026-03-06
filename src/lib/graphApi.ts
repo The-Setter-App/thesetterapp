@@ -1,4 +1,7 @@
-import type { RawGraphConversationsResponse, RawGraphMessage } from '@/types/inbox';
+import type {
+  RawGraphConversationsResponse,
+  RawGraphMessage,
+} from "@/types/inbox";
 
 /**
  * Facebook Graph API Service
@@ -16,14 +19,14 @@ interface GraphApiError {
   };
 }
 
-const DEFAULT_GRAPH_VERSION = 'v24.0';
-const DEFAULT_MESSAGE_TAG = 'HUMAN_AGENT';
+const DEFAULT_GRAPH_VERSION = "v24.0";
+const DEFAULT_MESSAGE_TAG = "HUMAN_AGENT";
 const GRAPH_MIN_CHUNK = 5;
 const GRAPH_MIN_CONVERSATION_CHUNK = 5;
 const GRAPH_CODE_REDUCE_PAYLOAD = 1;
-const GRAPH_DEBUG = process.env.GRAPH_API_DEBUG === 'true';
+const GRAPH_DEBUG = process.env.GRAPH_API_DEBUG === "true";
 
-type OutboundMessageTag = 'HUMAN_AGENT';
+type OutboundMessageTag = "HUMAN_AGENT";
 
 type SendMessageOptions = {
   tag?: OutboundMessageTag;
@@ -105,10 +108,10 @@ export async function fetchConversationsPage(
     after?: string;
     fields?: string;
     graphVersion?: string;
-  }
+  },
 ): Promise<RawGraphConversationsPageResponse> {
   const limit = options?.limit ?? 50;
-  const fields = options?.fields ?? 'id,name';
+  const fields = options?.fields ?? "id,name";
   const graphVersion = options?.graphVersion ?? DEFAULT_GRAPH_VERSION;
   const after = options?.after;
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
@@ -116,13 +119,13 @@ export async function fetchConversationsPage(
 
   while (true) {
     const url = new URL(`${baseUrl}/${pageId}/conversations`);
-    url.searchParams.append('fields', fields);
-    url.searchParams.append('platform', 'instagram');
-    url.searchParams.append('limit', String(conversationLimit));
+    url.searchParams.append("fields", fields);
+    url.searchParams.append("platform", "instagram");
+    url.searchParams.append("limit", String(conversationLimit));
     if (after) {
-      url.searchParams.append('after', after);
+      url.searchParams.append("after", after);
     }
-    url.searchParams.append('access_token', accessToken);
+    url.searchParams.append("access_token", accessToken);
 
     const response = await fetch(url.toString());
     if (response.ok) {
@@ -133,8 +136,14 @@ export async function fetchConversationsPage(
     const errorBody = await response.text();
     const errorData = parseGraphApiErrorData(errorBody);
     const errorCode = errorData?.error?.code;
-    if (errorCode === GRAPH_CODE_REDUCE_PAYLOAD && conversationLimit > GRAPH_MIN_CONVERSATION_CHUNK) {
-      conversationLimit = Math.max(GRAPH_MIN_CONVERSATION_CHUNK, Math.floor(conversationLimit / 2));
+    if (
+      errorCode === GRAPH_CODE_REDUCE_PAYLOAD &&
+      conversationLimit > GRAPH_MIN_CONVERSATION_CHUNK
+    ) {
+      conversationLimit = Math.max(
+        GRAPH_MIN_CONVERSATION_CHUNK,
+        Math.floor(conversationLimit / 2),
+      );
       await new Promise((resolve) => setTimeout(resolve, 200));
       continue;
     }
@@ -143,7 +152,7 @@ export async function fetchConversationsPage(
     throw new Error(parseGraphApiError(errorBody));
   }
 
-  throw new Error('Graph API Error: Failed to fetch conversations');
+  throw new Error("Graph API Error: Failed to fetch conversations");
 }
 
 /**
@@ -151,22 +160,23 @@ export async function fetchConversationsPage(
  * Uses Page ID as the root node with platform=instagram
  */
 export async function fetchConversations(
-  pageId: string, 
+  pageId: string,
   accessToken: string,
   limit: number = 50,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
 ): Promise<RawGraphConversationsResponse> {
   try {
     const data = await fetchConversationsPage(pageId, accessToken, {
       limit,
-      fields: 'id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}',
+      fields:
+        "id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}",
       graphVersion,
     });
     debugLog(`[GraphAPI] Fetched ${data.data.length} conversations`);
 
     return data as RawGraphConversationsResponse;
   } catch (error) {
-    console.error('[GraphAPI] Error fetching conversations:', error);
+    console.error("[GraphAPI] Error fetching conversations:", error);
     throw error;
   }
 }
@@ -182,14 +192,15 @@ export async function fetchAllConversations(
     pageLimit?: number;
     maxPages?: number;
     graphVersion?: string;
-  }
+  },
 ): Promise<RawGraphConversationsResponse> {
   const pageLimit = options?.pageLimit ?? 25;
   const maxPages = options?.maxPages ?? 20;
   const graphVersion = options?.graphVersion ?? DEFAULT_GRAPH_VERSION;
-  const fields = 'id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}';
+  const fields =
+    "id,updated_time,participants,messages.limit(1){from,to,message,created_time,id}";
 
-  const conversations: RawGraphConversationsResponse['data'] = [];
+  const conversations: RawGraphConversationsResponse["data"] = [];
   let after: string | undefined;
   let pageCount = 0;
 
@@ -200,7 +211,9 @@ export async function fetchAllConversations(
       fields,
       graphVersion,
     });
-    conversations.push(...(chunk.data as RawGraphConversationsResponse['data']));
+    conversations.push(
+      ...(chunk.data as RawGraphConversationsResponse["data"]),
+    );
     pageCount += 1;
 
     const nextAfter = chunk.paging?.cursors?.after;
@@ -208,7 +221,9 @@ export async function fetchAllConversations(
     after = nextAfter;
   }
 
-  debugLog(`[GraphAPI] Fetched ${conversations.length} conversations across ${pageCount} page(s) for page ${pageId}`);
+  debugLog(
+    `[GraphAPI] Fetched ${conversations.length} conversations across ${pageCount} page(s) for page ${pageId}`,
+  );
 
   return { data: conversations };
 }
@@ -221,9 +236,15 @@ export async function fetchMessages(
   conversationId: string,
   accessToken: string,
   limit: number = 25,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
 ): Promise<RawGraphMessage[]> {
-  const chunk = await fetchMessagesChunk(conversationId, accessToken, limit, undefined, graphVersion);
+  const chunk = await fetchMessagesChunk(
+    conversationId,
+    accessToken,
+    limit,
+    undefined,
+    graphVersion,
+  );
   return chunk.messages;
 }
 
@@ -232,7 +253,7 @@ export async function fetchMessagesChunk(
   accessToken: string,
   limit: number = 20,
   before?: string,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
 ): Promise<{ messages: RawGraphMessage[]; nextBeforeCursor: string | null }> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const targetLimit = Math.max(1, limit);
@@ -240,13 +261,16 @@ export async function fetchMessagesChunk(
 
   while (chunkLimit >= GRAPH_MIN_CHUNK) {
     const url = new URL(`${baseUrl}/${conversationId}/messages`);
-    url.searchParams.append('fields', 'id,created_time,from,to,message,sticker,attachments{id,image_data,mime_type,name,size,video_data,file_url}');
-    url.searchParams.append('platform', 'instagram');
-    url.searchParams.append('limit', chunkLimit.toString());
+    url.searchParams.append(
+      "fields",
+      "id,created_time,from,to,message,sticker,attachments{id,image_data,mime_type,name,size,video_data,file_url}",
+    );
+    url.searchParams.append("platform", "instagram");
+    url.searchParams.append("limit", chunkLimit.toString());
     if (before) {
-      url.searchParams.append('before', before);
+      url.searchParams.append("before", before);
     }
-    url.searchParams.append('access_token', accessToken);
+    url.searchParams.append("access_token", accessToken);
 
     try {
       const response = await fetch(url.toString());
@@ -268,7 +292,9 @@ export async function fetchMessagesChunk(
         }
 
         if (errorData) {
-          throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
+          throw new Error(
+            `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
+          );
         }
         throw new Error(`Graph API Error: ${errorText}`);
       }
@@ -277,11 +303,16 @@ export async function fetchMessagesChunk(
       const messages = data.data || [];
       const nextBeforeCursor = data.paging?.cursors?.before || null;
 
-      debugLog(`[GraphAPI] Fetched ${messages.length} messages for conversation ${conversationId}`);
+      debugLog(
+        `[GraphAPI] Fetched ${messages.length} messages for conversation ${conversationId}`,
+      );
 
       return { messages, nextBeforeCursor };
     } catch (error) {
-      console.error(`[GraphAPI] Error fetching messages for ${conversationId}:`, error);
+      console.error(
+        `[GraphAPI] Error fetching messages for ${conversationId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -297,18 +328,18 @@ export async function fetchMessagesChunk(
  */
 export async function sendMessage(
   pageId: string,
-  recipientId: string, 
+  recipientId: string,
   text: string,
   accessToken: string,
   graphVersion: string = DEFAULT_GRAPH_VERSION,
-  options?: SendMessageOptions
+  options?: SendMessageOptions,
 ): Promise<GraphSendResult> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
   const url = new URL(`${baseUrl}/${pageId}/messages`);
-  url.searchParams.append('platform', 'instagram');
-  url.searchParams.append('access_token', accessToken);
+  url.searchParams.append("platform", "instagram");
+  url.searchParams.append("access_token", accessToken);
 
   const payload = {
     recipient: { id: recipientId },
@@ -318,16 +349,18 @@ export async function sendMessage(
 
   try {
     const response = await fetch(url.toString(), {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const errorData: GraphApiError = await response.json();
-      throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
+      throw new Error(
+        `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
+      );
     }
 
     const sendResponse = (await response.json()) as GraphSendResponse;
@@ -336,7 +369,7 @@ export async function sendMessage(
       recipientId: sendResponse.recipient_id,
     };
   } catch (error) {
-    console.error('[GraphAPI] Error sending message:', error);
+    console.error("[GraphAPI] Error sending message:", error);
     throw error;
   }
 }
@@ -350,17 +383,17 @@ export async function sendAttachmentMessage(
   pageId: string,
   recipientId: string,
   file: File,
-  attachmentType: 'image' | 'audio' | 'video' | 'file',
+  attachmentType: "image" | "audio" | "video" | "file",
   accessToken: string,
   graphVersion: string = DEFAULT_GRAPH_VERSION,
-  options?: SendMessageOptions
+  options?: SendMessageOptions,
 ): Promise<GraphSendResult> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const tag = options?.tag ?? DEFAULT_MESSAGE_TAG;
 
   const url = new URL(`${baseUrl}/${pageId}/messages`);
-  url.searchParams.append('platform', 'instagram');
-  url.searchParams.append('access_token', accessToken);
+  url.searchParams.append("platform", "instagram");
+  url.searchParams.append("access_token", accessToken);
 
   const recipient = JSON.stringify({ id: recipientId });
   const message = JSON.stringify({
@@ -373,20 +406,22 @@ export async function sendAttachmentMessage(
   });
 
   const formData = new FormData();
-  formData.append('recipient', recipient);
-  formData.append('message', message);
-  formData.append('tag', tag);
-  formData.append('filedata', file, file.name);
+  formData.append("recipient", recipient);
+  formData.append("message", message);
+  formData.append("tag", tag);
+  formData.append("filedata", file, file.name);
 
   try {
     const response = await fetch(url.toString(), {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
     if (!response.ok) {
       const errorData: GraphApiError = await response.json();
-      throw new Error(`Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`);
+      throw new Error(
+        `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
+      );
     }
 
     const sendResponse = (await response.json()) as GraphSendResponse;
@@ -395,7 +430,7 @@ export async function sendAttachmentMessage(
       recipientId: sendResponse.recipient_id,
     };
   } catch (error) {
-    console.error('[GraphAPI] Error sending attachment:', error);
+    console.error("[GraphAPI] Error sending attachment:", error);
     throw error;
   }
 }
@@ -407,12 +442,12 @@ export async function sendAttachmentMessage(
 export async function fetchUserProfile(
   userId: string,
   accessToken: string,
-  graphVersion: string = DEFAULT_GRAPH_VERSION
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
 ): Promise<string | null> {
   const baseUrl = `https://graph.facebook.com/${graphVersion}`;
   const primaryUrl = new URL(`${baseUrl}/${userId}`);
-  primaryUrl.searchParams.append('fields', 'profile_pic,name,username');
-  primaryUrl.searchParams.append('access_token', accessToken);
+  primaryUrl.searchParams.append("fields", "profile_pic,name,username");
+  primaryUrl.searchParams.append("access_token", accessToken);
 
   try {
     const response = await fetch(primaryUrl.toString());
@@ -420,11 +455,13 @@ export async function fetchUserProfile(
     if (!response.ok) {
       // Fallback to minimal field set if the node rejects expanded fields.
       const fallbackUrl = new URL(`${baseUrl}/${userId}`);
-      fallbackUrl.searchParams.append('fields', 'profile_pic');
-      fallbackUrl.searchParams.append('access_token', accessToken);
+      fallbackUrl.searchParams.append("fields", "profile_pic");
+      fallbackUrl.searchParams.append("access_token", accessToken);
       const fallbackRes = await fetch(fallbackUrl.toString());
       if (!fallbackRes.ok) {
-        console.warn(`[GraphAPI] Failed to fetch profile pic for ${userId}: ${fallbackRes.status}`);
+        console.warn(
+          `[GraphAPI] Failed to fetch profile pic for ${userId}: ${fallbackRes.status}`,
+        );
         return null;
       }
       const fallbackData = await fallbackRes.json();
@@ -434,7 +471,10 @@ export async function fetchUserProfile(
     const data = await response.json();
     return data.profile_pic || null;
   } catch (error) {
-    console.error(`[GraphAPI] Error fetching profile pic for ${userId}:`, error);
+    console.error(
+      `[GraphAPI] Error fetching profile pic for ${userId}:`,
+      error,
+    );
     return null;
   }
 }

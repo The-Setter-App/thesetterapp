@@ -10,7 +10,7 @@ function getTrackingSecret(): string {
   return value;
 }
 
-function toBase64Url(input: string): string {
+function _toBase64Url(input: string): string {
   return Buffer.from(input, "utf8")
     .toString("base64")
     .replace(/\+/g, "-")
@@ -28,7 +28,9 @@ function fromBase64Url(input: string): string {
 
 function signPayload(encodedPayload: string): string {
   const secret = getTrackingSecret();
-  return createHmac("sha256", secret).update(encodedPayload).digest("base64url");
+  return createHmac("sha256", secret)
+    .update(encodedPayload)
+    .digest("base64url");
 }
 
 export function buildConversationTrackingHash(input: {
@@ -48,7 +50,9 @@ export function buildTrackingToken(input: {
   ttlHours?: number;
 }): string {
   const now = Date.now();
-  const ttlHours = Number.isFinite(input.ttlHours) ? Number(input.ttlHours) : 24 * 14;
+  const ttlHours = Number.isFinite(input.ttlHours)
+    ? Number(input.ttlHours)
+    : 24 * 14;
   const exp = now + ttlHours * 60 * 60 * 1000;
   const hash = buildConversationTrackingHash(input);
   const payload = `${hash}.${exp}`;
@@ -86,7 +90,12 @@ export function parseTrackingToken(
     };
     if (!parsed?.c || !parsed?.o || !parsed?.exp) return null;
     if (parsed.exp < Date.now()) return null;
-    return { conversationHash: buildConversationTrackingHash({ conversationId: parsed.c, workspaceOwnerEmail: parsed.o }) };
+    return {
+      conversationHash: buildConversationTrackingHash({
+        conversationId: parsed.c,
+        workspaceOwnerEmail: parsed.o,
+      }),
+    };
   } catch {
     return null;
   }

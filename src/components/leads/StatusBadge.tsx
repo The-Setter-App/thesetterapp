@@ -13,7 +13,10 @@ interface StatusBadgeProps {
   statusOptions?: TagRow[];
 }
 
-export default function StatusBadge({ status, statusOptions }: StatusBadgeProps) {
+export default function StatusBadge({
+  status,
+  statusOptions,
+}: StatusBadgeProps) {
   const statusMeta =
     findStatusTagByName(statusOptions ?? [], status) ??
     findStatusTagByName(DEFAULT_STATUS_TAGS, status);

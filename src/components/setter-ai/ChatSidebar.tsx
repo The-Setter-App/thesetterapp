@@ -8,6 +8,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { ChatSession } from "@/types/ai";
 
+const SESSION_SKELETON_IDS = [
+  "session-skeleton-1",
+  "session-skeleton-2",
+  "session-skeleton-3",
+  "session-skeleton-4",
+  "session-skeleton-5",
+  "session-skeleton-6",
+] as const;
+
 interface ChatSidebarProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -101,9 +110,9 @@ export default function ChatSidebar({
           }`}
         >
           {isLoading &&
-            Array.from({ length: 6 }).map((_, index) => (
+            SESSION_SKELETON_IDS.map((sessionSkeletonId) => (
               <div
-                key={`session-skeleton-${index}`}
+                key={sessionSkeletonId}
                 className="flex h-12 w-full shrink-0 animate-pulse items-center gap-3 rounded-xl border border-[#F0F2F6] bg-white px-3"
               >
                 <div className="h-4 w-4 rounded bg-[#EEEAFD]" />

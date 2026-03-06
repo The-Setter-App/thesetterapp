@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { CircleAlert, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 export default function DisconnectAccountButton({
@@ -16,7 +16,10 @@ export default function DisconnectAccountButton({
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const normalized = useMemo(() => confirmText.trim().toUpperCase(), [confirmText]);
+  const normalized = useMemo(
+    () => confirmText.trim().toUpperCase(),
+    [confirmText],
+  );
   const canDisconnect = normalized === "DISCONNECT" && !submitting;
   const action = `/api/auth/instagram/accounts/${encodeURIComponent(accountId)}`;
 
@@ -50,7 +53,9 @@ export default function DisconnectAccountButton({
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(135,113,255,0.1)] text-[#8771FF]">
                   <CircleAlert size={18} />
                 </div>
-                <h3 className="text-base font-semibold text-[#101011]">Disconnect Account</h3>
+                <h3 className="text-base font-semibold text-[#101011]">
+                  Disconnect Account
+                </h3>
               </div>
               <button
                 type="button"
@@ -81,7 +86,8 @@ export default function DisconnectAccountButton({
             >
               <p className="text-sm text-[#606266]">
                 This will disconnect
-                {accountLabel ? ` ${accountLabel}` : " this account"} and remove its inbox chats.
+                {accountLabel ? ` ${accountLabel}` : " this account"} and remove
+                its inbox chats.
               </p>
               <p className="text-sm text-[#606266]">
                 Type{" "}
@@ -94,7 +100,11 @@ export default function DisconnectAccountButton({
                   DISCONNECT
                 </button>{" "}
                 to continue.
-                {copied && <span className="ml-2 text-xs font-medium text-emerald-700">Copied</span>}
+                {copied && (
+                  <span className="ml-2 text-xs font-medium text-emerald-700">
+                    Copied
+                  </span>
+                )}
               </p>
 
               <input

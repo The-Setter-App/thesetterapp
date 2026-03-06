@@ -4,6 +4,8 @@ import {
   normalizeStatusColorHex,
   normalizeStatusKey,
 } from "@/lib/status/config";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import type { WorkspaceTagRowDb } from "@/lib/supabase/types";
 import {
   hasDuplicateTagName,
   MAX_TAG_DESCRIPTION_LENGTH,
@@ -11,9 +13,7 @@ import {
   normalizeTagText,
   PRESET_TAG_ROWS,
 } from "@/lib/tags/config";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { WorkspaceTagRowDb } from "@/lib/supabase/types";
-import type { TagRow, TagIconPack } from "@/types/tags";
+import type { TagIconPack, TagRow } from "@/types/tags";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -186,7 +186,9 @@ export async function createWorkspaceCustomTag(input: {
   createdByEmail: string;
   createdByLabel?: string;
 }): Promise<TagRow> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(
+    input.workspaceOwnerEmail,
+  );
   const normalizedCreatedByEmail = normalizeEmail(input.createdByEmail);
   const normalizedCreatedByLabel = normalizeTagText(input.createdByLabel || "");
   const {
@@ -256,7 +258,9 @@ export async function updateWorkspaceCustomTag(input: {
   iconPack: TagIconPack;
   iconName: string;
 }): Promise<TagRow> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(
+    input.workspaceOwnerEmail,
+  );
   const normalizedTagId = normalizeTagId(input.tagId);
   if (!normalizedTagId) {
     throw new WorkspaceTagRepositoryError(
@@ -335,7 +339,9 @@ export async function deleteWorkspaceCustomTag(input: {
   workspaceOwnerEmail: string;
   tagId: string;
 }): Promise<void> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(input.workspaceOwnerEmail);
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(
+    input.workspaceOwnerEmail,
+  );
   const normalizedTagId = normalizeTagId(input.tagId);
   if (!normalizedTagId) {
     throw new WorkspaceTagRepositoryError(

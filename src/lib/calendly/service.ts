@@ -1,5 +1,4 @@
 import { createHmac } from "node:crypto";
-import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   createCalendlyWebhookSubscription,
   deleteCalendlyWebhookSubscription,
@@ -38,6 +37,7 @@ import {
   buildTrackingToken,
   parseTrackingToken,
 } from "@/lib/calendly/tracking";
+import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   addStatusTimelineEvent,
   updateUserStatus,
@@ -158,8 +158,7 @@ function resolveScheduledWindow(input: {
     new Date().toISOString();
   const endTime =
     scheduledEvent?.end_time || input.payload.end_time || startTime;
-  const timezone =
-    scheduledEvent?.timezone || input.payload.timezone || "UTC";
+  const timezone = scheduledEvent?.timezone || input.payload.timezone || "UTC";
 
   return { startTime, endTime, timezone };
 }

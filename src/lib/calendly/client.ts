@@ -39,7 +39,10 @@ async function readCalendlyError(response: Response): Promise<string> {
       ? data.required_scopes.filter(Boolean).join(", ")
       : "";
     const base = data.message || data.title || `HTTP ${response.status}`;
-    const metadata = [details, requiredScopes ? `required_scopes=${requiredScopes}` : ""]
+    const metadata = [
+      details,
+      requiredScopes ? `required_scopes=${requiredScopes}` : "",
+    ]
       .filter(Boolean)
       .join(" | ");
     return metadata ? `${base} (${metadata})` : base;

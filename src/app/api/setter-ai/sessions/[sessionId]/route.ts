@@ -32,13 +32,20 @@ export async function PATCH(
           ? null
           : null;
 
-    const session = await updateSetterAiSessionLeadLink(sessionEmail, sessionId, {
-      linkedInboxConversationId,
-      linkedInboxConversationLabel,
-    });
+    const session = await updateSetterAiSessionLeadLink(
+      sessionEmail,
+      sessionId,
+      {
+        linkedInboxConversationId,
+        linkedInboxConversationLabel,
+      },
+    );
 
     if (!session) {
-      return NextResponse.json({ error: "Session not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Session not found." },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json(
@@ -51,9 +58,15 @@ export async function PATCH(
     );
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
-    return NextResponse.json({ error: "Failed to update session." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update session." },
+      { status: 500 },
+    );
   }
 }
 

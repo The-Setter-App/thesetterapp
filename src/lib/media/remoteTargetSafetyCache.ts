@@ -16,7 +16,10 @@ export function getCachedRemoteTargetSafety(hostname: string): boolean | null {
   return cached.safe;
 }
 
-export function setCachedRemoteTargetSafety(hostname: string, safe: boolean): void {
+export function setCachedRemoteTargetSafety(
+  hostname: string,
+  safe: boolean,
+): void {
   remoteTargetSafetyCache.set(hostname, {
     safe,
     expiresAt: Date.now() + REMOTE_TARGET_SAFETY_TTL_MS,
