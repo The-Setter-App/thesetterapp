@@ -1,3 +1,4 @@
+import type { DashboardMessageStats } from "@/types/dashboard";
 import type { StatusType } from "@/types/status";
 
 export type { StatusType };
@@ -94,6 +95,7 @@ export interface User {
   timelineEvents?: ConversationTimelineEvent[];
   contactDetails?: ConversationContactDetails;
   detailsUpdatedAtByField?: ConversationDetailsUpdatedAtByField;
+  dashboardMessageStats?: DashboardMessageStats;
 }
 
 export interface PaymentDetails {

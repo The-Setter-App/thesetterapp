@@ -1,4 +1,9 @@
-import { getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
+import { buildDashboardMessageStatsFromMessages } from "@/lib/dashboard/messageMetrics";
+import { updateConversationDashboardStats } from "@/lib/inbox/repository/conversationWriteStore";
+import {
+  getInboxSupabase,
+  MESSAGES_COLLECTION,
+} from "@/lib/inbox/repository/core";
 import type { Message } from "@/types/inbox";
 
 type MessageRow = {
@@ -50,7 +55,10 @@ function isBeforeCursor(row: MessageRow, cursor: MessageCursor): boolean {
   return row.id < cursor.id;
 }
 
-export async function getMessagesFromDb(conversationId: string, ownerEmail: string): Promise<Message[]> {
+export async function getMessagesFromDb(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<Message[]> {
   try {
     const supabase = getInboxSupabase();
     const { data, error } = await supabase
@@ -64,9 +72,32 @@ export async function getMessagesFromDb(conversationId: string, ownerEmail: stri
     if (error || !data) return [];
     return (data as MessageRow[]).map(mapMessage);
   } catch (error) {
-    console.error(`[InboxRepo] Error fetching messages for ${conversationId}:`, error);
+    console.error(
+      `[InboxRepo] Error fetching messages for ${conversationId}:`,
+      error,
+    );
     return [];
   }
+}
+
+async function refreshConversationDashboardStats(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<void> {
+  const messages = await getMessagesFromDb(conversationId, ownerEmail);
+  const displayableMessages = messages.filter((message) => {
+    if (message.isEmpty !== true) return true;
+    return hasDisplayableMessageContent(message);
+  });
+  const dashboardMessageStats = buildDashboardMessageStatsFromMessages(
+    conversationId,
+    displayableMessages,
+  );
+  await updateConversationDashboardStats(
+    conversationId,
+    ownerEmail,
+    dashboardMessageStats,
+  );
 }
 
 export async function getLatestMessageFromDb(
@@ -105,7 +136,9 @@ export async function getConversationReplyStateFromDb(
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(MESSAGES_COLLECTION)
-    .select("owner_email,id,conversation_id,payload,timestamp_text,is_empty,from_me")
+    .select(
+      "owner_email,id,conversation_id,payload,timestamp_text,is_empty,from_me",
+    )
     .eq("conversation_id", conversationId)
     .eq("owner_email", ownerEmail)
     .not("timestamp_text", "is", null)
@@ -131,7 +164,11 @@ export async function getConversationReplyStateFromDb(
   };
 }
 
-export async function saveMessageToDb(message: Message, conversationId: string, ownerEmail: string): Promise<void> {
+export async function saveMessageToDb(
+  message: Message,
+  conversationId: string,
+  ownerEmail: string,
+): Promise<void> {
   const supabase = getInboxSupabase();
   await supabase.from(MESSAGES_COLLECTION).upsert(
     {
@@ -150,9 +187,14 @@ export async function saveMessageToDb(message: Message, conversationId: string, 
     },
     { onConflict: "owner_email,id" },
   );
+  await refreshConversationDashboardStats(conversationId, ownerEmail);
 }
 
-export async function saveMessagesToDb(messages: Message[], conversationId: string, ownerEmail: string): Promise<void> {
+export async function saveMessagesToDb(
+  messages: Message[],
+  conversationId: string,
+  ownerEmail: string,
+): Promise<void> {
   if (messages.length === 0) return;
   const supabase = getInboxSupabase();
 
@@ -171,7 +213,10 @@ export async function saveMessagesToDb(messages: Message[], conversationId: stri
     updated_at: new Date().toISOString(),
   }));
 
-  await supabase.from(MESSAGES_COLLECTION).upsert(rows, { onConflict: "owner_email,id" });
+  await supabase
+    .from(MESSAGES_COLLECTION)
+    .upsert(rows, { onConflict: "owner_email,id" });
+  await refreshConversationDashboardStats(conversationId, ownerEmail);
 }
 
 export function encodeMessagesCursor(cursor: MessageCursor): string {
@@ -195,7 +240,11 @@ export async function getMessagesPageFromDb(
   ownerEmail: string,
   limit: number,
   cursor?: string,
-): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
+): Promise<{
+  messages: Message[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}> {
   const supabase = getInboxSupabase();
 
   const { data } = await supabase
@@ -237,7 +286,9 @@ export async function getMessagesPageFromDb(
 
   return {
     messages: oldestToNewest,
-    nextCursor: hasMore ? encodeMessagesCursor({ timestamp: last.timestamp_text, id: last.id }) : null,
+    nextCursor: hasMore
+      ? encodeMessagesCursor({ timestamp: last.timestamp_text, id: last.id })
+      : null,
     hasMore,
   };
 }

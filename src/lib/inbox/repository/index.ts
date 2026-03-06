@@ -15,6 +15,7 @@ export {
 export {
   saveConversationsToDb,
   saveConversationToDb,
+  updateConversationDashboardStats,
   updateConversationMetadata,
   updateConversationPriority,
   updateUserAvatar,
@@ -27,9 +28,9 @@ export {
 } from "@/lib/inbox/repository/detailsStore";
 export { purgeInboxDataForInstagramAccount } from "@/lib/inbox/repository/lifecycleStore";
 export {
-  getConversationReplyStateFromDb,
   decodeMessagesCursor,
   encodeMessagesCursor,
+  getConversationReplyStateFromDb,
   getLatestMessageFromDb,
   getMessagesFromDb,
   getMessagesPageFromDb,

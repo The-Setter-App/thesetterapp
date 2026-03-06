@@ -11,6 +11,7 @@ import {
   LuReply,
   LuSearch,
 } from "react-icons/lu";
+import { useDashboardSnapshot } from "@/components/dashboard/hooks/useDashboardSnapshot";
 import PageHeader from "@/components/layout/PageHeader";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
 import type { DashboardSnapshot } from "@/types/dashboard";
@@ -122,13 +123,14 @@ const MetricCard = ({ value, label, icon }: MetricCardProps) => (
 
 export default function Dashboard({
   displayName,
-  snapshot,
+  snapshot: initialSnapshot,
 }: {
   displayName: string;
   snapshot: DashboardSnapshot;
 }) {
   const funnelClipPathId = React.useId().replace(/:/g, "");
   const [search, setSearch] = React.useState("");
+  const snapshot = useDashboardSnapshot(initialSnapshot);
 
   if (!snapshot.hasConnectedAccounts) {
     return <NoConnectedAccountsState displayName={displayName} />;

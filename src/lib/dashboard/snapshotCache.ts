@@ -1,12 +1,16 @@
 import { unstable_cache } from "next/cache";
-import { buildDashboardSnapshot, createEmptyDashboardSnapshot } from "@/lib/dashboard/buildSnapshot";
-import { getDashboardMessageStats } from "@/lib/dashboard/messageMetrics";
+import {
+  buildDashboardSnapshot,
+  createEmptyDashboardSnapshot,
+} from "@/lib/dashboard/buildSnapshot";
+import {
+  DASHBOARD_SNAPSHOT_CACHE_TAG,
+  DASHBOARD_SNAPSHOT_TTL_SECONDS,
+} from "@/lib/dashboard/cacheInvalidation";
+import { getDashboardMessageStatsMapFromConversationPayload } from "@/lib/dashboard/messageMetrics";
 import { getConversationsFromDb } from "@/lib/inboxRepository";
 import { getConnectedInstagramAccounts } from "@/lib/userRepository";
 import type { DashboardSnapshot } from "@/types/dashboard";
-
-const DASHBOARD_SNAPSHOT_CACHE_KEY = "dashboard-snapshot-v1";
-const DASHBOARD_SNAPSHOT_TTL_SECONDS = 30;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -25,15 +29,16 @@ const getCachedDashboardSnapshotInternal = unstable_cache(
       return createEmptyDashboardSnapshot(true);
     }
 
-    const messageStats = await getDashboardMessageStats(
-      normalizedOwnerEmail,
-      conversations.map((conversation) => conversation.id),
-    );
+    const messageStats =
+      getDashboardMessageStatsMapFromConversationPayload(conversations);
 
     return buildDashboardSnapshot(conversations, messageStats, true);
   },
-  [DASHBOARD_SNAPSHOT_CACHE_KEY],
-  { revalidate: DASHBOARD_SNAPSHOT_TTL_SECONDS, tags: [DASHBOARD_SNAPSHOT_CACHE_KEY] },
+  [DASHBOARD_SNAPSHOT_CACHE_TAG],
+  {
+    revalidate: DASHBOARD_SNAPSHOT_TTL_SECONDS,
+    tags: [DASHBOARD_SNAPSHOT_CACHE_TAG],
+  },
 );
 
 export async function getCachedDashboardSnapshot(

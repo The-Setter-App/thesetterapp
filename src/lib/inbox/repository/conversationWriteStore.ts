@@ -1,8 +1,16 @@
+import { revalidateDashboardSnapshotCache } from "@/lib/dashboard/cacheInvalidation";
 import { buildConversationSetPayload } from "@/lib/inbox/repository/conversationShared";
-import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+} from "@/lib/inbox/repository/core";
+import type { DashboardMessageStats } from "@/types/dashboard";
 import type { User } from "@/types/inbox";
 
-async function getExistingConversationPayload(conversationId: string, ownerEmail: string): Promise<User | null> {
+async function getExistingConversationPayload(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<User | null> {
   const supabase = getInboxSupabase();
   const { data } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -15,10 +23,20 @@ async function getExistingConversationPayload(conversationId: string, ownerEmail
   return (data as { payload: User }).payload;
 }
 
-export async function saveConversationToDb(conversation: User, ownerEmail: string): Promise<void> {
+export async function saveConversationToDb(
+  conversation: User,
+  ownerEmail: string,
+): Promise<void> {
   const supabase = getInboxSupabase();
-  const existing = await getExistingConversationPayload(conversation.id, ownerEmail);
-  const merged = buildConversationSetPayload(conversation, ownerEmail, existing);
+  const existing = await getExistingConversationPayload(
+    conversation.id,
+    ownerEmail,
+  );
+  const merged = buildConversationSetPayload(
+    conversation,
+    ownerEmail,
+    existing,
+  );
 
   const row = {
     owner_email: ownerEmail,
@@ -30,10 +48,16 @@ export async function saveConversationToDb(conversation: User, ownerEmail: strin
     updated_at: new Date().toISOString(),
   };
 
-  await supabase.from(CONVERSATIONS_COLLECTION).upsert(row, { onConflict: "owner_email,id" });
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .upsert(row, { onConflict: "owner_email,id" });
+  revalidateDashboardSnapshotCache();
 }
 
-export async function saveConversationsToDb(conversations: User[], ownerEmail: string): Promise<void> {
+export async function saveConversationsToDb(
+  conversations: User[],
+  ownerEmail: string,
+): Promise<void> {
   if (conversations.length === 0) return;
 
   const rows: Array<{
@@ -47,8 +71,15 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
   }> = [];
 
   for (const conversation of conversations) {
-    const existing = await getExistingConversationPayload(conversation.id, ownerEmail);
-    const merged = buildConversationSetPayload(conversation, ownerEmail, existing);
+    const existing = await getExistingConversationPayload(
+      conversation.id,
+      ownerEmail,
+    );
+    const merged = buildConversationSetPayload(
+      conversation,
+      ownerEmail,
+      existing,
+    );
     rows.push({
       owner_email: ownerEmail,
       id: conversation.id,
@@ -61,7 +92,10 @@ export async function saveConversationsToDb(conversations: User[], ownerEmail: s
   }
 
   const supabase = getInboxSupabase();
-  await supabase.from(CONVERSATIONS_COLLECTION).upsert(rows, { onConflict: "owner_email,id" });
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .upsert(rows, { onConflict: "owner_email,id" });
+  revalidateDashboardSnapshotCache();
 }
 
 export async function updateConversationMetadata(
@@ -74,7 +108,10 @@ export async function updateConversationMetadata(
   eventTimestampIso?: string,
 ): Promise<void> {
   const supabase = getInboxSupabase();
-  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
   if (!existing) return;
 
   const { data: unreadRow } = await supabase
@@ -85,8 +122,16 @@ export async function updateConversationMetadata(
     .maybeSingle();
 
   const currentUnread = (unreadRow as { unread: number } | null)?.unread ?? 0;
-  const nextUnread = clearUnread ? 0 : incrementUnread ? currentUnread + 1 : currentUnread;
-  const nextNeedsReply = clearUnread ? false : incrementUnread ? true : Boolean(existing.needsReply);
+  const nextUnread = clearUnread
+    ? 0
+    : incrementUnread
+      ? currentUnread + 1
+      : currentUnread;
+  const nextNeedsReply = clearUnread
+    ? false
+    : incrementUnread
+      ? true
+      : Boolean(existing.needsReply);
 
   const nextPayload: User = {
     ...existing,
@@ -106,19 +151,35 @@ export async function updateConversationMetadata(
     })
     .eq("owner_email", ownerEmail)
     .eq("id", conversationId);
+  revalidateDashboardSnapshotCache();
 }
 
-export async function updateUserStatus(conversationId: string, ownerEmail: string, newStatus: string): Promise<void> {
+export async function updateUserStatus(
+  conversationId: string,
+  ownerEmail: string,
+  newStatus: string,
+): Promise<void> {
   const supabase = getInboxSupabase();
-  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
   if (!existing) return;
 
-  const nextPayload: User = { ...existing, status: newStatus as User["status"] };
+  const nextPayload: User = {
+    ...existing,
+    status: newStatus as User["status"],
+  };
   await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .update({ payload: nextPayload, status: newStatus, updated_at: new Date().toISOString() })
+    .update({
+      payload: nextPayload,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
     .eq("owner_email", ownerEmail)
     .eq("id", conversationId);
+  revalidateDashboardSnapshotCache();
 }
 
 export async function updateConversationPriority(
@@ -127,20 +188,35 @@ export async function updateConversationPriority(
   isPriority: boolean,
 ): Promise<void> {
   const supabase = getInboxSupabase();
-  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
   if (!existing) return;
 
   const nextPayload: User = { ...existing, isPriority };
   await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .update({ payload: nextPayload, is_priority: isPriority, updated_at: new Date().toISOString() })
+    .update({
+      payload: nextPayload,
+      is_priority: isPriority,
+      updated_at: new Date().toISOString(),
+    })
     .eq("owner_email", ownerEmail)
     .eq("id", conversationId);
+  revalidateDashboardSnapshotCache();
 }
 
-export async function updateUserAvatar(conversationId: string, ownerEmail: string, avatarUrl: string): Promise<void> {
+export async function updateUserAvatar(
+  conversationId: string,
+  ownerEmail: string,
+  avatarUrl: string,
+): Promise<void> {
   const supabase = getInboxSupabase();
-  const existing = await getExistingConversationPayload(conversationId, ownerEmail);
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
   if (!existing) return;
 
   const nextPayload: User = { ...existing, avatar: avatarUrl };
@@ -149,4 +225,29 @@ export async function updateUserAvatar(conversationId: string, ownerEmail: strin
     .update({ payload: nextPayload, updated_at: new Date().toISOString() })
     .eq("owner_email", ownerEmail)
     .eq("id", conversationId);
+}
+
+export async function updateConversationDashboardStats(
+  conversationId: string,
+  ownerEmail: string,
+  dashboardMessageStats: DashboardMessageStats,
+): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
+  if (!existing) return;
+
+  const nextPayload: User = {
+    ...existing,
+    dashboardMessageStats,
+  };
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
+  revalidateDashboardSnapshotCache();
 }

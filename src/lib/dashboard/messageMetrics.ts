@@ -1,8 +1,12 @@
 import { getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  countLinksInMessageText,
+  extractMessageText,
+} from "@/lib/messages/messageText";
 import type { DashboardMessageStats } from "@/types/dashboard";
+import type { Message, User } from "@/types/inbox";
 
 const CONVERSATION_QUERY_CHUNK_SIZE = 250;
-const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/i;
 
 type DashboardMessageDoc = {
   id: string;
@@ -19,7 +23,9 @@ interface MutableDashboardMessageStats extends DashboardMessageStats {
   pendingIncomingCursor: number;
 }
 
-function createMutableStats(conversationId: string): MutableDashboardMessageStats {
+function createMutableStats(
+  conversationId: string,
+): MutableDashboardMessageStats {
   return {
     conversationId,
     incomingCount: 0,
@@ -32,6 +38,19 @@ function createMutableStats(conversationId: string): MutableDashboardMessageStat
   };
 }
 
+export function createEmptyDashboardMessageStats(
+  conversationId: string,
+): DashboardMessageStats {
+  return {
+    conversationId,
+    incomingCount: 0,
+    outgoingCount: 0,
+    linksSentCount: 0,
+    replyPairs: 0,
+    totalReplyDelayMs: 0,
+  };
+}
+
 function parseTimestampMs(timestamp: string | undefined): number | null {
   if (!timestamp) return null;
   const parsed = Date.parse(timestamp);
@@ -40,8 +59,14 @@ function parseTimestampMs(timestamp: string | undefined): number | null {
 
 function chunkConversationIds(conversationIds: string[]): string[][] {
   const chunks: string[][] = [];
-  for (let index = 0; index < conversationIds.length; index += CONVERSATION_QUERY_CHUNK_SIZE) {
-    chunks.push(conversationIds.slice(index, index + CONVERSATION_QUERY_CHUNK_SIZE));
+  for (
+    let index = 0;
+    index < conversationIds.length;
+    index += CONVERSATION_QUERY_CHUNK_SIZE
+  ) {
+    chunks.push(
+      conversationIds.slice(index, index + CONVERSATION_QUERY_CHUNK_SIZE),
+    );
   }
   return chunks;
 }
@@ -55,12 +80,11 @@ function absorbMessage(
 
   if (message.fromMe === true) {
     stats.outgoingCount += 1;
-    if (URL_PATTERN.test(message.text || "")) {
-      stats.linksSentCount += 1;
-    }
+    stats.linksSentCount += countLinksInMessageText(message.text || "");
 
     if (stats.pendingIncomingCursor < stats.pendingIncomingTimestamps.length) {
-      const pendingIncomingMs = stats.pendingIncomingTimestamps[stats.pendingIncomingCursor];
+      const pendingIncomingMs =
+        stats.pendingIncomingTimestamps[stats.pendingIncomingCursor];
       stats.pendingIncomingCursor += 1;
 
       const replyDelayMs = timestampMs - pendingIncomingMs;
@@ -97,7 +121,12 @@ function stripMutableFields(
   const finalized = new Map<string, DashboardMessageStats>();
 
   for (const [conversationId, stats] of statsByConversationId) {
+    finalized.set(
+      conversationId,
+      createEmptyDashboardMessageStats(conversationId),
+    );
     finalized.set(conversationId, {
+      ...createEmptyDashboardMessageStats(conversationId),
       conversationId: stats.conversationId,
       incomingCount: stats.incomingCount,
       outgoingCount: stats.outgoingCount,
@@ -108,6 +137,42 @@ function stripMutableFields(
   }
 
   return finalized;
+}
+
+export function buildDashboardMessageStatsFromMessages(
+  conversationId: string,
+  messages: Array<Pick<Message, "fromMe" | "text" | "timestamp">>,
+): DashboardMessageStats {
+  const mutable = createMutableStats(conversationId);
+
+  for (const message of messages) {
+    absorbMessage(mutable, message);
+  }
+
+  return {
+    conversationId: mutable.conversationId,
+    incomingCount: mutable.incomingCount,
+    outgoingCount: mutable.outgoingCount,
+    linksSentCount: mutable.linksSentCount,
+    replyPairs: mutable.replyPairs,
+    totalReplyDelayMs: mutable.totalReplyDelayMs,
+  };
+}
+
+export function getDashboardMessageStatsMapFromConversationPayload(
+  conversations: Array<Pick<User, "id" | "dashboardMessageStats">>,
+): Map<string, DashboardMessageStats> {
+  const statsByConversationId = new Map<string, DashboardMessageStats>();
+
+  for (const conversation of conversations) {
+    statsByConversationId.set(
+      conversation.id,
+      conversation.dashboardMessageStats ||
+        createEmptyDashboardMessageStats(conversation.id),
+    );
+  }
+
+  return statsByConversationId;
 }
 
 export async function getDashboardMessageStats(
@@ -121,7 +186,10 @@ export async function getDashboardMessageStats(
 
   const statsByConversationId = new Map<string, MutableDashboardMessageStats>();
   for (const conversationId of sanitizedConversationIds) {
-    statsByConversationId.set(conversationId, createMutableStats(conversationId));
+    statsByConversationId.set(
+      conversationId,
+      createMutableStats(conversationId),
+    );
   }
 
   const supabase = getInboxSupabase();
@@ -129,7 +197,7 @@ export async function getDashboardMessageStats(
   for (const chunk of chunks) {
     const { data } = await supabase
       .from("inbox_messages")
-      .select("id,conversation_id,payload,timestamp_text,is_empty")
+      .select("id,conversation_id,payload,timestamp_text,is_empty,from_me")
       .eq("owner_email", ownerEmail)
       .in("conversation_id", chunk)
       .neq("is_empty", true)
@@ -142,14 +210,26 @@ export async function getDashboardMessageStats(
       const typed = row as {
         id: string;
         conversation_id: string;
-        payload: { fromMe?: boolean; text?: string; timestamp?: string };
+        timestamp_text?: string | null;
+        from_me?: boolean | null;
+        payload: {
+          fromMe?: boolean;
+          text?: string;
+          message?: string;
+          body?: string;
+          content?: string;
+          timestamp?: string;
+        };
       };
       return {
         id: typed.id,
         conversationId: typed.conversation_id,
-        fromMe: typed.payload.fromMe,
-        text: typed.payload.text,
-        timestamp: typed.payload.timestamp,
+        fromMe:
+          typeof typed.from_me === "boolean"
+            ? typed.from_me
+            : typed.payload.fromMe,
+        text: extractMessageText(typed.payload),
+        timestamp: typed.payload.timestamp || typed.timestamp_text || undefined,
       } as DashboardMessageDoc;
     });
 
