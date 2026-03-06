@@ -63,18 +63,25 @@ async function handleExternalImageRequest(
   const upstream = await fetch(target, {
     method,
     headers: {
-      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      Accept:
+        "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
     },
     cache: "no-store",
   });
 
   if (!upstream.ok) {
-    return NextResponse.json({ error: "Failed to fetch image" }, { status: 502 });
+    return NextResponse.json(
+      { error: "Failed to fetch image" },
+      { status: 502 },
+    );
   }
 
   const contentType = upstream.headers.get("content-type") || "";
   if (!contentType.startsWith("image/")) {
-    return NextResponse.json({ error: "Target is not an image" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Target is not an image" },
+      { status: 400 },
+    );
   }
 
   const headers = new Headers({

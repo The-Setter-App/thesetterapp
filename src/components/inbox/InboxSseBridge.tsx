@@ -7,24 +7,24 @@ import {
   setCachedUsers,
   updateCachedMessages,
 } from "@/lib/cache";
+import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
 import {
   emitInboxRealtimeMessage,
   emitInboxSseEvent,
 } from "@/lib/inbox/clientRealtimeEvents";
-import { findConversationForRealtimeMessage } from "@/lib/inbox/clientConversationSync";
+import { syncConversationCallsCache } from "@/lib/inbox/realtime/calendlyCallSync";
 import {
   buildRealtimePreviewText,
   mapRealtimePayloadToMessage,
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
-import { syncConversationCallsCache } from "@/lib/inbox/realtime/calendlyCallSync";
 import { reconcilePendingMessages } from "@/lib/inbox/realtime/reconcilePending";
+import type { SSEEvent, SSEMessageData, User } from "@/types/inbox";
 import {
   mergeUsersWithLocalRecency,
   normalizeUsersFromBackend,
   sortUsersByRecency,
 } from "./sidebar/utils";
-import type { SSEEvent, SSEMessageData, User } from "@/types/inbox";
 
 function isMessageEvent(
   event: SSEEvent,
@@ -133,7 +133,9 @@ export default function InboxSseBridge() {
       const data = message.data;
       const users = usersRef.current ?? [];
       const matchedConversation =
-        users.length > 0 ? findConversationForRealtimeMessage(users, data) : null;
+        users.length > 0
+          ? findConversationForRealtimeMessage(users, data)
+          : null;
       const targetConversationId =
         matchedConversation?.id || data.conversationId || null;
       if (!targetConversationId) {
@@ -171,7 +173,10 @@ export default function InboxSseBridge() {
           { ...canonicalMessage, pending: false },
         ]);
       }).catch((error) =>
-        console.error("[InboxSseBridge] Failed to update message cache:", error),
+        console.error(
+          "[InboxSseBridge] Failed to update message cache:",
+          error,
+        ),
       );
 
       if (!matchedConversation) {

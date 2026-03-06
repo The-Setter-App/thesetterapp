@@ -56,7 +56,9 @@ async function shouldPrefetchConversationDetails(params: {
   force: boolean;
 }): Promise<boolean> {
   if (params.force) return true;
-  const cachedDetails = await getCachedConversationDetails(params.conversationId);
+  const cachedDetails = await getCachedConversationDetails(
+    params.conversationId,
+  );
   return !cachedDetails;
 }
 
@@ -142,4 +144,3 @@ export async function prefetchConversationDetailsBatchToCache(params: {
   }
   await Promise.all(workers);
 }
-

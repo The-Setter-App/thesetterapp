@@ -12,9 +12,15 @@ export async function GET(
   try {
     const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
     const { recipientId: conversationId } = await context.params;
-    const conversation = await findConversationById(conversationId, workspaceOwnerEmail);
+    const conversation = await findConversationById(
+      conversationId,
+      workspaceOwnerEmail,
+    );
     if (!conversation) {
-      return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Conversation not found." },
+        { status: 404 },
+      );
     }
 
     const calls = await getConversationCalls({
@@ -27,8 +33,14 @@ export async function GET(
     );
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
-    return NextResponse.json({ error: "Failed to load calls." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load calls." },
+      { status: 500 },
+    );
   }
 }

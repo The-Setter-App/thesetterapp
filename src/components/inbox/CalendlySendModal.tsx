@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 interface CalendlySendModalProps {
@@ -155,19 +155,25 @@ export default function CalendlySendModal({
           ) : null}
 
           <div className={calendlyConnected ? "" : "opacity-60"}>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]">
+            <p className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]">
               Booking Link
-            </label>
+            </p>
             <div className="rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-2 text-xs text-[#101011] break-all">
-              {loading ? "Preparing link..." : bookingUrl || "No link available"}
+              {loading
+                ? "Preparing link..."
+                : bookingUrl || "No link available"}
             </div>
           </div>
 
           <div className={calendlyConnected ? "" : "opacity-60"}>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]">
+            <label
+              htmlFor="calendly-optional-message"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]"
+            >
               Optional Message
             </label>
             <textarea
+              id="calendly-optional-message"
               value={optionalMessage}
               onChange={(event) => setOptionalMessage(event.target.value)}
               rows={3}

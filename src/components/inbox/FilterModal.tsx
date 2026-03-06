@@ -1,5 +1,5 @@
-import { Inter } from "next/font/google";
 import { Search } from "lucide-react";
+import { Inter } from "next/font/google";
 import { useMemo, useState } from "react";
 import { LuChevronDown, LuUserRound, LuUsers } from "react-icons/lu";
 import { StatusIcon } from "@/components/icons/StatusIcon";
@@ -47,7 +47,9 @@ function StatusFilter({
               type="button"
               onClick={() => onChange(status.name)}
               className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold"
-              style={buildStatusPillStyle(status.colorHex, { backgroundAlpha: 0.12 })}
+              style={buildStatusPillStyle(status.colorHex, {
+                backgroundAlpha: 0.12,
+              })}
             >
               <StatusIcon
                 iconPack={status.iconPack}
@@ -104,7 +106,9 @@ function StatusFilter({
                 </div>
                 <div
                   className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px]"
-                  style={{ backgroundColor: toStatusColorRgba(status.colorHex, 0.16) }}
+                  style={{
+                    backgroundColor: toStatusColorRgba(status.colorHex, 0.16),
+                  }}
                 >
                   <StatusIcon
                     iconPack={status.iconPack}
@@ -176,9 +180,9 @@ export default function FilterModal({
 
         <div className="space-y-3 p-3">
           <div className="space-y-1">
-            <label className="px-1 text-[14px] font-medium text-[#2B2B2C]">
+            <p className="px-1 text-[14px] font-medium text-[#2B2B2C]">
               Assigned to
-            </label>
+            </p>
             <div className="flex h-[32px] w-full cursor-pointer items-center justify-between rounded-md border border-[#F0F2F6] bg-white px-2">
               <span className="flex items-center gap-2 text-[12px] text-[#2B2B2C]">
                 <LuUsers className="h-4 w-4 text-[#606266]" />
@@ -189,9 +193,9 @@ export default function FilterModal({
           </div>
 
           <div className="space-y-1">
-            <label className="px-1 text-[14px] font-medium text-[#2B2B2C]">
+            <p className="px-1 text-[14px] font-medium text-[#2B2B2C]">
               Accounts
-            </label>
+            </p>
             <div className="max-h-[140px] space-y-1 overflow-y-auto rounded-md border border-[#F0F2F6] bg-white px-2 py-2">
               {accountOptions.length === 0 && (
                 <span className="flex items-center gap-2 px-1 py-1 text-[12px] text-[#9CA3AF]">

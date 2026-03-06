@@ -8,7 +8,9 @@ function normalizeConversationId(conversationId: string): string {
   return conversationId.trim();
 }
 
-export function syncConversationCallsCache(conversationId: string): Promise<void> {
+export function syncConversationCallsCache(
+  conversationId: string,
+): Promise<void> {
   const normalizedConversationId = normalizeConversationId(conversationId);
   if (!normalizedConversationId) {
     return Promise.resolve();

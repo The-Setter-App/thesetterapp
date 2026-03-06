@@ -1,9 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
-import {
-  getCachedSetterAiSessions,
-  getSetterAiLastEmail,
-} from "@/lib/cache";
+import { getCachedSetterAiSessions, getSetterAiLastEmail } from "@/lib/cache";
 
 export async function bootstrapSessions(params: {
   setCurrentEmail: Dispatch<SetStateAction<string | null>>;

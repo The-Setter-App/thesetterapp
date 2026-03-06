@@ -8,7 +8,11 @@ export async function getAppUserExists(email: string): Promise<boolean> {
   const normalizedEmail = normalizeEmail(email);
   const supabase = getSupabaseServerClient();
 
-  const { data, error } = await supabase.from("app_users").select("email").eq("email", normalizedEmail).maybeSingle();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("email")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
   if (error) {
     throw new Error(`Failed to lookup user: ${error.message}`);
   }
@@ -34,4 +38,3 @@ export async function createOwnerUser(email: string): Promise<void> {
     throw new Error(`Failed to create owner: ${error.message}`);
   }
 }
-

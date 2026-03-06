@@ -4,7 +4,10 @@ import {
   updateConversationDetails,
 } from "@/lib/inboxRepository";
 import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
-import type { ConversationDetails, ConversationDetailsPatchRequest } from "@/types/inbox";
+import type {
+  ConversationDetails,
+  ConversationDetailsPatchRequest,
+} from "@/types/inbox";
 
 export const dynamic = "force-dynamic";
 

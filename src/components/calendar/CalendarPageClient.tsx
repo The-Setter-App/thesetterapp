@@ -2,8 +2,8 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import CalendarDayView from "@/components/calendar/CalendarDayView";
 import CalendarContentSkeleton from "@/components/calendar/CalendarContentSkeleton";
+import CalendarDayView from "@/components/calendar/CalendarDayView";
 import CalendarIntegrationRequiredState from "@/components/calendar/CalendarIntegrationRequiredState";
 import CalendarMonthGrid from "@/components/calendar/CalendarMonthGrid";
 import CalendarSidebar from "@/components/calendar/CalendarSidebar";
@@ -54,13 +54,11 @@ export default function CalendarPageClient({
     events: workspaceCallEvents,
     loading: eventsLoading,
     error: eventsError,
-  } = useCalendarEvents(
-    {
-      enabled: calendlyConnected,
-      fromIso: visibleRange.fromIso,
-      toIso: visibleRange.toIso,
-    },
-  );
+  } = useCalendarEvents({
+    enabled: calendlyConnected,
+    fromIso: visibleRange.fromIso,
+    toIso: visibleRange.toIso,
+  });
 
   const events = useMemo(
     () => mapWorkspaceCallEventsToCalendarEvents(workspaceCallEvents),
@@ -129,7 +127,8 @@ export default function CalendarPageClient({
     return event.date === todayKey;
   }).length;
   const showCalendarLoadingState =
-    connectionLoading || (calendlyConnected && eventsLoading && events.length === 0);
+    connectionLoading ||
+    (calendlyConnected && eventsLoading && events.length === 0);
   const showIntegrationState = !connectionLoading && !calendlyConnected;
   const showCalendarShell = !eventsError && !showIntegrationState;
 

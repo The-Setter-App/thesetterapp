@@ -50,7 +50,10 @@ export function subscribeInboxStatusCatalogChanged(
 
   if (typeof BroadcastChannel === "undefined") {
     return () =>
-      window.removeEventListener(INBOX_STATUS_CATALOG_CHANGED_EVENT, eventHandler);
+      window.removeEventListener(
+        INBOX_STATUS_CATALOG_CHANGED_EVENT,
+        eventHandler,
+      );
   }
 
   const channel = new BroadcastChannel(BROADCAST_CHANNEL);
@@ -64,7 +67,10 @@ export function subscribeInboxStatusCatalogChanged(
   };
 
   return () => {
-    window.removeEventListener(INBOX_STATUS_CATALOG_CHANGED_EVENT, eventHandler);
+    window.removeEventListener(
+      INBOX_STATUS_CATALOG_CHANGED_EVENT,
+      eventHandler,
+    );
     channel.close();
   };
 }

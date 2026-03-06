@@ -1,7 +1,7 @@
 "use client";
 
-import { AppImage } from "@/components/ui/AppImage";
 import { StatusIcon } from "@/components/icons/StatusIcon";
+import { AppImage } from "@/components/ui/AppImage";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
@@ -23,6 +23,8 @@ const VerifiedIcon = () => (
     viewBox="0 0 24 24"
     fill="currentColor"
     className="w-3.5 h-3.5 text-blue-500"
+    aria-hidden="true"
+    focusable="false"
   >
     <path
       fillRule="evenodd"
@@ -38,6 +40,8 @@ const StarIcon = ({ className }: { className?: string }) => (
     viewBox="0 0 24 24"
     fill="currentColor"
     className={className}
+    aria-hidden="true"
+    focusable="false"
   >
     <path
       fillRule="evenodd"
@@ -55,6 +59,8 @@ const XIcon = ({ className }: { className?: string }) => (
     strokeWidth={2.5}
     stroke="currentColor"
     className={className}
+    aria-hidden="true"
+    focusable="false"
   >
     <path
       strokeLinecap="round"
@@ -72,6 +78,8 @@ const FolderMoveIcon = ({ className }: { className?: string }) => (
     strokeWidth={1.5}
     stroke="currentColor"
     className={className}
+    aria-hidden="true"
+    focusable="false"
   >
     <path
       strokeLinecap="round"
@@ -104,8 +112,12 @@ export default function ConversationList({
             className={`group flex items-center px-4 py-3 border-b border-[#F0F2F6] cursor-pointer hover:bg-[#F8F7FF] hover:z-50 relative ${
               selectedUserId === u.id ? "bg-blue-50/50" : ""
             }`}
-            onClick={() => onSelectUser(u.id)}
           >
+            <button
+              type="button"
+              onClick={() => onSelectUser(u.id)}
+              className="flex min-w-0 flex-1 items-center text-left"
+            >
               <div className="relative flex-shrink-0">
                 <AppImage
                   src={u.avatar || "/images/no_profile.jpg"}
@@ -115,7 +127,11 @@ export default function ConversationList({
                 />
                 {showReplyBadge && (
                   <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
-                    {unreadCount > 0 ? (unreadCount > 9 ? "9+" : unreadCount) : "!"}
+                    {unreadCount > 0
+                      ? unreadCount > 9
+                        ? "9+"
+                        : unreadCount
+                      : "!"}
                   </span>
                 )}
               </div>
@@ -160,66 +176,72 @@ export default function ConversationList({
                   </span>
                 </div>
               </div>
+            </button>
 
-              {/* Floating Action Icons (show on hover) */}
-              <div
-                className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
-                style={{ minWidth: 60 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Priority */}
-                <div className="group/act relative flex items-center">
-                  <button
-                    type="button"
-                    className="flex h-5 w-5 items-center justify-center"
-                    onClick={() => onAction(u.id, "qualified")}
-                    tabIndex={-1}
-                  >
-                    <StarIcon className="w-4 h-4 text-[#606266] group-hover/act:text-yellow-400" />
-                  </button>
-                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                    Mark as qualified
-                  </span>
-                </div>
-                {/* Delete */}
-                <div className="group/act relative flex items-center">
-                  <button
-                    type="button"
-                    className="flex h-5 w-5 items-center justify-center"
-                    onClick={() => onAction(u.id, "delete")}
-                    tabIndex={-1}
-                  >
-                    <XIcon className="w-4 h-4 text-[#606266] group-hover/act:text-red-500" />
-                  </button>
-                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                    Unqualify and remove user from inbox
-                  </span>
-                </div>
-                {/* Priority / Unpriority */}
-                <div className="group/act relative flex items-center">
-                  <button
-                    type="button"
-                    className="flex h-5 w-5 items-center justify-center"
-                    onClick={() =>
-                      onAction(u.id, u.isPriority ? "unpriority" : "priority")
-                    }
-                    tabIndex={-1}
-                  >
-                    <FolderMoveIcon
-                      className={`w-4 h-4 text-[#606266] ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
-                    />
-                  </button>
-                  <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                    {u.isPriority
-                      ? "Remove from priority inbox"
-                      : "Move to priority inbox"}
-                  </span>
-                </div>
+            {/* Floating Action Icons (show on hover) */}
+            <div
+              className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
+              style={{ minWidth: 60 }}
+            >
+              {/* Priority */}
+              <div className="group/act relative flex items-center">
+                <button
+                  type="button"
+                  className="flex h-5 w-5 items-center justify-center"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction(u.id, "qualified");
+                  }}
+                  tabIndex={-1}
+                >
+                  <StarIcon className="w-4 h-4 text-[#606266] group-hover/act:text-yellow-400" />
+                </button>
+                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  Mark as qualified
+                </span>
+              </div>
+              {/* Delete */}
+              <div className="group/act relative flex items-center">
+                <button
+                  type="button"
+                  className="flex h-5 w-5 items-center justify-center"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction(u.id, "delete");
+                  }}
+                  tabIndex={-1}
+                >
+                  <XIcon className="w-4 h-4 text-[#606266] group-hover/act:text-red-500" />
+                </button>
+                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  Unqualify and remove user from inbox
+                </span>
+              </div>
+              {/* Priority / Unpriority */}
+              <div className="group/act relative flex items-center">
+                <button
+                  type="button"
+                  className="flex h-5 w-5 items-center justify-center"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction(u.id, u.isPriority ? "unpriority" : "priority");
+                  }}
+                  tabIndex={-1}
+                >
+                  <FolderMoveIcon
+                    className={`w-4 h-4 text-[#606266] ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
+                  />
+                </button>
+                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
+                  {u.isPriority
+                    ? "Remove from priority inbox"
+                    : "Move to priority inbox"}
+                </span>
               </div>
             </div>
+          </div>
         );
       })}
     </div>
   );
 }
-

@@ -1,4 +1,7 @@
-import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+} from "@/lib/inbox/repository/core";
 
 export async function getConversationGraphSyncState(
   conversationId: string,
@@ -8,7 +11,9 @@ export async function getConversationGraphSyncState(
 
   const { data } = await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .select("graph_before_cursor,graph_backfill_done,sync_before_cursor,sync_status")
+    .select(
+      "graph_before_cursor,graph_backfill_done,sync_before_cursor,sync_status",
+    )
     .eq("id", conversationId)
     .eq("owner_email", ownerEmail)
     .maybeSingle();
@@ -23,8 +28,12 @@ export async function getConversationGraphSyncState(
   };
 
   return {
-    graphBeforeCursor: row.sync_before_cursor ?? row.graph_before_cursor ?? undefined,
-    graphBackfillDone: row.sync_status === "done" ? true : row.graph_backfill_done ?? undefined,
+    graphBeforeCursor:
+      row.sync_before_cursor ?? row.graph_before_cursor ?? undefined,
+    graphBackfillDone:
+      row.sync_status === "done"
+        ? true
+        : (row.graph_backfill_done ?? undefined),
   };
 }
 
@@ -100,11 +109,15 @@ export async function updateConversationSyncState(
     updates.sync_before_cursor = state.syncBeforeCursor;
     updates.graph_before_cursor = state.syncBeforeCursor;
   }
-  if (state.syncCompletedAt !== undefined) updates.sync_completed_at = state.syncCompletedAt;
-  if (state.syncStartedAt !== undefined) updates.sync_started_at = state.syncStartedAt;
+  if (state.syncCompletedAt !== undefined)
+    updates.sync_completed_at = state.syncCompletedAt;
+  if (state.syncStartedAt !== undefined)
+    updates.sync_started_at = state.syncStartedAt;
   if (state.syncError !== undefined) updates.sync_error = state.syncError;
-  if (state.syncRetryCount !== undefined) updates.sync_retry_count = state.syncRetryCount;
-  if (state.syncMessageCount !== undefined) updates.sync_message_count = state.syncMessageCount;
+  if (state.syncRetryCount !== undefined)
+    updates.sync_retry_count = state.syncRetryCount;
+  if (state.syncMessageCount !== undefined)
+    updates.sync_message_count = state.syncMessageCount;
 
   if (Object.keys(updates).length === 0) return;
 
@@ -122,7 +135,9 @@ export async function getConversationSyncState(
   const supabase = getInboxSupabase();
   const { data } = await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .select("sync_status,sync_before_cursor,sync_completed_at,sync_started_at,sync_error,sync_retry_count,sync_message_count")
+    .select(
+      "sync_status,sync_before_cursor,sync_completed_at,sync_started_at,sync_error,sync_retry_count,sync_message_count",
+    )
     .eq("id", conversationId)
     .eq("owner_email", ownerEmail)
     .maybeSingle();
@@ -150,7 +165,10 @@ export async function getConversationSyncState(
   };
 }
 
-export async function markConversationsPendingSync(ownerEmail: string, conversationIds: string[]): Promise<void> {
+export async function markConversationsPendingSync(
+  ownerEmail: string,
+  conversationIds: string[],
+): Promise<void> {
   if (!conversationIds.length) return;
   const supabase = getInboxSupabase();
 
@@ -171,7 +189,10 @@ export async function getConversationSyncOverview(ownerEmail: string): Promise<{
   const supabase = getInboxSupabase();
 
   const [total, pending, running, done, error] = await Promise.all([
-    supabase.from(CONVERSATIONS_COLLECTION).select("id", { count: "exact", head: true }).eq("owner_email", ownerEmail),
+    supabase
+      .from(CONVERSATIONS_COLLECTION)
+      .select("id", { count: "exact", head: true })
+      .eq("owner_email", ownerEmail),
     supabase
       .from(CONVERSATIONS_COLLECTION)
       .select("id", { count: "exact", head: true })

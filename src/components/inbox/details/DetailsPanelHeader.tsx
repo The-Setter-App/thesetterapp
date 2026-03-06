@@ -4,18 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { AppImage } from "@/components/ui/AppImage";
+import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
-import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
+import {
+  emitConversationStatusSynced,
+  syncConversationStatusToClientCache,
+} from "@/lib/status/clientSync";
 import {
   DEFAULT_STATUS_TAGS,
   findStatusTagByName,
   isStatusType,
 } from "@/lib/status/config";
-import {
-  emitConversationStatusSynced,
-  syncConversationStatusToClientCache,
-} from "@/lib/status/clientSync";
 import type { ConversationContactDetails, SSEEvent, User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 
@@ -27,6 +27,8 @@ const CopyIcon = ({ className }: { className?: string }) => (
     strokeWidth={1.5}
     stroke="currentColor"
     className={className}
+    aria-hidden="true"
+    focusable="false"
   >
     <path
       strokeLinecap="round"
@@ -63,7 +65,7 @@ export default function DetailsPanelHeader({
 
   useEffect(() => {
     setCurrentStatus(user.status);
-  }, [user.status, userId]);
+  }, [user.status]);
 
   useEffect(() => {
     return () => {
@@ -102,8 +104,14 @@ export default function DetailsPanelHeader({
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ userId?: string; status?: string }>;
-      if (customEvent.detail?.userId === userId && isStatusType(customEvent.detail?.status)) {
+      const customEvent = e as CustomEvent<{
+        userId?: string;
+        status?: string;
+      }>;
+      if (
+        customEvent.detail?.userId === userId &&
+        isStatusType(customEvent.detail?.status)
+      ) {
         setCurrentStatus(customEvent.detail.status);
       }
     };
@@ -234,7 +242,10 @@ export default function DetailsPanelHeader({
             className="h-5 w-5 shrink-0"
             style={{ color: statusColor }}
           />
-          <span className="ml-2 text-sm font-semibold" style={{ color: statusColor }}>
+          <span
+            className="ml-2 text-sm font-semibold"
+            style={{ color: statusColor }}
+          >
             {currentStatus}
           </span>
           <span className="ml-1 text-sm font-semibold text-[#101011]">
@@ -247,6 +258,8 @@ export default function DetailsPanelHeader({
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
           >
             <path
               strokeLinecap="round"
@@ -334,7 +347,10 @@ export default function DetailsPanelHeader({
             placeholder="Email"
             value={contactDetails.email}
             onChange={(e) =>
-              onChangeContactDetails({ ...contactDetails, email: e.target.value })
+              onChangeContactDetails({
+                ...contactDetails,
+                email: e.target.value,
+              })
             }
             onBlur={() => {
               if (!phoneValid || !emailValid) return;

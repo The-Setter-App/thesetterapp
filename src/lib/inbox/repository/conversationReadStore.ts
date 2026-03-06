@@ -1,4 +1,7 @@
-import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+} from "@/lib/inbox/repository/core";
 import type { User } from "@/types/inbox";
 
 type ConversationRow = {
@@ -16,7 +19,9 @@ function mapConversation(row: ConversationRow): User {
   };
 }
 
-export async function getConversationsFromDb(ownerEmail: string): Promise<User[]> {
+export async function getConversationsFromDb(
+  ownerEmail: string,
+): Promise<User[]> {
   const supabase = getInboxSupabase();
   const { data, error } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -33,7 +38,10 @@ export async function getConversationsFromDb(ownerEmail: string): Promise<User[]
   return (data as ConversationRow[]).map(mapConversation);
 }
 
-export async function findConversationByRecipientId(recipientId: string, ownerEmail: string): Promise<User | null> {
+export async function findConversationByRecipientId(
+  recipientId: string,
+  ownerEmail: string,
+): Promise<User | null> {
   const supabase = getInboxSupabase();
   const { data } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -46,7 +54,10 @@ export async function findConversationByRecipientId(recipientId: string, ownerEm
   return mapConversation(data as ConversationRow);
 }
 
-export async function findConversationById(conversationId: string, ownerEmail: string): Promise<User | null> {
+export async function findConversationById(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<User | null> {
   const supabase = getInboxSupabase();
   const { data } = await supabase
     .from(CONVERSATIONS_COLLECTION)
@@ -59,8 +70,14 @@ export async function findConversationById(conversationId: string, ownerEmail: s
   return mapConversation(data as ConversationRow);
 }
 
-export async function findConversationIdByParticipant(participantId: string, ownerEmail: string): Promise<string | undefined> {
-  const conversation = await findConversationByRecipientId(participantId, ownerEmail);
+export async function findConversationIdByParticipant(
+  participantId: string,
+  ownerEmail: string,
+): Promise<string | undefined> {
+  const conversation = await findConversationByRecipientId(
+    participantId,
+    ownerEmail,
+  );
   return conversation?.id;
 }
 

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { StatusIcon } from "@/components/icons/StatusIcon";
-import { DEFAULT_STATUS_TAGS, findStatusTagByName } from "@/lib/status/config";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
+import { DEFAULT_STATUS_TAGS, findStatusTagByName } from "@/lib/status/config";
 import type { TagRow } from "@/types/tags";
 
 interface StatusUpdateEventProps {

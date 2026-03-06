@@ -1,45 +1,56 @@
-import { revalidatePath } from 'next/cache';
-import { Crown, Mail, Shield, Trash2, UserPlus, Users2 } from 'lucide-react';
-import { redirect } from 'next/navigation';
-import SettingsSectionCard from '@/components/settings/SettingsSectionCard';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import TeamRoleDropdown from '@/components/settings/TeamRoleDropdown';
-import { requireCurrentUser } from '@/lib/currentUser';
-import { requireCurrentSettingsUser } from '@/lib/currentSettingsUser';
-import { sendTeamInvitationEmail } from '@/lib/email';
+import { Crown, Mail, Shield, Trash2, UserPlus, Users2 } from "lucide-react";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
+import TeamRoleDropdown from "@/components/settings/TeamRoleDropdown";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
+import { requireCurrentUser } from "@/lib/currentUser";
+import { sendTeamInvitationEmail } from "@/lib/email";
+import {
+  getCachedTeamMembersForOwner,
+  getCachedUser,
+} from "@/lib/settingsCache";
 import {
   addTeamMemberByOwner,
   getTeamMembersForOwner,
   getUser,
   removeTeamMemberByOwner,
-} from '@/lib/userRepository';
-import { getCachedTeamMembersForOwner, getCachedUser } from '@/lib/settingsCache';
-import type { TeamMemberRole } from '@/types/auth';
+} from "@/lib/userRepository";
+import type { TeamMemberRole } from "@/types/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function addTeamMemberAction(formData: FormData) {
-  'use server';
+  "use server";
 
   const { user } = await requireCurrentUser();
-  if (user.role !== 'owner') {
-    redirect('/settings/team');
+  if (user.role !== "owner") {
+    redirect("/settings/team");
   }
 
-  const emailValue = String(formData.get('email') || '').trim().toLowerCase();
-  const roleValue = String(formData.get('role') || '').trim().toLowerCase();
+  const emailValue = String(formData.get("email") || "")
+    .trim()
+    .toLowerCase();
+  const roleValue = String(formData.get("role") || "")
+    .trim()
+    .toLowerCase();
 
   if (!EMAIL_REGEX.test(emailValue)) {
-    redirect('/settings/team?error=invalid_email');
+    redirect("/settings/team?error=invalid_email");
   }
 
-  if (roleValue !== 'setter' && roleValue !== 'closer') {
-    redirect('/settings/team?error=invalid_role');
+  if (roleValue !== "setter" && roleValue !== "closer") {
+    redirect("/settings/team?error=invalid_role");
   }
 
   try {
-    await addTeamMemberByOwner(user.email, emailValue, roleValue as TeamMemberRole);
+    await addTeamMemberByOwner(
+      user.email,
+      emailValue,
+      roleValue as TeamMemberRole,
+    );
 
     await sendTeamInvitationEmail({
       ownerEmail: user.email,
@@ -47,46 +58,52 @@ async function addTeamMemberAction(formData: FormData) {
       role: roleValue as TeamMemberRole,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'failed_to_add_member';
+    const message =
+      error instanceof Error ? error.message : "failed_to_add_member";
     redirect(`/settings/team?error=${encodeURIComponent(message)}`);
   }
 
-  revalidatePath('/settings/team');
-  redirect('/settings/team?success=member_saved');
+  revalidatePath("/settings/team");
+  redirect("/settings/team?success=member_saved");
 }
 
 async function removeTeamMemberAction(formData: FormData) {
-  'use server';
+  "use server";
 
   const { user } = await requireCurrentUser();
-  if (user.role !== 'owner') {
-    redirect('/settings/team');
+  if (user.role !== "owner") {
+    redirect("/settings/team");
   }
 
-  const emailValue = String(formData.get('email') || '').trim().toLowerCase();
+  const emailValue = String(formData.get("email") || "")
+    .trim()
+    .toLowerCase();
   if (!EMAIL_REGEX.test(emailValue)) {
-    redirect('/settings/team?error=invalid_email');
+    redirect("/settings/team?error=invalid_email");
   }
 
   try {
     await removeTeamMemberByOwner(user.email, emailValue);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'failed_to_remove_member';
+    const message =
+      error instanceof Error ? error.message : "failed_to_remove_member";
     redirect(`/settings/team?error=${encodeURIComponent(message)}`);
   }
 
-  revalidatePath('/settings/team');
-  redirect('/settings/team?success=member_removed');
+  revalidatePath("/settings/team");
+  redirect("/settings/team?success=member_removed");
 }
 
 interface TeamPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function SettingsTeamPage({ searchParams }: TeamPageProps) {
+export default async function SettingsTeamPage({
+  searchParams,
+}: TeamPageProps) {
   const { user } = await requireCurrentSettingsUser();
 
-  if (user.role === 'viewer') {
+  if (user.role === "viewer") {
     return (
       <SettingsSectionCard
         title="Team access requires an active subscription"
@@ -95,7 +112,8 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
         <div className="px-6 py-6 md:px-8">
           <div className="rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] p-5">
             <p className="text-sm text-[#606266]">
-              Please buy a subscription to unlock owner controls and invite Setter or Closer teammates.
+              Please buy a subscription to unlock owner controls and invite
+              Setter or Closer teammates.
             </p>
           </div>
         </div>
@@ -104,10 +122,10 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
   }
 
   const params = await searchParams;
-  const success = typeof params.success === 'string' ? params.success : '';
-  const error = typeof params.error === 'string' ? params.error : '';
+  const success = typeof params.success === "string" ? params.success : "";
+  const error = typeof params.error === "string" ? params.error : "";
 
-  const ownerEmail = user.role === 'owner' ? user.email : user.teamOwnerEmail;
+  const ownerEmail = user.role === "owner" ? user.email : user.teamOwnerEmail;
   const shouldBypassCache = Boolean(success || error);
   const members = ownerEmail
     ? shouldBypassCache
@@ -124,7 +142,9 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
     <div className="space-y-4">
       {success && (
         <div className="rounded-2xl border border-[#D8D2FF] bg-[#F3F0FF] px-5 py-3 text-sm font-medium text-[#6d5ed6]">
-          {success === 'member_saved' ? 'Team member saved successfully.' : 'Team member removed and account deleted.'}
+          {success === "member_saved"
+            ? "Team member saved successfully."
+            : "Team member removed and account deleted."}
         </div>
       )}
 
@@ -142,11 +162,15 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
           <div className="rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] p-4">
             <div className="mb-3 flex items-center gap-2">
               <Users2 size={16} className="text-[#8771FF]" />
-              <p className="text-sm font-semibold text-[#101011]">Workspace Owner</p>
+              <p className="text-sm font-semibold text-[#101011]">
+                Workspace Owner
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge className="bg-[#8771FF] text-white">Owner</Badge>
-              <p className="font-mono text-sm text-[#606266]">{ownerUser?.email || user.email}</p>
+              <p className="font-mono text-sm text-[#606266]">
+                {ownerUser?.email || user.email}
+              </p>
             </div>
           </div>
 
@@ -159,22 +183,31 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
               <Badge variant="secondary" className="capitalize">
                 {user.role}
               </Badge>
-              {user.role !== 'owner' && user.teamOwnerEmail && (
-                <p className="text-xs text-[#606266]">Managed by {user.teamOwnerEmail}</p>
+              {user.role !== "owner" && user.teamOwnerEmail && (
+                <p className="text-xs text-[#606266]">
+                  Managed by {user.teamOwnerEmail}
+                </p>
               )}
             </div>
           </div>
         </div>
 
-        {user.role === 'owner' && (
-          <form action={addTeamMemberAction} className="border-b border-[#F0F2F6] px-6 py-6 md:px-8">
+        {user.role === "owner" && (
+          <form
+            action={addTeamMemberAction}
+            className="border-b border-[#F0F2F6] px-6 py-6 md:px-8"
+          >
             <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#101011]">
-              <UserPlus size={16} className="text-[#8771FF]" /> Invite team member
+              <UserPlus size={16} className="text-[#8771FF]" /> Invite team
+              member
             </h3>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
               <div>
-                <label htmlFor="team-member-email" className="mb-1 block text-xs font-medium text-[#606266]">
+                <label
+                  htmlFor="team-member-email"
+                  className="mb-1 block text-xs font-medium text-[#606266]"
+                >
                   Team member email
                 </label>
                 <input
@@ -188,7 +221,10 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
               </div>
 
               <div>
-                <label htmlFor="team-member-role" className="mb-1 block text-xs font-medium text-[#606266]">
+                <label
+                  htmlFor="team-member-role"
+                  className="mb-1 block text-xs font-medium text-[#606266]"
+                >
                   Role
                 </label>
                 <TeamRoleDropdown name="role" defaultValue="setter" />
@@ -202,12 +238,16 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
         )}
 
         <div className="px-6 py-6 md:px-8">
-          <h3 className="mb-4 text-sm font-semibold text-[#101011]">Team members</h3>
+          <h3 className="mb-4 text-sm font-semibold text-[#101011]">
+            Team members
+          </h3>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] px-4 py-3">
               <div className="min-w-0">
-                <p className="truncate font-mono text-sm text-[#101011]">{ownerUser?.email || ownerEmail || user.email}</p>
+                <p className="truncate font-mono text-sm text-[#101011]">
+                  {ownerUser?.email || ownerEmail || user.email}
+                </p>
                 <p className="mt-0.5 text-xs text-[#606266]">Workspace owner</p>
               </div>
               <div className="flex items-center gap-2">
@@ -222,12 +262,19 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
               </div>
             ) : (
               members.map((member) => (
-                <div key={member.email} className="flex items-center justify-between rounded-2xl border border-[#F0F2F6] bg-white px-4 py-3">
+                <div
+                  key={member.email}
+                  className="flex items-center justify-between rounded-2xl border border-[#F0F2F6] bg-white px-4 py-3"
+                >
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-sm text-[#101011]">{member.email}</p>
+                    <p className="truncate font-mono text-sm text-[#101011]">
+                      {member.email}
+                    </p>
                     <div className="mt-1 flex items-center gap-1.5 text-xs text-[#606266]">
                       <Mail size={12} />
-                      <span>Added {new Date(member.addedAt).toLocaleDateString()}</span>
+                      <span>
+                        Added {new Date(member.addedAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
 
@@ -236,9 +283,13 @@ export default async function SettingsTeamPage({ searchParams }: TeamPageProps) 
                       {member.role}
                     </Badge>
 
-                    {user.role === 'owner' && (
+                    {user.role === "owner" && (
                       <form action={removeTeamMemberAction}>
-                        <input type="hidden" name="email" value={member.email} />
+                        <input
+                          type="hidden"
+                          name="email"
+                          value={member.email}
+                        />
                         <button
                           type="submit"
                           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 transition-colors hover:bg-red-50"

@@ -15,7 +15,9 @@ function isRemoteHttpUrl(value: string): boolean {
   }
 }
 
-export function shouldProxyRemoteImage(src: string | null | undefined): boolean {
+export function shouldProxyRemoteImage(
+  src: string | null | undefined,
+): boolean {
   if (!src) return false;
   const trimmed = src.trim();
   if (!trimmed) return false;

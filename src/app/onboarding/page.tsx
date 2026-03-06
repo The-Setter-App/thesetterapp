@@ -1,12 +1,12 @@
-import { redirect } from 'next/navigation';
-import OnboardingProfileForm from '@/components/onboarding/OnboardingProfileForm';
-import { requireCurrentUser } from '@/lib/currentUser';
-import { getUserDisplayName, isOnboardingRequired } from '@/lib/userRepository';
+import { redirect } from "next/navigation";
+import OnboardingProfileForm from "@/components/onboarding/OnboardingProfileForm";
+import { requireCurrentUser } from "@/lib/currentUser";
+import { getUserDisplayName, isOnboardingRequired } from "@/lib/userRepository";
 
 export default async function OnboardingPage() {
   const { user } = await requireCurrentUser();
   if (!isOnboardingRequired(user)) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   return (

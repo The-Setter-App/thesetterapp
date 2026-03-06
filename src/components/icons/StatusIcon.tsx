@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { IconType } from "react-icons";
-import { getIconComponent } from "@/lib/status/iconRegistry";
 import { DEFAULT_STATUS_TAGS, findStatusTagByName } from "@/lib/status/config";
+import { getIconComponent } from "@/lib/status/iconRegistry";
 import type { StatusType } from "@/types/status";
 import type { TagIconPack } from "@/types/tags";
 

@@ -14,7 +14,7 @@ function estimateDataUrlBytes(dataUrl: string): number {
 function getConstrainedDimensions(
   width: number,
   height: number,
-  maxDimension: number
+  maxDimension: number,
 ): { width: number; height: number } {
   if (width <= maxDimension && height <= maxDimension) {
     return { width, height };
@@ -36,7 +36,11 @@ function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
-function renderToCanvas(image: HTMLImageElement, width: number, height: number): HTMLCanvasElement {
+function renderToCanvas(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -51,15 +55,21 @@ function renderToCanvas(image: HTMLImageElement, width: number, height: number):
 function findBestCompressedDataUrl(
   canvas: HTMLCanvasElement,
   originalMimeType: string,
-  maxBytes: number
+  maxBytes: number,
 ): string {
-  const mimeCandidates = originalMimeType === "image/png" ? ["image/png", "image/jpeg"] : [originalMimeType, "image/jpeg"];
+  const mimeCandidates =
+    originalMimeType === "image/png"
+      ? ["image/png", "image/jpeg"]
+      : [originalMimeType, "image/jpeg"];
   let bestCandidate = "";
 
   for (const mimeType of mimeCandidates) {
     if (mimeType === "image/png") {
       const pngDataUrl = canvas.toDataURL("image/png");
-      if (!bestCandidate || estimateDataUrlBytes(pngDataUrl) < estimateDataUrlBytes(bestCandidate)) {
+      if (
+        !bestCandidate ||
+        estimateDataUrlBytes(pngDataUrl) < estimateDataUrlBytes(bestCandidate)
+      ) {
         bestCandidate = pngDataUrl;
       }
       if (estimateDataUrlBytes(pngDataUrl) <= maxBytes) {
@@ -70,7 +80,11 @@ function findBestCompressedDataUrl(
 
     for (const quality of JPEG_QUALITY_STEPS) {
       const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
-      if (!bestCandidate || estimateDataUrlBytes(compressedDataUrl) < estimateDataUrlBytes(bestCandidate)) {
+      if (
+        !bestCandidate ||
+        estimateDataUrlBytes(compressedDataUrl) <
+          estimateDataUrlBytes(bestCandidate)
+      ) {
         bestCandidate = compressedDataUrl;
       }
       if (estimateDataUrlBytes(compressedDataUrl) <= maxBytes) {
@@ -85,13 +99,16 @@ function findBestCompressedDataUrl(
 export async function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
 
-export async function fileToOptimizedProfileDataUrl(file: File): Promise<string> {
+export async function fileToOptimizedProfileDataUrl(
+  file: File,
+): Promise<string> {
   const sourceDataUrl = await fileToDataUrl(file);
   if (!sourceDataUrl) {
     throw new Error("Failed to read image data");
@@ -103,12 +120,20 @@ export async function fileToOptimizedProfileDataUrl(file: File): Promise<string>
   }
 
   const image = await loadImageFromDataUrl(sourceDataUrl);
-  let constrained = getConstrainedDimensions(image.naturalWidth, image.naturalHeight, DEFAULT_PROFILE_IMAGE_MAX_DIMENSION);
+  let constrained = getConstrainedDimensions(
+    image.naturalWidth,
+    image.naturalHeight,
+    DEFAULT_PROFILE_IMAGE_MAX_DIMENSION,
+  );
   let bestDataUrl = sourceDataUrl;
 
   while (true) {
     const canvas = renderToCanvas(image, constrained.width, constrained.height);
-    const compressedDataUrl = findBestCompressedDataUrl(canvas, file.type, MAX_PROFILE_IMAGE_BYTES);
+    const compressedDataUrl = findBestCompressedDataUrl(
+      canvas,
+      file.type,
+      MAX_PROFILE_IMAGE_BYTES,
+    );
     if (!compressedDataUrl) {
       break;
     }
@@ -118,13 +143,22 @@ export async function fileToOptimizedProfileDataUrl(file: File): Promise<string>
       return compressedDataUrl;
     }
 
-    if (constrained.width <= MIN_RESIZE_DIMENSION && constrained.height <= MIN_RESIZE_DIMENSION) {
+    if (
+      constrained.width <= MIN_RESIZE_DIMENSION &&
+      constrained.height <= MIN_RESIZE_DIMENSION
+    ) {
       break;
     }
 
     constrained = {
-      width: Math.max(MIN_RESIZE_DIMENSION, Math.round(constrained.width * RESIZE_REDUCTION_FACTOR)),
-      height: Math.max(MIN_RESIZE_DIMENSION, Math.round(constrained.height * RESIZE_REDUCTION_FACTOR)),
+      width: Math.max(
+        MIN_RESIZE_DIMENSION,
+        Math.round(constrained.width * RESIZE_REDUCTION_FACTOR),
+      ),
+      height: Math.max(
+        MIN_RESIZE_DIMENSION,
+        Math.round(constrained.height * RESIZE_REDUCTION_FACTOR),
+      ),
     };
   }
 

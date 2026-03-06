@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import InboxCacheWarmupWorker from "@/components/inbox/InboxCacheWarmupWorker";
 import InboxRealtimeCacheWorker from "@/components/inbox/InboxRealtimeCacheWorker";
-import LeadsCacheWarmupWorker from "@/components/leads/LeadsCacheWarmupWorker";
 import Sidebar from "@/components/layout/Sidebar";
+import LeadsCacheWarmupWorker from "@/components/leads/LeadsCacheWarmupWorker";
 import { requireCurrentUser } from "@/lib/currentUser";
 import { canAccessInbox } from "@/lib/permissions";
 import { getUserDisplayName, isOnboardingRequired } from "@/lib/userRepository";

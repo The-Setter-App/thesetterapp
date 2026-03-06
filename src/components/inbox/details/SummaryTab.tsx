@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LuInfo } from "react-icons/lu";
-import type { ConversationSummary, ConversationSummaryResponse, ConversationSummarySection } from "@/types/inbox";
-import { getCachedConversationSummary, setCachedConversationSummary } from "@/lib/cache";
+import {
+  getCachedConversationSummary,
+  setCachedConversationSummary,
+} from "@/lib/cache";
+import type {
+  ConversationSummary,
+  ConversationSummaryResponse,
+  ConversationSummarySection,
+} from "@/types/inbox";
 
 interface SummaryTabProps {
   conversationId: string;
@@ -20,7 +27,10 @@ function SummarySection({ section }: { section: ConversationSummarySection }) {
       <p className="font-bold text-gray-900 text-sm mb-3">{section.title}</p>
       <ul className="space-y-3 pl-1 text-gray-600">
         {section.points.map((point, index) => (
-          <li key={`${section.title}-${index}-${point}`} className="flex items-start">
+          <li
+            key={`${section.title}-${index}-${point}`}
+            className="flex items-start"
+          >
             <span className="mr-2 text-gray-300 text-[8px] mt-1.5">●</span>
             <span>{point}</span>
           </li>
@@ -31,14 +41,16 @@ function SummarySection({ section }: { section: ConversationSummarySection }) {
 }
 
 export default function SummaryTab({ conversationId }: SummaryTabProps) {
-  const [clientSnapshot, setClientSnapshot] = useState<ConversationSummarySection>(EMPTY_SECTION);
-  const [actionPlan, setActionPlan] = useState<ConversationSummarySection>(EMPTY_SECTION);
+  const [clientSnapshot, setClientSnapshot] =
+    useState<ConversationSummarySection>(EMPTY_SECTION);
+  const [actionPlan, setActionPlan] =
+    useState<ConversationSummarySection>(EMPTY_SECTION);
   const [hydrating, setHydrating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const hasSummary = useMemo(
     () => clientSnapshot.points.length > 0 || actionPlan.points.length > 0,
-    [actionPlan.points.length, clientSnapshot.points.length]
+    [actionPlan.points.length, clientSnapshot.points.length],
   );
 
   const applySummary = useCallback((summary: ConversationSummary | null) => {
@@ -52,21 +64,33 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
     setError("");
 
     try {
-      const response = await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/summary`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/inbox/conversations/${encodeURIComponent(conversationId)}/summary`,
+        {
+          method: "POST",
+        },
+      );
 
-      const payload = (await response.json()) as ConversationSummaryResponse & { error?: string };
+      const payload = (await response.json()) as ConversationSummaryResponse & {
+        error?: string;
+      };
       if (!response.ok) {
         throw new Error(payload.error || "Failed to generate summary");
       }
 
       applySummary(payload.summary);
-      setCachedConversationSummary(conversationId, payload.summary).catch((cacheError) =>
-        console.error("[SummaryTab] Failed to cache generated summary:", cacheError)
+      setCachedConversationSummary(conversationId, payload.summary).catch(
+        (cacheError) =>
+          console.error(
+            "[SummaryTab] Failed to cache generated summary:",
+            cacheError,
+          ),
       );
     } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : "Failed to generate summary";
+      const message =
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to generate summary";
       setError(message);
     } finally {
       setLoading(false);
@@ -83,7 +107,8 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
 
     (async () => {
       try {
-        const cachedSummary = await getCachedConversationSummary(conversationId);
+        const cachedSummary =
+          await getCachedConversationSummary(conversationId);
         if (!active) return;
         if (cachedSummary) {
           applySummary(cachedSummary.summary);
@@ -92,19 +117,31 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         }
 
         setHydrating(true);
-        const response = await fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}/summary`);
-        const payload = (await response.json()) as ConversationSummaryResponse & { error?: string };
+        const response = await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(conversationId)}/summary`,
+        );
+        const payload =
+          (await response.json()) as ConversationSummaryResponse & {
+            error?: string;
+          };
         if (!response.ok) {
           throw new Error(payload.error || "Failed to load summary");
         }
         if (!active) return;
         applySummary(payload.summary);
-        setCachedConversationSummary(conversationId, payload.summary).catch((cacheError) =>
-          console.error("[SummaryTab] Failed to cache fetched summary:", cacheError)
+        setCachedConversationSummary(conversationId, payload.summary).catch(
+          (cacheError) =>
+            console.error(
+              "[SummaryTab] Failed to cache fetched summary:",
+              cacheError,
+            ),
         );
       } catch (requestError) {
         if (!active) return;
-        const message = requestError instanceof Error ? requestError.message : "Failed to load summary";
+        const message =
+          requestError instanceof Error
+            ? requestError.message
+            : "Failed to load summary";
         setError(message);
       } finally {
         if (active) setHydrating(false);
@@ -121,7 +158,9 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <LuInfo className="mr-2 h-5 w-6 text-[#606266]" aria-label="Info" />
-          <p className="text-xs text-gray-500 font-medium">Summary is generated using info from this conversation.</p>
+          <p className="text-xs text-gray-500 font-medium">
+            Summary is generated using info from this conversation.
+          </p>
         </div>
         <button
           type="button"
@@ -133,7 +172,9 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
             loading
               ? "bg-[#8771FF] text-white cursor-wait"
               : "bg-[#A9A9AF] text-white hover:bg-[#8771FF]",
-            !conversationId || hydrating ? "opacity-60 cursor-not-allowed hover:bg-[#A9A9AF]" : "",
+            !conversationId || hydrating
+              ? "opacity-60 cursor-not-allowed hover:bg-[#A9A9AF]"
+              : "",
           ].join(" ")}
         >
           {loading ? (
@@ -151,12 +192,16 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-xs leading-relaxed">
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            {error}
+          </div>
         ) : null}
 
         {loading ? (
           <div className="rounded-2xl border border-[#E6E0FF] bg-[#F8F7FF] p-4">
-            <p className="text-[11px] font-semibold text-[#6d5ed6] mb-3">Generating summary...</p>
+            <p className="text-[11px] font-semibold text-[#6d5ed6] mb-3">
+              Generating summary...
+            </p>
             <div className="space-y-2 mb-4">
               <div className="h-2.5 rounded-full bg-[#E4DDFF] animate-pulse" />
               <div className="h-2.5 rounded-full bg-[#E4DDFF] animate-pulse" />
@@ -173,7 +218,9 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
 
         {hydrating && !hasSummary && !loading ? (
           <div className="rounded-2xl border border-[#F0F2F6] bg-[#FAFBFD] p-4">
-            <p className="text-[11px] font-semibold text-[#606266] mb-3">Loading saved summary...</p>
+            <p className="text-[11px] font-semibold text-[#606266] mb-3">
+              Loading saved summary...
+            </p>
             <div className="space-y-2">
               <div className="h-2.5 rounded-full bg-[#ECEEF3] animate-pulse" />
               <div className="h-2.5 rounded-full bg-[#ECEEF3] animate-pulse" />
@@ -183,7 +230,10 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         ) : null}
 
         {!hasSummary && !loading && !hydrating && !error ? (
-          <p className="text-xs text-gray-500">No summary yet. Click Summarize to generate one from recent messages.</p>
+          <p className="text-xs text-gray-500">
+            No summary yet. Click Summarize to generate one from recent
+            messages.
+          </p>
         ) : null}
 
         {hasSummary && !loading ? (

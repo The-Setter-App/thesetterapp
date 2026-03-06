@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Setter - AI-Powered Lead Management",
-  description: "Real-time AI coaching for every message, every lead, every deal.",
+  description:
+    "Real-time AI coaching for every message, every lead, every deal.",
   icons: {
     icon: "/favicon.svg",
   },

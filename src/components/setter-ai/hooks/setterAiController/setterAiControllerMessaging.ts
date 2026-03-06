@@ -18,12 +18,8 @@ function reconcileOptimisticMessages(params: {
   optimisticAssistantId: string;
   assistantText: string;
 }): Message[] {
-  const {
-    messages,
-    optimisticUserId,
-    optimisticAssistantId,
-    assistantText,
-  } = params;
+  const { messages, optimisticUserId, optimisticAssistantId, assistantText } =
+    params;
 
   return messages.map((message) => {
     if (message.id === optimisticUserId) {
@@ -111,7 +107,6 @@ export async function handleSendMessage(params: {
     setIsStreaming,
     setChatSessions,
     setActiveSessionId,
-    updateChatUrlFn,
     syncLocalSessionToServerFn,
     loadSessionMessagesFn,
     refreshSessionsFn,
@@ -135,8 +130,7 @@ export async function handleSendMessage(params: {
       updatedAt: nowIso,
       messages: [],
       localOnly: true,
-      linkedInboxConversationId:
-        fallbackLeadConversationId || null,
+      linkedInboxConversationId: fallbackLeadConversationId || null,
       linkedInboxConversationLabel: fallbackLeadLabel || null,
     };
     const nextSessions = [targetSession, ...chatSessionsRef.current];

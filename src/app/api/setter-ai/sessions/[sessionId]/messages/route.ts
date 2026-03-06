@@ -1,12 +1,15 @@
-import { NextResponse } from 'next/server';
-import { AccessError, requireWorkspaceContext } from '@/lib/workspace';
-import { getSetterAiSessionById, listSetterAiMessages } from '@/lib/setterAiRepository';
+import { NextResponse } from "next/server";
+import {
+  getSetterAiSessionById,
+  listSetterAiMessages,
+} from "@/lib/setterAiRepository";
+import { AccessError, requireWorkspaceContext } from "@/lib/workspace";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ sessionId: string }> }
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const { sessionEmail } = await requireWorkspaceContext();
@@ -14,7 +17,10 @@ export async function GET(
 
     const session = await getSetterAiSessionById(sessionEmail, sessionId);
     if (!session) {
-      return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Session not found." },
+        { status: 404 },
+      );
     }
 
     const messages = await listSetterAiMessages(sessionEmail, sessionId);
@@ -22,15 +28,20 @@ export async function GET(
       { messages },
       {
         headers: {
-          'Cache-Control': 'private, no-store',
+          "Cache-Control": "private, no-store",
         },
-      }
+      },
     );
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
-    return NextResponse.json({ error: 'Failed to load session messages.' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load session messages." },
+      { status: 500 },
+    );
   }
 }
-

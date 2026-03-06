@@ -19,7 +19,10 @@ function extensionForMimeType(mimeType: string): string {
   return "img";
 }
 
-function parseImageDataUrl(dataUrl: string): { mimeType: string; bytes: Buffer } {
+function parseImageDataUrl(dataUrl: string): {
+  mimeType: string;
+  bytes: Buffer;
+} {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) {
     throw new Error("Invalid profile image data URL");
@@ -39,13 +42,18 @@ function buildProfileImageProxyPath(path: string): string {
   return `/api/profile-images/${segments.join("/")}`;
 }
 
-export async function resolveProfileImageUrl(path: string | null | undefined): Promise<string | null> {
+export async function resolveProfileImageUrl(
+  path: string | null | undefined,
+): Promise<string | null> {
   if (!path) return null;
   const normalizedPath = normalizeObjectPath(path);
   return buildProfileImageProxyPath(normalizedPath);
 }
 
-export async function uploadProfileImageFromDataUrl(email: string, dataUrl: string): Promise<string> {
+export async function uploadProfileImageFromDataUrl(
+  email: string,
+  dataUrl: string,
+): Promise<string> {
   const { mimeType, bytes } = parseImageDataUrl(dataUrl);
   const extension = extensionForMimeType(mimeType);
   const objectPath = `${email}/${randomUUID()}.${extension}`;
@@ -62,7 +70,9 @@ export async function uploadProfileImageFromDataUrl(email: string, dataUrl: stri
   return objectPath;
 }
 
-export async function removeProfileImage(path: string | null | undefined): Promise<void> {
+export async function removeProfileImage(
+  path: string | null | undefined,
+): Promise<void> {
   if (!path) return;
   const normalizedPath = normalizeObjectPath(path);
   const supabase = getSupabaseServerClient();
@@ -70,5 +80,7 @@ export async function removeProfileImage(path: string | null | undefined): Promi
     await supabase.storage.from(PROFILE_IMAGES_BUCKET).remove([path]);
     return;
   }
-  await supabase.storage.from(PROFILE_IMAGES_BUCKET).remove([path, normalizedPath]);
+  await supabase.storage
+    .from(PROFILE_IMAGES_BUCKET)
+    .remove([path, normalizedPath]);
 }

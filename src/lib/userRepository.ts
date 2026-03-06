@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { hashOtp } from "@/lib/otpSecurity";
 import {
   removeProfileImage,
   resolveProfileImageUrl,
@@ -12,15 +13,14 @@ import type {
   InstagramAccountRow,
   TeamMemberRow,
 } from "@/lib/supabase/types";
-import {
-  type InstagramAccountConnection,
-  type InstagramConfig,
-  type OTPRecord,
-  type TeamMember,
-  type TeamMemberRole,
-  type User,
+import type {
+  InstagramAccountConnection,
+  InstagramConfig,
+  OTPRecord,
+  TeamMember,
+  TeamMemberRole,
+  User,
 } from "@/types/auth";
-import { hashOtp } from "@/lib/otpSecurity";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -36,7 +36,9 @@ function fromIso(value: string | null | undefined, fallback: Date): Date {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
-function normalizeOptionalDisplayName(value: string | null | undefined): string | undefined {
+function normalizeOptionalDisplayName(
+  value: string | null | undefined,
+): string | undefined {
   if (!value) return undefined;
   const normalized = normalizeDisplayName(value);
   return normalized.length > 0 ? normalized : undefined;
@@ -47,7 +49,12 @@ function isTeamMemberRole(value: string): value is TeamMemberRole {
 }
 
 function mapTeamRole(role: AppUserRole): User["role"] {
-  if (role === "owner" || role === "viewer" || role === "setter" || role === "closer") {
+  if (
+    role === "owner" ||
+    role === "viewer" ||
+    role === "setter" ||
+    role === "closer"
+  ) {
     return role;
   }
   return "viewer";
@@ -105,11 +112,15 @@ async function fetchTeamMembers(ownerEmail: string): Promise<TeamMember[]> {
     }));
 }
 
-async function fetchInstagramAccounts(userEmail: string): Promise<InstagramAccountConnection[]> {
+async function fetchInstagramAccounts(
+  userEmail: string,
+): Promise<InstagramAccountConnection[]> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("instagram_accounts")
-    .select("account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username")
+    .select(
+      "account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username",
+    )
     .eq("user_email", userEmail)
     .order("connected_at", { ascending: true });
 
@@ -120,7 +131,9 @@ async function fetchInstagramAccounts(userEmail: string): Promise<InstagramAccou
 async function mapUserFromRow(row: AppUserRow): Promise<User> {
   const email = normalizeEmail(row.email);
   const createdAt = new Date(row.created_at);
-  const lastLoginAt = row.last_login_at ? new Date(row.last_login_at) : undefined;
+  const lastLoginAt = row.last_login_at
+    ? new Date(row.last_login_at)
+    : undefined;
   const isOwner = row.role === "owner";
   const profileImageUrl = await resolveProfileImageUrl(row.profile_image_path);
 
@@ -133,12 +146,16 @@ async function mapUserFromRow(row: AppUserRow): Promise<User> {
     createdAt,
     lastLoginAt,
     displayName: normalizeOptionalDisplayName(row.display_name),
-    profileImageBase64: profileImageUrl ?? row.profile_image_base64 ?? undefined,
+    profileImageBase64:
+      profileImageUrl ?? row.profile_image_base64 ?? undefined,
     hasCompletedOnboarding:
       typeof row.has_completed_onboarding === "boolean"
         ? row.has_completed_onboarding
         : undefined,
-    teamOwnerEmail: !isOwner && row.team_owner_email ? normalizeEmail(row.team_owner_email) : undefined,
+    teamOwnerEmail:
+      !isOwner && row.team_owner_email
+        ? normalizeEmail(row.team_owner_email)
+        : undefined,
     teamMembers,
     instagramAccounts,
   };
@@ -148,7 +165,9 @@ async function getUserRow(email: string): Promise<AppUserRow | null> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("app_users")
-    .select("email,role,created_at,updated_at,last_login_at,display_name,profile_image_base64,profile_image_path,has_completed_onboarding,team_owner_email")
+    .select(
+      "email,role,created_at,updated_at,last_login_at,display_name,profile_image_base64,profile_image_path,has_completed_onboarding,team_owner_email",
+    )
     .eq("email", email)
     .maybeSingle();
 
@@ -197,12 +216,16 @@ async function findOwnerMembership(
   };
 }
 
-export function getUserDisplayName(user: Pick<User, "email" | "displayName">): string {
+export function getUserDisplayName(
+  user: Pick<User, "email" | "displayName">,
+): string {
   const normalized = normalizeOptionalDisplayName(user.displayName);
   return normalized ?? getDisplayNameFallback(user.email);
 }
 
-export function isOnboardingRequired(user: Pick<User, "hasCompletedOnboarding">): boolean {
+export function isOnboardingRequired(
+  user: Pick<User, "hasCompletedOnboarding">,
+): boolean {
   return user.hasCompletedOnboarding === false;
 }
 
@@ -237,7 +260,10 @@ export async function upsertUser(email: string): Promise<User> {
   let nextTeamOwnerEmail: string | null = existing.team_owner_email;
 
   if (existing.role !== "owner") {
-    const membership = await findOwnerMembership(normalizedEmail, existing.team_owner_email ?? undefined);
+    const membership = await findOwnerMembership(
+      normalizedEmail,
+      existing.team_owner_email ?? undefined,
+    );
     if (membership) {
       nextRole = membership.role;
       nextTeamOwnerEmail = membership.ownerEmail;
@@ -312,7 +338,11 @@ export async function verifyOTP(email: string, otp: string): Promise<boolean> {
 
   if (error || !data) return false;
 
-  await supabase.from("otp_codes").delete().eq("email", normalizedEmail).eq("otp", otpHash);
+  await supabase
+    .from("otp_codes")
+    .delete()
+    .eq("email", normalizedEmail)
+    .eq("otp", otpHash);
   return true;
 }
 
@@ -329,7 +359,10 @@ interface UpdateUserProfileInput {
   markOnboardingComplete?: boolean;
 }
 
-export async function updateUserProfileImage(email: string, profileImageBase64: string | null): Promise<User> {
+export async function updateUserProfileImage(
+  email: string,
+  profileImageBase64: string | null,
+): Promise<User> {
   const normalizedEmail = normalizeEmail(email);
   const supabase = getSupabaseServerClient();
 
@@ -338,7 +371,10 @@ export async function updateUserProfileImage(email: string, profileImageBase64: 
   let nextPath: string | null = previousPath;
 
   if (typeof profileImageBase64 === "string" && profileImageBase64.length > 0) {
-    nextPath = await uploadProfileImageFromDataUrl(normalizedEmail, profileImageBase64);
+    nextPath = await uploadProfileImageFromDataUrl(
+      normalizedEmail,
+      profileImageBase64,
+    );
   } else if (profileImageBase64 === null) {
     nextPath = null;
   }
@@ -349,8 +385,12 @@ export async function updateUserProfileImage(email: string, profileImageBase64: 
     updated_at: toIso(new Date()),
   };
 
-  const { error } = await supabase.from("app_users").update(updates).eq("email", normalizedEmail);
-  if (error) throw new Error(`Failed to update profile image: ${error.message}`);
+  const { error } = await supabase
+    .from("app_users")
+    .update(updates)
+    .eq("email", normalizedEmail);
+  if (error)
+    throw new Error(`Failed to update profile image: ${error.message}`);
 
   if (previousPath && previousPath !== nextPath) {
     await removeProfileImage(previousPath);
@@ -361,7 +401,10 @@ export async function updateUserProfileImage(email: string, profileImageBase64: 
   return updatedUser;
 }
 
-export async function updateUserProfile(email: string, input: UpdateUserProfileInput): Promise<User> {
+export async function updateUserProfile(
+  email: string,
+  input: UpdateUserProfileInput,
+): Promise<User> {
   const normalizedEmail = normalizeEmail(email);
   const normalizedName = normalizeDisplayName(input.displayName);
   if (!normalizedName) {
@@ -383,7 +426,10 @@ export async function updateUserProfile(email: string, input: UpdateUserProfileI
     updates.has_completed_onboarding = true;
   }
 
-  const { error } = await supabase.from("app_users").update(updates).eq("email", normalizedEmail);
+  const { error } = await supabase
+    .from("app_users")
+    .update(updates)
+    .eq("email", normalizedEmail);
   if (error) throw new Error(`Failed to update profile: ${error.message}`);
 
   if (input.profileImageBase64 !== undefined) {
@@ -395,7 +441,10 @@ export async function updateUserProfile(email: string, input: UpdateUserProfileI
   return updatedUser;
 }
 
-export async function upsertInstagramAccounts(email: string, accounts: InstagramAccountConnection[]): Promise<void> {
+export async function upsertInstagramAccounts(
+  email: string,
+  accounts: InstagramAccountConnection[],
+): Promise<void> {
   if (accounts.length === 0) return;
 
   const normalizedEmail = normalizeEmail(email);
@@ -431,10 +480,14 @@ export async function upsertInstagramAccounts(email: string, accounts: Instagram
     .from("instagram_accounts")
     .upsert(rows, { onConflict: "user_email,page_id,instagram_user_id" });
 
-  if (error) throw new Error(`Failed to upsert instagram accounts: ${error.message}`);
+  if (error)
+    throw new Error(`Failed to upsert instagram accounts: ${error.message}`);
 }
 
-export async function updateInstagramConfig(email: string, config: InstagramConfig): Promise<void> {
+export async function updateInstagramConfig(
+  email: string,
+  config: InstagramConfig,
+): Promise<void> {
   await upsertInstagramAccounts(email, [
     {
       accountId: randomUUID(),
@@ -449,12 +502,16 @@ export async function updateInstagramConfig(email: string, config: InstagramConf
   ]);
 }
 
-export async function getConnectedInstagramAccounts(email: string): Promise<InstagramAccountConnection[]> {
+export async function getConnectedInstagramAccounts(
+  email: string,
+): Promise<InstagramAccountConnection[]> {
   const normalizedEmail = normalizeEmail(email);
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("instagram_accounts")
-    .select("account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username")
+    .select(
+      "account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username",
+    )
     .eq("user_email", normalizedEmail)
     .eq("is_connected", true)
     .order("connected_at", { ascending: true });
@@ -472,7 +529,9 @@ export async function getInstagramAccountById(
 
   const { data, error } = await supabase
     .from("instagram_accounts")
-    .select("account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username")
+    .select(
+      "account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username",
+    )
     .eq("user_email", normalizedEmail)
     .eq("account_id", accountId)
     .eq("is_connected", true)
@@ -482,7 +541,10 @@ export async function getInstagramAccountById(
   return mapAccountRow(data as InstagramAccountRow);
 }
 
-export async function disconnectInstagramAccount(email: string, accountId: string): Promise<boolean> {
+export async function disconnectInstagramAccount(
+  email: string,
+  accountId: string,
+): Promise<boolean> {
   const normalizedEmail = normalizeEmail(email);
   const supabase = getSupabaseServerClient();
 
@@ -495,7 +557,9 @@ export async function disconnectInstagramAccount(email: string, accountId: strin
   return !error;
 }
 
-export async function getUserCredentials(email: string): Promise<InstagramConfig | null> {
+export async function getUserCredentials(
+  email: string,
+): Promise<InstagramConfig | null> {
   const connectedAccounts = await getConnectedInstagramAccounts(email);
   if (connectedAccounts.length !== 1) return null;
   return toLegacyConfig(connectedAccounts[0]);
@@ -513,7 +577,9 @@ export async function getOwnerCredentials(): Promise<InstagramConfig | null> {
 
   if (!owner) return null;
 
-  const connectedAccounts = await getConnectedInstagramAccounts((owner as { email: string }).email);
+  const connectedAccounts = await getConnectedInstagramAccounts(
+    (owner as { email: string }).email,
+  );
   if (connectedAccounts.length !== 1) return null;
   return toLegacyConfig(connectedAccounts[0]);
 }
@@ -524,7 +590,9 @@ export async function getUserByInstagramId(
   const supabase = getSupabaseServerClient();
   const { data: account, error } = await supabase
     .from("instagram_accounts")
-    .select("account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username")
+    .select(
+      "account_id,user_email,access_token,page_id,instagram_user_id,graph_version,is_connected,connected_at,updated_at,page_name,instagram_username",
+    )
     .eq("instagram_user_id", instagramId)
     .eq("is_connected", true)
     .limit(1)
@@ -538,19 +606,26 @@ export async function getUserByInstagramId(
   return { user, account: accountModel };
 }
 
-export async function getWorkspaceOwnerEmail(email: string): Promise<string | null> {
+export async function getWorkspaceOwnerEmail(
+  email: string,
+): Promise<string | null> {
   const user = await getUser(email);
   if (!user) return null;
 
   if (user.role === "owner") return user.email;
-  if ((user.role === "setter" || user.role === "closer") && user.teamOwnerEmail) {
+  if (
+    (user.role === "setter" || user.role === "closer") &&
+    user.teamOwnerEmail
+  ) {
     return normalizeEmail(user.teamOwnerEmail);
   }
 
   return user.email;
 }
 
-export async function getTeamMembersForOwner(ownerEmail: string): Promise<TeamMember[]> {
+export async function getTeamMembersForOwner(
+  ownerEmail: string,
+): Promise<TeamMember[]> {
   const normalizedOwnerEmail = normalizeEmail(ownerEmail);
   const owner = await getUser(normalizedOwnerEmail);
   if (!owner || owner.role !== "owner") return [];
@@ -580,24 +655,30 @@ export async function addTeamMemberByOwner(
 
   const member = await getUser(normalizedMemberEmail);
   if (member?.role === "owner" && member.email !== normalizedOwnerEmail) {
-    throw new Error("This email is already an owner and cannot be added to a team");
+    throw new Error(
+      "This email is already an owner and cannot be added to a team",
+    );
   }
 
   const supabase = getSupabaseServerClient();
   const nowIso = toIso(new Date());
 
   if (!member) {
-    const { error: insertMemberError } = await supabase.from("app_users").insert({
-      email: normalizedMemberEmail,
-      role,
-      created_at: nowIso,
-      updated_at: nowIso,
-      last_login_at: nowIso,
-      has_completed_onboarding: false,
-      team_owner_email: normalizedOwnerEmail,
-    });
+    const { error: insertMemberError } = await supabase
+      .from("app_users")
+      .insert({
+        email: normalizedMemberEmail,
+        role,
+        created_at: nowIso,
+        updated_at: nowIso,
+        last_login_at: nowIso,
+        has_completed_onboarding: false,
+        team_owner_email: normalizedOwnerEmail,
+      });
     if (insertMemberError) {
-      throw new Error(`Failed to create team member user: ${insertMemberError.message}`);
+      throw new Error(
+        `Failed to create team member user: ${insertMemberError.message}`,
+      );
     }
   } else {
     const { error: updateMemberError } = await supabase
@@ -609,7 +690,9 @@ export async function addTeamMemberByOwner(
       })
       .eq("email", normalizedMemberEmail);
     if (updateMemberError) {
-      throw new Error(`Failed to update team member user: ${updateMemberError.message}`);
+      throw new Error(
+        `Failed to update team member user: ${updateMemberError.message}`,
+      );
     }
   }
 
@@ -629,11 +712,17 @@ export async function addTeamMemberByOwner(
   }
 }
 
-export async function removeTeamMemberByOwner(ownerEmail: string, memberEmail: string): Promise<boolean> {
+export async function removeTeamMemberByOwner(
+  ownerEmail: string,
+  memberEmail: string,
+): Promise<boolean> {
   const normalizedOwnerEmail = normalizeEmail(ownerEmail);
   const normalizedMemberEmail = normalizeEmail(memberEmail);
 
-  if (!normalizedMemberEmail || normalizedMemberEmail === normalizedOwnerEmail) {
+  if (
+    !normalizedMemberEmail ||
+    normalizedMemberEmail === normalizedOwnerEmail
+  ) {
     return false;
   }
 

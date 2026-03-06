@@ -1,11 +1,11 @@
 import type { User } from "@/types/inbox";
 
+export { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
 export {
   buildRealtimePreviewText,
   mapRealtimePayloadToMessage,
   mergeMessageCacheSnapshots,
 } from "@/lib/inbox/realtime/messageMapping";
-export { resolveAudioDurationFromUrl } from "@/lib/inbox/realtime/audioDuration";
 
 function getTimestampMs(value?: string): number {
   if (!value) return 0;
@@ -98,8 +98,7 @@ export function mergeUsersWithLocalRecency(
   const merged = incoming.map((incomingUser) => {
     const previousUser = previousById.get(incomingUser.id);
     if (!previousUser) return incomingUser;
-    return getUserRecencyMs(previousUser) >
-      getUserRecencyMs(incomingUser)
+    return getUserRecencyMs(previousUser) > getUserRecencyMs(incomingUser)
       ? previousUser
       : incomingUser;
   });
@@ -132,7 +131,8 @@ export function getChangedConversationIds(
       previousUser.lastMessage !== nextUser.lastMessage ||
       previousUser.time !== nextUser.time;
     const hasRecencyChanged = previousUser.updatedAt !== nextUser.updatedAt;
-    const hasUnreadChanged = (previousUser.unread ?? 0) !== (nextUser.unread ?? 0);
+    const hasUnreadChanged =
+      (previousUser.unread ?? 0) !== (nextUser.unread ?? 0);
 
     if (hasPreviewChanged || hasRecencyChanged || hasUnreadChanged) {
       changedIds.push(nextUser.id);

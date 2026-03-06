@@ -1,4 +1,8 @@
-import { AUDIO_BUCKET, getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
+import {
+  AUDIO_BUCKET,
+  getInboxSupabase,
+  MESSAGES_COLLECTION,
+} from "@/lib/inbox/repository/core";
 import { saveMessageToDb } from "@/lib/inbox/repository/messageStore";
 import type { Message } from "@/types/inbox";
 
@@ -30,12 +34,17 @@ export async function saveVoiceNoteBlobToGridFs(params: {
   const safeOwner = encodeURIComponent(params.ownerEmail);
   const safeConversation = encodeURIComponent(params.conversationId);
   const safeMessage = encodeURIComponent(params.messageId);
-  const extension = params.fileName.includes(".") ? params.fileName.split(".").pop() : "webm";
+  const extension = params.fileName.includes(".")
+    ? params.fileName.split(".").pop()
+    : "webm";
   const objectPath = `${safeOwner}/${safeConversation}/${safeMessage}.${extension}`;
 
   const { error } = await supabase.storage
     .from(AUDIO_BUCKET)
-    .upload(objectPath, params.bytes, { contentType: params.mimeType, upsert: true });
+    .upload(objectPath, params.bytes, {
+      contentType: params.mimeType,
+      upsert: true,
+    });
 
   if (error) {
     throw new Error(`Failed to upload voice note: ${error.message}`);
@@ -93,7 +102,9 @@ export async function saveOrUpdateLocalAudioMessage(params: {
   }
 
   if (!existing) {
-    const fiveMinutesAgoIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const fiveMinutesAgoIso = new Date(
+      Date.now() - 5 * 60 * 1000,
+    ).toISOString();
     const { data } = await supabase
       .from(MESSAGES_COLLECTION)
       .select("payload")
@@ -148,7 +159,9 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
     .order("timestamp_text", { ascending: false })
     .limit(5);
 
-  const candidates = (data ?? []).map((row) => (row as { payload: Message }).payload as MessageDoc);
+  const candidates = (data ?? []).map(
+    (row) => (row as { payload: Message }).payload as MessageDoc,
+  );
   if (candidates.length === 0) {
     return null;
   }
@@ -158,8 +171,12 @@ export async function reconcileOutgoingAudioEchoWithLocalFallback(params: {
     if (!best) return candidate;
     if (!Number.isFinite(targetTimestampMs)) return best;
 
-    const bestDiff = Math.abs(Date.parse(best.timestamp || "") - targetTimestampMs);
-    const candidateDiff = Math.abs(Date.parse(candidate.timestamp || "") - targetTimestampMs);
+    const bestDiff = Math.abs(
+      Date.parse(best.timestamp || "") - targetTimestampMs,
+    );
+    const candidateDiff = Math.abs(
+      Date.parse(candidate.timestamp || "") - targetTimestampMs,
+    );
     return candidateDiff < bestDiff ? candidate : best;
   }, candidates[0]);
 
@@ -194,7 +211,9 @@ export async function getVoiceNoteBinaryForMessage(
   const fileId = message?.audioStorage?.fileId;
   if (!fileId) return null;
 
-  const { data: blob, error } = await supabase.storage.from(AUDIO_BUCKET).download(fileId);
+  const { data: blob, error } = await supabase.storage
+    .from(AUDIO_BUCKET)
+    .download(fileId);
   if (error || !blob) return null;
 
   const arrayBuffer = await blob.arrayBuffer();

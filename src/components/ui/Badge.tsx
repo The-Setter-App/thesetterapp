@@ -1,10 +1,22 @@
-import React from 'react';
+import type React from "react";
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'outline' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
+  variant?:
+    | "default"
+    | "outline"
+    | "secondary"
+    | "success"
+    | "warning"
+    | "danger"
+    | "info";
 }
 
-export function Badge({ className = '', variant = 'default', children, ...props }: BadgeProps) {
+export function Badge({
+  className = "",
+  variant = "default",
+  children,
+  ...props
+}: BadgeProps) {
   const variants = {
     default: "bg-[#8771FF] text-white border-transparent",
     secondary: "bg-[#F3F0FF] text-[#8771FF] border-transparent",
@@ -16,7 +28,7 @@ export function Badge({ className = '', variant = 'default', children, ...props 
   };
 
   return (
-    <span 
+    <span
       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${variants[variant]} ${className}`}
       {...props}
     >

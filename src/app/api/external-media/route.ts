@@ -54,7 +54,12 @@ export async function GET(request: Request) {
   if (!upstream.ok && upstream.status !== 206) {
     return NextResponse.json(
       { error: "Failed to fetch media" },
-      { status: upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502 },
+      {
+        status:
+          upstream.status >= 400 && upstream.status < 600
+            ? upstream.status
+            : 502,
+      },
     );
   }
 

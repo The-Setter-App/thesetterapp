@@ -1,4 +1,27 @@
 export default function InboxContentSkeleton() {
+  const messageSkeletonIds = [
+    "message-skeleton-1",
+    "message-skeleton-2",
+    "message-skeleton-3",
+    "message-skeleton-4",
+    "message-skeleton-5",
+    "message-skeleton-6",
+  ] as const;
+  const detailTabSkeletonIds = [
+    "detail-tab-1",
+    "detail-tab-2",
+    "detail-tab-3",
+    "detail-tab-4",
+    "detail-tab-5",
+  ] as const;
+  const detailCardSkeletonIds = [
+    "detail-card-1",
+    "detail-card-2",
+    "detail-card-3",
+    "detail-card-4",
+    "detail-card-5",
+  ] as const;
+
   return (
     <div className="flex h-full min-w-0 flex-1 overflow-hidden bg-white">
       <main className="flex min-w-0 flex-1 flex-col bg-white">
@@ -15,9 +38,9 @@ export default function InboxContentSkeleton() {
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 flex-1 flex-col bg-white">
             <div className="flex-1 space-y-4 overflow-hidden bg-[#F8F7FF] px-4 py-5 md:px-6">
-              {Array.from({ length: 6 }).map((_, index) => (
+              {messageSkeletonIds.map((messageId, index) => (
                 <div
-                  key={index}
+                  key={messageId}
                   className={`flex ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
                 >
                   <div
@@ -44,17 +67,17 @@ export default function InboxContentSkeleton() {
             </div>
             <div className="border-b border-[#F0F2F6] px-3 py-3">
               <div className="flex items-center justify-around gap-2">
-                {Array.from({ length: 5 }).map((_, index) => (
+                {detailTabSkeletonIds.map((tabId) => (
                   <div
-                    key={index}
+                    key={tabId}
                     className="h-8 flex-1 animate-pulse rounded-full bg-[#ECE9FF]"
                   />
                 ))}
               </div>
             </div>
             <div className="flex-1 space-y-4 overflow-hidden bg-white p-5">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="rounded-2xl bg-[#F8F7FF] p-4">
+              {detailCardSkeletonIds.map((cardId) => (
+                <div key={cardId} className="rounded-2xl bg-[#F8F7FF] p-4">
                   <div className="h-4 w-28 animate-pulse rounded bg-[#ECE9FF]" />
                   <div className="mt-3 h-3 w-full animate-pulse rounded bg-[#F4F5F8]" />
                   <div className="mt-2 h-3 w-4/5 animate-pulse rounded bg-[#F4F5F8]" />

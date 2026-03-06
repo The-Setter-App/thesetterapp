@@ -5,4 +5,3 @@ export interface LeadConversationSummary {
   lastMessagePreview: string;
   updatedAt: string | null;
 }
-

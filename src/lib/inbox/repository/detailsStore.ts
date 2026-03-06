@@ -1,4 +1,7 @@
-import { CONVERSATIONS_COLLECTION, getInboxSupabase } from "@/lib/inbox/repository/core";
+import {
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+} from "@/lib/inbox/repository/core";
 import type {
   ConversationContactDetails,
   ConversationDetails,
@@ -38,7 +41,9 @@ export async function getConversationDetails(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`[InboxDetailsStore] Failed to fetch conversation details: ${error.message}`);
+    throw new Error(
+      `[InboxDetailsStore] Failed to fetch conversation details: ${error.message}`,
+    );
   }
 
   if (!data) return null;
@@ -80,9 +85,13 @@ export async function getConversationDetails(
           ? payment.paymentFrequency
           : DEFAULT_PAYMENT_DETAILS.paymentFrequency,
       setterPaid:
-        payment.setterPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.setterPaid,
+        payment.setterPaid === "Yes"
+          ? "Yes"
+          : DEFAULT_PAYMENT_DETAILS.setterPaid,
       closerPaid:
-        payment.closerPaid === "Yes" ? "Yes" : DEFAULT_PAYMENT_DETAILS.closerPaid,
+        payment.closerPaid === "Yes"
+          ? "Yes"
+          : DEFAULT_PAYMENT_DETAILS.closerPaid,
       paymentNotes:
         typeof payment.paymentNotes === "string"
           ? payment.paymentNotes
@@ -117,7 +126,9 @@ export async function updateConversationDetails(
     .maybeSingle();
 
   if (fetchError) {
-    throw new Error(`[InboxDetailsStore] Failed to load existing payload: ${fetchError.message}`);
+    throw new Error(
+      `[InboxDetailsStore] Failed to load existing payload: ${fetchError.message}`,
+    );
   }
 
   const updates: {
@@ -133,7 +144,8 @@ export async function updateConversationDetails(
   if (!row) return { applied: false };
   const existingPayload = row.payload ?? null;
   const nextPayload = existingPayload ? ({ ...existingPayload } as User) : null;
-  const existingFieldTimestamps = existingPayload?.detailsUpdatedAtByField ?? {};
+  const existingFieldTimestamps =
+    existingPayload?.detailsUpdatedAtByField ?? {};
   const nextFieldTimestamps: ConversationDetailsUpdatedAtByField = {
     ...existingFieldTimestamps,
   };
@@ -215,7 +227,9 @@ export async function updateConversationDetails(
     .eq("owner_email", ownerEmail);
 
   if (error) {
-    throw new Error(`[InboxDetailsStore] Failed to update conversation details: ${error.message}`);
+    throw new Error(
+      `[InboxDetailsStore] Failed to update conversation details: ${error.message}`,
+    );
   }
 
   return { applied: true };

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { getCachedUsers, setCachedUsers } from '@/lib/cache';
+import { getCachedUsers, setCachedUsers } from "@/lib/cache";
 
 interface ConversationPreviewUpdateParams {
   conversationId: string;
@@ -36,10 +36,15 @@ function readPendingPayloads(): ConversationPreviewHydrationPayload[] {
   }
 }
 
-function writePendingPayloads(payloads: ConversationPreviewHydrationPayload[]): void {
+function writePendingPayloads(
+  payloads: ConversationPreviewHydrationPayload[],
+): void {
   if (!isBrowser()) return;
   try {
-    sessionStorage.setItem(PENDING_PREVIEW_UPDATES_KEY, JSON.stringify(payloads));
+    sessionStorage.setItem(
+      PENDING_PREVIEW_UPDATES_KEY,
+      JSON.stringify(payloads),
+    );
   } catch {
     // Non-blocking; preview still updates through live event path.
   }
@@ -48,7 +53,9 @@ function writePendingPayloads(payloads: ConversationPreviewHydrationPayload[]): 
 export function queueConversationPreviewHydration(
   payload: ConversationPreviewHydrationPayload,
 ): void {
-  const next = readPendingPayloads().filter((item) => item.userId !== payload.userId);
+  const next = readPendingPayloads().filter(
+    (item) => item.userId !== payload.userId,
+  );
   next.push(payload);
   writePendingPayloads(next);
 }
@@ -65,7 +72,7 @@ export function dequeueConversationPreviewHydrations(userIds: string[]): void {
 }
 
 export async function applyConversationPreviewUpdate(
-  params: ConversationPreviewUpdateParams
+  params: ConversationPreviewUpdateParams,
 ): Promise<void> {
   const cachedUsers = await getCachedUsers();
   if (cachedUsers?.length) {
@@ -91,7 +98,7 @@ export async function applyConversationPreviewUpdate(
   });
 
   window.dispatchEvent(
-    new CustomEvent('conversationPreviewHydrated', {
+    new CustomEvent("conversationPreviewHydrated", {
       detail: {
         userId: params.conversationId,
         lastMessage: params.lastMessage,
@@ -99,6 +106,6 @@ export async function applyConversationPreviewUpdate(
         updatedAt: params.updatedAt,
         clearUnread: params.clearUnread,
       },
-    })
+    }),
   );
 }

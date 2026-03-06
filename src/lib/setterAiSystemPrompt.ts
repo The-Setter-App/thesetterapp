@@ -24,4 +24,3 @@ Output rules:
 - No markdown headings unless the user asks.
 - Keep suggestions practical and specific.
 `.trim();
-

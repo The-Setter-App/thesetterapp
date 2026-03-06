@@ -93,7 +93,10 @@ export default function StatusMultiSelect({
                     <span
                       className="inline-flex h-6 w-6 items-center justify-center rounded-md"
                       style={{
-                        backgroundColor: toStatusColorRgba(status.colorHex, 0.18),
+                        backgroundColor: toStatusColorRgba(
+                          status.colorHex,
+                          0.18,
+                        ),
                       }}
                     >
                       <StatusIcon

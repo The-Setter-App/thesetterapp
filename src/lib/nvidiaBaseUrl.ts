@@ -20,7 +20,10 @@ function ensureV1Suffix(raw: string): string {
   }
 }
 
-export function toNvidiaBaseUrlCandidates(primary: string, extras: string[] = []): string[] {
+export function toNvidiaBaseUrlCandidates(
+  primary: string,
+  extras: string[] = [],
+): string[] {
   const rawCandidates = [primary, ...extras];
   const unique: string[] = [];
 
@@ -44,4 +47,3 @@ export function toNvidiaBaseUrlCandidates(primary: string, extras: string[] = []
 export function toNvidiaChatCompletionsUrl(baseUrl: string): string {
   return `${ensureV1Suffix(normalizeBaseUrl(baseUrl))}/chat/completions`;
 }
-

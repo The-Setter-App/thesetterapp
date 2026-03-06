@@ -1,3 +1,4 @@
+import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
 import {
   clearCachedSetterAiMessages,
   getDeletedSetterAiSessionIds,
@@ -6,7 +7,6 @@ import {
   setCachedSetterAiSessions,
   unmarkDeletedSetterAiSessionId,
 } from "@/lib/cache";
-import type { ClientChatSession } from "@/components/setter-ai/lib/setterAiClientConstants";
 import type { Message } from "@/types/ai";
 
 function stripSessionMessages(sessions: ClientChatSession[]) {

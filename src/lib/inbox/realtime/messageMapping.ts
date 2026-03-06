@@ -83,10 +83,12 @@ export function buildRealtimePreviewText(
     attachment?.type === "video" || Boolean(attachment?.video_data?.url);
   const hasAttachment = Boolean(attachment);
 
-  if (isAudio) return outgoing ? "You sent a voice message" : "Sent a voice message";
+  if (isAudio)
+    return outgoing ? "You sent a voice message" : "Sent a voice message";
   if (isImage) return outgoing ? "You sent an image" : "Sent an image";
   if (isVideo) return outgoing ? "You sent a video" : "Sent a video";
-  if (hasAttachment) return outgoing ? "You sent an attachment" : "Sent an attachment";
+  if (hasAttachment)
+    return outgoing ? "You sent an attachment" : "Sent an attachment";
   return outgoing ? "You sent a message" : "Sent a message";
 }
 

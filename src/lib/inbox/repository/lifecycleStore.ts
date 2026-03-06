@@ -1,4 +1,9 @@
-import { AUDIO_BUCKET, CONVERSATIONS_COLLECTION, getInboxSupabase, MESSAGES_COLLECTION } from "@/lib/inbox/repository/core";
+import {
+  AUDIO_BUCKET,
+  CONVERSATIONS_COLLECTION,
+  getInboxSupabase,
+  MESSAGES_COLLECTION,
+} from "@/lib/inbox/repository/core";
 
 export async function purgeInboxDataForInstagramAccount(
   ownerEmail: string,
@@ -17,8 +22,14 @@ export async function purgeInboxDataForInstagramAccount(
 
   const filteredConversationIds = (conversations ?? [])
     .filter((row) => {
-      const payload = (row as { payload: { accountId?: string; ownerInstagramUserId?: string } }).payload;
-      const accountMatch = options.accountId ? payload.accountId === options.accountId : false;
+      const payload = (
+        row as {
+          payload: { accountId?: string; ownerInstagramUserId?: string };
+        }
+      ).payload;
+      const accountMatch = options.accountId
+        ? payload.accountId === options.accountId
+        : false;
       const ownerMatch = options.ownerInstagramUserId
         ? payload.ownerInstagramUserId === options.ownerInstagramUserId
         : false;
@@ -43,10 +54,15 @@ export async function purgeInboxDataForInstagramAccount(
 
   const audioPaths = (audioRows ?? [])
     .map((row) => {
-      const payload = (row as { payload: { audioStorage?: { fileId?: string } } }).payload;
+      const payload = (
+        row as { payload: { audioStorage?: { fileId?: string } } }
+      ).payload;
       return payload.audioStorage?.fileId;
     })
-    .filter((fileId): fileId is string => typeof fileId === "string" && fileId.length > 0);
+    .filter(
+      (fileId): fileId is string =>
+        typeof fileId === "string" && fileId.length > 0,
+    );
 
   const { count: messagesDeleted } = await supabase
     .from(MESSAGES_COLLECTION)
@@ -62,7 +78,9 @@ export async function purgeInboxDataForInstagramAccount(
 
   let audioFilesDeleted = 0;
   if (audioPaths.length > 0) {
-    const { error } = await supabase.storage.from(AUDIO_BUCKET).remove(audioPaths);
+    const { error } = await supabase.storage
+      .from(AUDIO_BUCKET)
+      .remove(audioPaths);
     if (!error) {
       audioFilesDeleted = audioPaths.length;
     }

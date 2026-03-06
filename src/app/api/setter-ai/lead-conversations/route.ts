@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
+import { type NextRequest, NextResponse } from "next/server";
 import { getConversationsFromDb } from "@/lib/inboxRepository";
+import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
 import type { LeadConversationSummary } from "@/types/setterAiLeadContext";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +39,15 @@ export async function GET(request: NextRequest) {
       return b.id.localeCompare(a.id);
     });
 
-    const results: LeadConversationSummary[] = filtered.slice(0, limit).map((conv) => ({
-      conversationId: conv.id,
-      name: conv.name,
-      avatarUrl: conv.avatar ?? null,
-      lastMessagePreview: conv.lastMessage || "",
-      updatedAt: conv.updatedAt ?? null,
-    }));
+    const results: LeadConversationSummary[] = filtered
+      .slice(0, limit)
+      .map((conv) => ({
+        conversationId: conv.id,
+        name: conv.name,
+        avatarUrl: conv.avatar ?? null,
+        lastMessagePreview: conv.lastMessage || "",
+        updatedAt: conv.updatedAt ?? null,
+      }));
 
     return NextResponse.json(
       { conversations: results },
@@ -57,7 +59,10 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof AccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     return NextResponse.json(
       { error: "Failed to load conversations." },
@@ -65,4 +70,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
