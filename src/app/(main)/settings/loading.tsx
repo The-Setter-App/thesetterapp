@@ -1,5 +1,16 @@
-import SettingsLayoutSkeleton from "@/components/settings/SettingsLayoutSkeleton";
+"use client";
+
+import { usePathname } from "next/navigation";
+import SettingsLayoutSkeleton, {
+  resolveSettingsSkeletonVariant,
+} from "@/components/settings/SettingsLayoutSkeleton";
 
 export default function SettingsLoading() {
-  return <SettingsLayoutSkeleton />;
+  const pathname = usePathname();
+
+  return (
+    <SettingsLayoutSkeleton
+      variant={resolveSettingsSkeletonVariant(pathname)}
+    />
+  );
 }
