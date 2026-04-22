@@ -1,0 +1,213 @@
+import { type NextRequest, NextResponse } from "next/server";
+import {
+  parseAttachmentType,
+  validateAttachmentUpload,
+} from "@/lib/attachmentValidation";
+import { decryptData } from "@/lib/crypto";
+import { sendAttachmentMessage } from "@/lib/graphApi";
+import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
+import {
+  findConversationById,
+  saveOrUpdateLocalAudioMessage,
+  saveVoiceNoteBlobToGridFs,
+  updateConversationMetadata,
+} from "@/lib/inboxRepository";
+import { getRelativeTime } from "@/lib/mappers";
+import { getInstagramAccountById } from "@/lib/userRepository";
+import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
+
+export async function POST(request: NextRequest) {
+  try {
+    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    const conversationId = formData.get("conversationId") as string | null;
+    const attachmentType = parseAttachmentType(formData.get("type"));
+    const clientTempId =
+      (formData.get("clientTempId") as string | null) || undefined;
+    const duration = (formData.get("duration") as string | null) || undefined;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+    if (!attachmentType) {
+      return NextResponse.json(
+        { error: "Unsupported attachment type" },
+        { status: 400 },
+      );
+    }
+    const uploadValidationError = validateAttachmentUpload(
+      file,
+      attachmentType,
+    );
+    if (uploadValidationError) {
+      return NextResponse.json(
+        { error: uploadValidationError.error },
+        { status: uploadValidationError.status },
+      );
+    }
+    if (!conversationId) {
+      return NextResponse.json(
+        { error: "No conversationId provided" },
+        { status: 400 },
+      );
+    }
+
+    const conversation = await findConversationById(
+      conversationId,
+      workspaceOwnerEmail,
+    );
+    if (!conversation?.recipientId || !conversation.accountId) {
+      return NextResponse.json(
+        { error: "Conversation not found" },
+        { status: 404 },
+      );
+    }
+
+    const account = await getInstagramAccountById(
+      workspaceOwnerEmail,
+      conversation.accountId,
+    );
+    if (!account?.instagramUserId) {
+      return NextResponse.json(
+        { error: "No Instagram connection" },
+        { status: 400 },
+      );
+    }
+
+    const accessToken = decryptData(account.accessToken);
+
+    const sendResult = await sendAttachmentMessage(
+      account.pageId,
+      conversation.recipientId,
+      file,
+      attachmentType,
+      accessToken,
+      account.graphVersion,
+      {
+        tag: "HUMAN_AGENT",
+      },
+    );
+
+    if (attachmentType === "audio") {
+      if (!clientTempId) {
+        return NextResponse.json(
+          { error: "clientTempId is required for audio" },
+          { status: 400 },
+        );
+      }
+
+      const localMessageId = `local_audio_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const timestampIso = new Date().toISOString();
+      const bytes = Buffer.from(await file.arrayBuffer());
+
+      const audioStorage = await saveVoiceNoteBlobToGridFs({
+        ownerEmail: workspaceOwnerEmail,
+        conversationId: conversation.id,
+        recipientId: conversation.recipientId,
+        messageId: localMessageId,
+        fileName: file.name || `voice_note_${Date.now()}.webm`,
+        mimeType: file.type || "audio/webm",
+        bytes,
+      });
+
+      const savedMessage = await saveOrUpdateLocalAudioMessage({
+        ownerEmail: workspaceOwnerEmail,
+        conversationId: conversation.id,
+        recipientId: conversation.recipientId,
+        messageId: localMessageId,
+        clientTempId,
+        timestamp: timestampIso,
+        duration,
+        audioStorage: {
+          kind: "gridfs",
+          fileId: audioStorage.fileId,
+          mimeType: audioStorage.mimeType,
+          size: audioStorage.size,
+        },
+      });
+
+      await updateConversationMetadata(
+        conversation.id,
+        workspaceOwnerEmail,
+        "You sent a voice message",
+        getRelativeTime(savedMessage.timestamp || timestampIso),
+        false,
+        true,
+        savedMessage.timestamp || timestampIso,
+      );
+
+      const eventTimestampMs = Date.parse(
+        savedMessage.timestamp || timestampIso,
+      );
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
+        type: "message_echo",
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId: account.instagramUserId,
+          recipientId: conversation.recipientId,
+          conversationId: conversation.id,
+          accountId: conversation.accountId,
+          messageId: savedMessage.id,
+          text: "",
+          duration: savedMessage.duration,
+          attachments: [
+            {
+              type: "audio",
+              file_url: savedMessage.attachmentUrl,
+              payload: { url: savedMessage.attachmentUrl },
+            },
+          ],
+          timestamp: Number.isFinite(eventTimestampMs)
+            ? eventTimestampMs
+            : Date.now(),
+          fromMe: true,
+        },
+      });
+      return NextResponse.json({ success: true, messageId: savedMessage.id });
+    }
+
+    if (sendResult.messageId) {
+      const attachmentPayload =
+        attachmentType === "image"
+          ? [{ type: "image" as const }]
+          : attachmentType === "video"
+            ? [{ type: "video" as const }]
+            : [{ type: "file" as const }];
+
+      emitWorkspaceSseEvent(workspaceOwnerEmail, {
+        type: "message_echo",
+        timestamp: new Date().toISOString(),
+        data: {
+          senderId: account.instagramUserId,
+          recipientId: conversation.recipientId,
+          conversationId: conversation.id,
+          accountId: conversation.accountId,
+          messageId: sendResult.messageId,
+          clientTempId,
+          text: "",
+          attachments: attachmentPayload,
+          timestamp: Date.now(),
+          fromMe: true,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      messageId: sendResult.messageId || null,
+      clientTempId: clientTempId || null,
+    });
+  } catch (error) {
+    if (error instanceof AccessError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("[SendAttachment] Error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

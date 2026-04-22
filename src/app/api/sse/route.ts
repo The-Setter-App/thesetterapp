@@ -1,0 +1,66 @@
+import type { NextRequest } from "next/server";
+import {
+  onWorkspaceSseEvent,
+  type WorkspaceScopedSseEvent,
+} from "@/lib/inbox/sseBus";
+import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest) {
+  let workspaceOwnerEmail = "";
+  try {
+    const context = await requireInboxWorkspaceContext();
+    workspaceOwnerEmail = context.workspaceOwnerEmail;
+  } catch (error) {
+    if (error instanceof AccessError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: error.status,
+      });
+    }
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
+  }
+
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    start(controller) {
+      // Send initial connection message
+      const initialMessage = `data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`;
+      controller.enqueue(encoder.encode(initialMessage));
+
+      // Handler for new messages
+      const messageHandler = (data: WorkspaceScopedSseEvent) => {
+        if (data.workspaceOwnerEmail !== workspaceOwnerEmail) return;
+        const message = `data: ${JSON.stringify(data.event)}\n\n`;
+        controller.enqueue(encoder.encode(message));
+      };
+
+      // Register listener
+      const unsubscribe = onWorkspaceSseEvent(messageHandler);
+
+      // Heartbeat to keep connection alive
+      const heartbeat = setInterval(() => {
+        controller.enqueue(encoder.encode(": heartbeat\n\n"));
+      }, 30000); // Every 30 seconds
+
+      // Cleanup on close
+      request.signal.addEventListener("abort", () => {
+        unsubscribe();
+        clearInterval(heartbeat);
+        controller.close();
+      });
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for nginx
+    },
+  });
+}

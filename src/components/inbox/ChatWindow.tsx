@@ -1,84 +1,443 @@
 "use client";
 
-import { Message } from '@/types/inbox';
-import { useMemo } from 'react';
+import { useEffect, useRef, useState } from "react";
+import { AppImage } from "@/components/ui/AppImage";
+import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
+import type { Message } from "@/types/inbox";
+import AudioMessage from "./AudioMessage";
+import MessageMarkdown from "./MessageMarkdown";
+import StatusUpdateEvent from "./StatusUpdateEvent";
 
 interface ChatWindowProps {
   messages: Message[];
+  loading?: boolean;
+  loadingOlder?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  onAudioDurationResolved?: (messageId: string, duration: string) => void;
+  statusUpdate?: {
+    status: string;
+    timestamp: Date | string;
+  };
 }
 
-const PlayIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-  </svg>
-);
+export default function ChatWindow({
+  messages,
+  loading,
+  loadingOlder,
+  hasMore,
+  onLoadMore,
+  onAudioDurationResolved,
+  statusUpdate,
+}: ChatWindowProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [loadedMediaByMessageId, setLoadedMediaByMessageId] = useState<
+    Record<string, boolean>
+  >({});
+  const previousCountRef = useRef(0);
+  const previousScrollHeightRef = useRef(0);
+  const prependingRef = useRef(false);
+  const loadingOlderRef = useRef(Boolean(loadingOlder));
+  const stickToBottomRef = useRef(true);
+  const TIME_SEPARATOR_GAP_MS = 30 * 60 * 1000;
 
-const VolumeIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
-    <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
-  </svg>
-);
+  const isNearBottom = (container: HTMLDivElement): boolean => {
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceFromBottom <= 80;
+  };
 
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-  </svg>
-);
+  const keepBottomIfPinned = () => {
+    if (
+      !stickToBottomRef.current ||
+      prependingRef.current ||
+      loadingOlderRef.current
+    )
+      return;
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    });
+  };
 
-const AudioWave = ({ color }: { color: string }) => {
-  const heights = useMemo(() => {
-    return [...Array(20)].map(() => Math.random() * 100);
-  }, []);
+  const parseMessageTime = (message: Message): number | null => {
+    if (!message.timestamp) return null;
+    const ms = new Date(message.timestamp).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  };
 
-  return (
-    <div className="flex items-center space-x-0.5 h-4 mx-2">
-      {heights.map((height, i) => (
-        <div key={i} className={`w-0.5 rounded-full ${color}`} style={{ height: `${height}%` }} />
-      ))}
-    </div>
-  );
-};
+  const shouldShowTimeSeparator = (
+    current: Message,
+    previous?: Message,
+  ): boolean => {
+    if (!previous) return false;
+    const currentMs = parseMessageTime(current);
+    const prevMs = parseMessageTime(previous);
+    if (currentMs === null || prevMs === null) return false;
+    return currentMs - prevMs >= TIME_SEPARATOR_GAP_MS;
+  };
 
-export default function ChatWindow({ messages }: ChatWindowProps) {
-  return (
-    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-2 bg-white scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-      {messages.map((msg) => (
-        <div key={msg.id} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
+  const formatSeparatorTime = (message: Message): string => {
+    const ms = parseMessageTime(message);
+    if (ms === null) return "";
+    const date = new Date(ms);
+    const now = new Date();
+    const isSameDay = date.toDateString() === now.toDateString();
+    if (isSameDay) {
+      return `Today ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
+    return date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const markMediaLoaded = (messageId: string) => {
+    setLoadedMediaByMessageId((prev) => {
+      if (prev[messageId]) return prev;
+      return { ...prev, [messageId]: true };
+    });
+  };
+
+  useEffect(() => {
+    if (!loadingOlderRef.current && loadingOlder) {
+      prependingRef.current = true;
+      previousScrollHeightRef.current = scrollRef.current?.scrollHeight || 0;
+    }
+    loadingOlderRef.current = Boolean(loadingOlder);
+  }, [loadingOlder]);
+
+  // Scroll behavior:
+  // - keep viewport stable when older messages are prepended
+  // - otherwise stay pinned to bottom for new messages
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    if (prependingRef.current) {
+      requestAnimationFrame(() => {
+        const newScrollHeight = container.scrollHeight;
+        const delta = newScrollHeight - previousScrollHeightRef.current;
+        container.scrollTop += delta;
+        prependingRef.current = false;
+      });
+      previousCountRef.current = messages.length;
+      return;
+    }
+
+    const wasFirstRender = previousCountRef.current === 0;
+    // Only autoscroll when a new message is appended.
+    // Do not autoscroll when an existing message updates (e.g. pending -> sent).
+    const messageAppended = messages.length > previousCountRef.current;
+    if (wasFirstRender || messageAppended) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        stickToBottomRef.current = true;
+      });
+    }
+    previousCountRef.current = messages.length;
+  }, [messages]);
+
+  // Keep chat pinned when top controls mount/unmount (e.g. hasMore true -> false).
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || prependingRef.current || loadingOlder) return;
+    if (!stickToBottomRef.current) return;
+
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    });
+  }, [loadingOlder]);
+
+  useEffect(() => {
+    if (!statusUpdate) return;
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      stickToBottomRef.current = true;
+    });
+  }, [statusUpdate]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedImage(null);
+      }
+    };
+
+    if (selectedImage) {
+      window.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [selectedImage]);
+
+  if (loading && messages.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
+        {[1, 2, 3].map((i) => (
           <div
-            className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
-              msg.fromMe ? 'bg-[#8771FF] text-white rounded-br-none shadow-sm' : 'bg-[#F0F2F6] text-gray-800 rounded-bl-none'
-            } ${msg.type === 'audio' ? 'flex items-center min-w-[240px]' : ''}`}
+            key={i}
+            className={`flex flex-col ${i % 2 === 0 ? "items-end" : "items-start"}`}
           >
-            {msg.type === 'text' ? (
-              <span>{msg.text}</span>
+            <div
+              className={`rounded-2xl p-4 max-w-[60%] animate-pulse ${i % 2 === 0 ? "bg-[#F3F0FF]" : "bg-[#F4F5F8]"}`}
+            >
+              <div
+                className={`h-4 bg-[#F0F2F6] rounded mb-2 ${i % 2 === 0 ? "w-48" : "w-32"}`}
+              ></div>
+              <div className="h-3 w-20 bg-[#F0F2F6] rounded"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={(event) => {
+        stickToBottomRef.current = isNearBottom(event.currentTarget);
+      }}
+      className="flex-1 overflow-y-auto bg-white scrollbar-none"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      <div className="flex min-h-full flex-col px-8 py-6">
+        {(loadingOlder || hasMore) && (
+          <div className="flex justify-center py-2">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingOlder}
+                className="h-11 rounded-full bg-[#F4F5F8] px-4 text-xs font-medium text-[#101011] transition-colors hover:bg-[#F0F2F6] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loadingOlder
+                  ? "Loading older messages..."
+                  : "Load more messages"}
+              </button>
             ) : (
-              <>
-                {/* Play Button */}
-                <button className={`p-2 rounded-full flex-shrink-0 flex items-center justify-center ${msg.fromMe ? 'bg-white text-[#8771FF]' : 'bg-gray-500 text-white'}`}>
-                  <PlayIcon className="w-3.5 h-3.5 fill-current" />
-                </button>
-
-                {/* Audio Wave */}
-                <AudioWave color={msg.fromMe ? 'bg-white' : 'bg-gray-400'} />
-
-                <span className={`text-xs font-mono ml-auto mr-3 ${msg.fromMe ? 'text-white/80' : 'text-gray-500'}`}>{msg.duration}</span>
-
-                {/* Volume Icon */}
-                <VolumeIcon className={`w-5 h-5 ${msg.fromMe ? 'text-white' : 'text-gray-400'}`} />
-              </>
+              <div className="rounded-full bg-[#F4F5F8] px-3 py-1 text-xs text-[#606266]">
+                No more messages
+              </div>
             )}
           </div>
-          {msg.status === 'Read' && <div className="text-[10px] text-gray-400 mt-1 mr-1">Read</div>}
-        </div>
-      ))}
+        )}
 
-      {/* Status Update Marker */}
-      <div className="flex flex-col items-center py-6">
-        <StarIcon className="w-6 h-6 text-yellow-400 mb-2" />
-        <div className="font-bold text-sm text-gray-800">Status Update: Qualified</div>
-        <div className="text-[10px] text-gray-400">Wednesday 9:07 PM</div>
+        <div className="mt-auto space-y-2">
+          {messages.map((msg, index) => {
+            const previous = index > 0 ? messages[index - 1] : undefined;
+            const showSeparator = shouldShowTimeSeparator(msg, previous);
+            const separatorLabel = showSeparator
+              ? formatSeparatorTime(msg)
+              : "";
+            const resolvedAttachmentUrl =
+              resolveAppMediaSrc(msg.attachmentUrl) || msg.attachmentUrl;
+
+            return (
+              <div key={msg.id}>
+                {showSeparator && separatorLabel && (
+                  <div className="my-3 flex justify-center">
+                    <span className="rounded-full bg-[#F4F5F8] px-3 py-1 text-[11px] font-medium text-[#606266]">
+                      {separatorLabel}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className={`flex flex-col ${msg.fromMe ? "items-end" : "items-start"}`}
+                >
+                  <div
+                    className={`text-sm ${
+                      msg.type === "audio" || msg.type === "image"
+                        ? "bg-transparent p-0"
+                        : `max-w-[80%] rounded-[12px] ${msg.fromMe ? "bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]" : "bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]"}`
+                    } ${
+                      msg.type === "audio" || msg.type === "image"
+                        ? ""
+                        : msg.type === "video"
+                          ? "p-1"
+                          : "px-3 py-2"
+                    }`}
+                  >
+                    {msg.type === "text" && (
+                      <MessageMarkdown
+                        fromMe={msg.fromMe}
+                        text={msg.text || ""}
+                      />
+                    )}
+
+                    {msg.type === "image" && msg.attachmentUrl && (
+                      <div>
+                        <div
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? "" : "min-h-[220px]"}`}
+                        >
+                          {!loadedMediaByMessageId[msg.id] && (
+                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
+                          )}
+                          <AppImage
+                            src={resolvedAttachmentUrl}
+                            alt="Attachment"
+                            className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? "opacity-100" : "opacity-0"}`}
+                            loadingMode="lazy"
+                            onLoad={() => {
+                              markMediaLoaded(msg.id);
+                              keepBottomIfPinned();
+                            }}
+                            onClick={() =>
+                              setSelectedImage(resolvedAttachmentUrl || null)
+                            }
+                          />
+                        </div>
+                        {msg.text && (
+                          <p
+                            className={`mt-1 text-xs ${msg.fromMe ? "text-[#ECE9FF] text-right" : "text-[#606266] text-left"}`}
+                          >
+                            {msg.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {msg.type === "image" && !msg.attachmentUrl && (
+                      <div className="px-3 py-2 text-xs text-[#606266]">
+                        Image unavailable
+                      </div>
+                    )}
+
+                    {msg.type === "video" && msg.attachmentUrl && (
+                      <div>
+                        <div
+                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? "" : "min-h-[220px]"}`}
+                        >
+                          {!loadedMediaByMessageId[msg.id] && (
+                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
+                          )}
+                          <video
+                            src={resolvedAttachmentUrl}
+                            controls
+                            muted
+                            onLoadedMetadata={() => {
+                              markMediaLoaded(msg.id);
+                              keepBottomIfPinned();
+                            }}
+                            onLoadedData={keepBottomIfPinned}
+                            className={`block h-auto w-full transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? "opacity-100" : "opacity-0"}`}
+                          >
+                            <track kind="captions" />
+                          </video>
+                        </div>
+                        {msg.text && <p className="px-3 py-2">{msg.text}</p>}
+                      </div>
+                    )}
+
+                    {msg.type === "audio" && (
+                      <AudioMessage
+                        messageId={msg.id}
+                        src={resolvedAttachmentUrl || ""}
+                        duration={msg.duration}
+                        isOwn={msg.fromMe}
+                        onDurationResolved={onAudioDurationResolved}
+                      />
+                    )}
+
+                    {msg.type === "file" && (
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                          />
+                        </svg>
+                        <span>{msg.text || "File attachment"}</span>
+                      </div>
+                    )}
+                  </div>
+                  {msg.pending && !msg.clientAcked && msg.fromMe && (
+                    <div className="mt-1 mr-1 text-[10px] text-[#606266]">
+                      Sending...
+                    </div>
+                  )}
+                  {msg.status === "Read" && (
+                    <div className="text-[10px] text-[#9A9CA2] mt-1 mr-1">
+                      Read
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {statusUpdate && (
+            <div className="pt-5">
+              <StatusUpdateEvent
+                status={statusUpdate.status}
+                timestamp={statusUpdate.timestamp}
+              />
+            </div>
+          )}
+
+          {/* Scroll anchor */}
+          <div ref={bottomRef} />
+        </div>
       </div>
+
+      {selectedImage && (
+        <button
+          type="button"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/75 px-4"
+          onClick={() => setSelectedImage(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setSelectedImage(null);
+            }
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#101011] transition-colors hover:bg-white"
+          >
+            <svg
+              className="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 6l12 12M18 6L6 18"
+              />
+            </svg>
+          </span>
+
+          <AppImage
+            src={selectedImage}
+            alt="Expanded attachment"
+            className="max-h-[85vh] w-full max-w-5xl  object-contain"
+            loadingMode="eager"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </button>
+      )}
     </div>
   );
 }

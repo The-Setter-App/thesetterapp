@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server";
+import { sendOTPEmail } from "@/lib/email";
+import { enforceOtpSendRateLimit, getClientIp } from "@/lib/otpSecurity";
+import { getAppUserExists } from "@/lib/userAuthRepository";
+import { createOTP } from "@/lib/userRepository";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function POST(request: Request) {
+  try {
+    const { email } = await request.json();
+
+    if (!email || typeof email !== "string") {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 },
+      );
+    }
+
+    const clientIp = getClientIp(request.headers);
+    const rateLimit = await enforceOtpSendRateLimit(normalizedEmail, clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many OTP requests. Try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
+
+    const hasAccount = await getAppUserExists(normalizedEmail);
+    if (hasAccount) {
+      const otp = await createOTP(normalizedEmail);
+      await sendOTPEmail(normalizedEmail, otp);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "If an account exists, a verification code has been sent.",
+    });
+  } catch (error) {
+    console.error("Error sending OTP:", error);
+    return NextResponse.json(
+      { error: "Failed to send verification email" },
+      { status: 500 },
+    );
+  }
+}

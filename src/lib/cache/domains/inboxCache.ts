@@ -1,0 +1,345 @@
+"use client";
+
+import {
+  applyConversationDetailsLocalPatch,
+  type ConversationDetailsCacheRecord,
+  type ConversationDetailsCacheState,
+  type ConversationDetailsPendingPatch,
+  clearSyncedConversationDetailsPending,
+  mergeRemoteConversationDetails,
+  readConversationDetailsCacheState,
+  toConversationDetailsCacheRecord,
+} from "@/lib/cache/domains/inboxConversationDetailsState";
+import type { ConversationCallEvent } from "@/types/calendly";
+import type {
+  ConversationDetails,
+  ConversationSummary,
+  Message,
+  User,
+} from "@/types/inbox";
+import {
+  conversationCallsKey,
+  conversationDetailsKey,
+  conversationSummaryKey,
+  inboxCache,
+  mergeCallsById,
+  messageMetaKey,
+  messagesKey,
+  normalizeConversationId,
+  USERS_CACHE_KEY,
+} from "./inboxCacheShared";
+import type { ConversationCallsCacheRecord } from "./inboxCalendarCallsCache";
+
+export interface ConversationSummaryCacheRecord {
+  summary: ConversationSummary | null;
+  fetchedAt: number;
+}
+
+export interface MessagePageMetaCacheRecord {
+  nextCursor: string | null;
+  hasMore: boolean;
+  fetchedAt: number;
+}
+
+export type { ConversationDetailsCacheState };
+export type {
+  CalendarCallsRangeCoverage,
+  CalendarCallsWorkspaceCacheRecord,
+  CalendarEventDetailCacheRecord,
+  CalendarIsoRange,
+  ConversationCallsCacheRecord,
+} from "./inboxCalendarCallsCache";
+export {
+  getCachedCalendarCallsForRange,
+  getCachedCalendarCallsWorkspaceState,
+  getCachedCalendarEventDetail,
+  getHotCachedCalendarCallsWorkspaceState,
+  getHotCachedCalendarEventDetail,
+  getUncoveredCalendarCallRanges,
+  mergeCachedCalendarCallsForRange,
+  mergeCachedCalendarCallsFromConversation,
+  mergeCachedCalendarEventDetail,
+  mergeCachedConversationCallsFromWorkspace,
+  setCachedCalendarEventDetail,
+  subscribeCachedCalendarCallsWorkspaceState,
+  subscribeCachedCalendarEventDetail,
+} from "./inboxCalendarCallsCache";
+
+type StoredConversationDetails =
+  | ConversationDetails
+  | ConversationDetailsCacheRecord;
+
+export async function getCachedUsers(): Promise<User[] | null> {
+  return inboxCache.get<User[]>(USERS_CACHE_KEY);
+}
+
+export function subscribeCachedUsers(listener: () => void): () => void {
+  return inboxCache.subscribe(USERS_CACHE_KEY, listener);
+}
+
+export function getHotCachedUsers(): User[] | null {
+  return inboxCache.peek<User[]>(USERS_CACHE_KEY) ?? null;
+}
+
+export async function setCachedUsers(users: User[]): Promise<void> {
+  await inboxCache.set<User[]>(USERS_CACHE_KEY, users);
+}
+
+export async function getCachedMessages(
+  conversationId: string,
+): Promise<Message[] | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return inboxCache.get<Message[]>(messagesKey(normalized));
+}
+
+export function getHotCachedMessages(conversationId: string): Message[] | null {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return inboxCache.peek<Message[]>(messagesKey(normalized)) ?? null;
+}
+
+export async function setCachedMessages(
+  conversationId: string,
+  messages: Message[],
+): Promise<void> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return;
+  await inboxCache.set<Message[]>(messagesKey(normalized), messages);
+}
+
+export async function getCachedMessagePageMeta(
+  conversationId: string,
+): Promise<MessagePageMetaCacheRecord | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return inboxCache.get<MessagePageMetaCacheRecord>(messageMetaKey(normalized));
+}
+
+export function getHotCachedMessagePageMeta(
+  conversationId: string,
+): MessagePageMetaCacheRecord | null {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return (
+    inboxCache.peek<MessagePageMetaCacheRecord>(messageMetaKey(normalized)) ??
+    null
+  );
+}
+
+export async function setCachedMessagePageMeta(
+  conversationId: string,
+  meta: MessagePageMetaCacheRecord,
+): Promise<void> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return;
+  await inboxCache.set<MessagePageMetaCacheRecord>(
+    messageMetaKey(normalized),
+    meta,
+  );
+}
+
+export async function updateCachedMessages(
+  conversationId: string,
+  updater: (current: Message[] | null) => Message[],
+): Promise<void> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return;
+  await inboxCache.update<Message[]>(messagesKey(normalized), updater);
+}
+
+export async function getCachedConversationDetails(
+  conversationId: string,
+): Promise<ConversationDetails | null> {
+  const state = await getCachedConversationDetailsState(conversationId);
+  return state?.details ?? null;
+}
+
+export async function getCachedConversationDetailsState(
+  conversationId: string,
+): Promise<ConversationDetailsCacheState | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  const value = await inboxCache.get<StoredConversationDetails>(
+    conversationDetailsKey(normalized),
+  );
+  return readConversationDetailsCacheState(value);
+}
+
+export function getHotCachedConversationDetails(
+  conversationId: string,
+): ConversationDetails | null {
+  const state = getHotCachedConversationDetailsState(conversationId);
+  return state?.details ?? null;
+}
+
+export function getHotCachedConversationDetailsState(
+  conversationId: string,
+): ConversationDetailsCacheState | null {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  const value =
+    inboxCache.peek<StoredConversationDetails>(
+      conversationDetailsKey(normalized),
+    ) ?? null;
+  return readConversationDetailsCacheState(value);
+}
+
+async function setConversationDetailsState(
+  conversationId: string,
+  state: ConversationDetailsCacheState,
+): Promise<void> {
+  await inboxCache.set<ConversationDetailsCacheRecord>(
+    conversationDetailsKey(conversationId),
+    toConversationDetailsCacheRecord(state),
+  );
+}
+
+export async function setCachedConversationDetails(
+  conversationId: string,
+  details: ConversationDetails,
+): Promise<void> {
+  await setCachedConversationDetailsFromRemote(conversationId, details);
+}
+
+export async function setCachedConversationDetailsFromRemote(
+  conversationId: string,
+  details: ConversationDetails,
+): Promise<ConversationDetailsCacheState> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) {
+    return {
+      details,
+      pending: {},
+    };
+  }
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = mergeRemoteConversationDetails(currentState, details);
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
+}
+
+export async function setCachedConversationDetailsLocal(
+  conversationId: string,
+  patch: ConversationDetailsPendingPatch,
+): Promise<ConversationDetailsCacheState | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = applyConversationDetailsLocalPatch(currentState, patch);
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
+}
+
+export async function markCachedConversationDetailsSynced(
+  conversationId: string,
+  syncedPatch: ConversationDetailsPendingPatch,
+): Promise<ConversationDetailsCacheState | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+
+  const currentState = await getCachedConversationDetailsState(normalized);
+  const nextState = clearSyncedConversationDetailsPending(
+    currentState,
+    syncedPatch,
+  );
+  await setConversationDetailsState(normalized, nextState);
+  return nextState;
+}
+
+export async function getCachedConversationSummary(
+  conversationId: string,
+): Promise<ConversationSummaryCacheRecord | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return inboxCache.get<ConversationSummaryCacheRecord>(
+    conversationSummaryKey(normalized),
+  );
+}
+
+export async function setCachedConversationSummary(
+  conversationId: string,
+  summary: ConversationSummary | null,
+): Promise<void> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return;
+  await inboxCache.set<ConversationSummaryCacheRecord>(
+    conversationSummaryKey(normalized),
+    {
+      summary,
+      fetchedAt: Date.now(),
+    },
+  );
+}
+
+export async function getCachedConversationCalls(
+  conversationId: string,
+): Promise<ConversationCallsCacheRecord | null> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return inboxCache.get<ConversationCallsCacheRecord>(
+    conversationCallsKey(normalized),
+  );
+}
+
+export function getHotCachedConversationCalls(
+  conversationId: string,
+): ConversationCallsCacheRecord | null {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return null;
+  return (
+    inboxCache.peek<ConversationCallsCacheRecord>(
+      conversationCallsKey(normalized),
+    ) ?? null
+  );
+}
+
+export async function setCachedConversationCalls(
+  conversationId: string,
+  calls: ConversationCallEvent[],
+): Promise<void> {
+  const normalized = normalizeConversationId(conversationId);
+  if (!normalized) return;
+  await inboxCache.set<ConversationCallsCacheRecord>(
+    conversationCallsKey(normalized),
+    {
+      calls: mergeCallsById([], calls),
+      fetchedAt: Date.now(),
+    },
+  );
+}
+
+export async function removeCachedConversationsByAccount(
+  accountId: string,
+): Promise<void> {
+  const normalizedAccountId = accountId.trim();
+  if (!normalizedAccountId) return;
+
+  const users = await getCachedUsers();
+  if (!users || users.length === 0) return;
+
+  const removedConversationIds = users
+    .filter((user) => user.accountId === normalizedAccountId)
+    .map((user) => normalizeConversationId(user.id))
+    .filter((conversationId) => conversationId.length > 0);
+
+  if (removedConversationIds.length === 0) return;
+
+  const nextUsers = users.filter(
+    (user) => user.accountId !== normalizedAccountId,
+  );
+  await setCachedUsers(nextUsers);
+
+  const uniqueConversationIds = Array.from(new Set(removedConversationIds));
+  await Promise.all(
+    uniqueConversationIds.flatMap((conversationId) => [
+      inboxCache.delete(messagesKey(conversationId)),
+      inboxCache.delete(messageMetaKey(conversationId)),
+      inboxCache.delete(conversationDetailsKey(conversationId)),
+      inboxCache.delete(conversationSummaryKey(conversationId)),
+      inboxCache.delete(conversationCallsKey(conversationId)),
+    ]),
+  );
+}
