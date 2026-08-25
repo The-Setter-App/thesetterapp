@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useToast } from "@/components/ui/Toast";
 import type { Message } from "@/types/inbox";
 import { syncOutgoingConversationPreview } from "./useChatPreview";
 import type { UseChatSendAudioParams } from "./useChatSendTypes";
@@ -18,6 +19,7 @@ export function useChatSendAudio(
     pendingTempIdsRef,
     markTempMessagesClientAcked,
   } = params;
+  const toast = useToast();
 
   return useCallback(
     async (blob: Blob, duration: number) => {
@@ -85,7 +87,9 @@ export function useChatSendAudio(
         setChatHistory((prev) =>
           prev.filter((message) => message.id !== tempId),
         );
-        alert("Failed to send voice note");
+        toast.error("Failed to send voice note", {
+          description: "Please try recording again.",
+        });
       }
     },
     [
@@ -93,6 +97,7 @@ export function useChatSendAudio(
       pendingTempIdsRef,
       selectedUserId,
       setChatHistory,
+      toast,
       user,
     ],
   );

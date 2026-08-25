@@ -2,6 +2,7 @@
 
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React from "react";
 import {
   LuBadgePercent,
@@ -131,6 +132,7 @@ export default function Dashboard({
   const funnelClipPathId = React.useId().replace(/:/g, "");
   const [search, setSearch] = React.useState("");
   const snapshot = useDashboardSnapshot(initialSnapshot);
+  const router = useRouter();
 
   if (!snapshot.hasConnectedAccounts) {
     return <NoConnectedAccountsState displayName={displayName} />;
@@ -169,7 +171,9 @@ export default function Dashboard({
   };
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    alert(`Searching for: ${search}`);
+    const trimmed = search.trim();
+    if (!trimmed) return;
+    router.push(`/leads?q=${encodeURIComponent(trimmed)}`);
   };
 
   return (

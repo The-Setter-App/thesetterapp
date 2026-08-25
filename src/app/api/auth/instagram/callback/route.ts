@@ -9,6 +9,14 @@ import type { InstagramAccountConnection } from "@/types/auth";
 
 export const dynamic = "force-dynamic";
 
+const INSTAGRAM_OAUTH_DEBUG = process.env.INSTAGRAM_OAUTH_DEBUG === "true";
+
+function instagramOAuthDebug(...args: unknown[]) {
+  if (INSTAGRAM_OAUTH_DEBUG) {
+    console.log(...args);
+  }
+}
+
 async function subscribePageToWebhooks(
   pageId: string,
   pageAccessToken: string,
@@ -283,7 +291,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(
+    instagramOAuthDebug(
       "[Instagram OAuth] Page diagnostics:",
       diagnostics.map((d) => ({
         pageId: d.pageId,

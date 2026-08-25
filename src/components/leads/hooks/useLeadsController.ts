@@ -1,7 +1,13 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getInboxConnectionState, getInboxUsers } from "@/app/actions/inbox";
+import {
+  getInboxConnectionState,
+  getInboxUsers,
+  updateUserStatusAction,
+} from "@/app/actions/inbox";
+import { useToast } from "@/components/ui/Toast";
 import {
   getCachedLeads,
   getCachedLeadsTimestamp,
@@ -13,7 +19,11 @@ import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
-import { CONVERSATION_STATUS_SYNCED_EVENT } from "@/lib/status/clientSync";
+import {
+  CONVERSATION_STATUS_SYNCED_EVENT,
+  emitConversationStatusSynced,
+  syncConversationStatusToClientCache,
+} from "@/lib/status/clientSync";
 import { isStatusType } from "@/lib/status/config";
 import {
   detailIncludesDomain,
@@ -79,12 +89,14 @@ function sortRows(rows: LeadRow[], sortConfig: SortConfig): LeadRow[] {
 }
 
 export function useLeadsController() {
+  const toast = useToast();
   const [baseRows, setBaseRows] = useState<LeadRow[]>([]);
   const [statusCatalog, setStatusCatalog] = useState<TagRow[]>(PRESET_TAG_ROWS);
   const [loading, setLoading] = useState(false);
   const [initialLoadSettled, setInitialLoadSettled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasConnectedAccounts, setHasConnectedAccounts] = useState(true);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [search, setSearch] = useState("");
@@ -99,10 +111,23 @@ export function useLeadsController() {
 
   const refetchTimerRef = useRef<number | null>(null);
   const baseRowsRef = useRef<LeadRow[]>([]);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     baseRowsRef.current = baseRows;
   }, [baseRows]);
+
+  // Support arriving with a prefilled search query (e.g. from the dashboard
+  // search bar), broadening the date filter so matches outside the default
+  // 7-day window aren't hidden.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only read the query param once, on mount
+  useEffect(() => {
+    const initialQuery = searchParams.get("q");
+    if (initialQuery) {
+      setSearch(initialQuery);
+      setDateRangeFilter("all");
+    }
+  }, []);
 
   const updateRows = useCallback((updater: (rows: LeadRow[]) => LeadRow[]) => {
     setBaseRows((prev) => {
@@ -386,6 +411,90 @@ export function useLeadsController() {
     });
   }, [paginatedRows]);
 
+  const onClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const onBulkApplyStatus = useCallback(
+    async (nextStatus: StatusType) => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+
+      const previousStatuses = new Map(
+        baseRowsRef.current
+          .filter((row) => selectedIds.has(row.id))
+          .map((row) => [row.id, row.status] as const),
+      );
+      const updatedAt = new Date().toISOString();
+
+      setIsBulkUpdating(true);
+      updateRows((prev) =>
+        prev.map((row) =>
+          selectedIds.has(row.id) ? { ...row, status: nextStatus } : row,
+        ),
+      );
+      for (const id of ids) {
+        emitConversationStatusSynced({
+          conversationId: id,
+          status: nextStatus,
+          updatedAt,
+        });
+        syncConversationStatusToClientCache(id, nextStatus).catch((error) =>
+          console.error("[Leads] Failed to sync status cache:", error),
+        );
+      }
+
+      const results = await Promise.allSettled(
+        ids.map((id) => updateUserStatusAction(id, nextStatus)),
+      );
+      const failedIds = ids.filter(
+        (_, index) => results[index].status === "rejected",
+      );
+
+      if (failedIds.length > 0) {
+        updateRows((prev) =>
+          prev.map((row) =>
+            failedIds.includes(row.id)
+              ? { ...row, status: previousStatuses.get(row.id) ?? row.status }
+              : row,
+          ),
+        );
+        for (const id of failedIds) {
+          const previousStatus = previousStatuses.get(id);
+          if (!previousStatus) continue;
+          emitConversationStatusSynced({
+            conversationId: id,
+            status: previousStatus,
+            updatedAt: new Date().toISOString(),
+          });
+          syncConversationStatusToClientCache(id, previousStatus).catch(
+            (error) =>
+              console.error("[Leads] Failed to revert status cache:", error),
+          );
+        }
+        toast.error(
+          failedIds.length === ids.length
+            ? "Failed to update status"
+            : `Updated ${ids.length - failedIds.length} of ${ids.length} leads`,
+          {
+            description:
+              failedIds.length === ids.length
+                ? "Please try again."
+                : "Some leads couldn't be updated. Please try again.",
+          },
+        );
+      } else {
+        toast.success(
+          `Updated status for ${ids.length} lead${ids.length === 1 ? "" : "s"}`,
+        );
+        setSelectedIds(new Set());
+      }
+
+      setIsBulkUpdating(false);
+    },
+    [selectedIds, toast, updateRows],
+  );
+
   const headerCheckboxState = useMemo((): boolean | "indeterminate" => {
     if (paginatedRows.length === 0) return false;
     const selectedCount = paginatedRows.filter((row) =>
@@ -519,6 +628,9 @@ export function useLeadsController() {
     isSelected,
     onToggleSelect,
     onToggleAllVisible,
+    onClearSelection,
+    onBulkApplyStatus,
+    isBulkUpdating,
     headerCheckboxState,
     getStatusCount,
     selectedCount: selectedIds.size,

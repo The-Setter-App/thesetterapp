@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLeadsController } from "@/components/leads/hooks/useLeadsController";
+import LeadsBulkActionBar from "@/components/leads/LeadsBulkActionBar";
 import LeadsFilterBar from "@/components/leads/LeadsFilterBar";
 import LeadsHeader from "@/components/leads/LeadsHeader";
 import LeadsListMobile from "@/components/leads/LeadsListMobile";
@@ -64,6 +65,10 @@ export default function LeadsPageClient() {
     isSelected,
     onToggleSelect,
     onToggleAllVisible,
+    onClearSelection,
+    onBulkApplyStatus,
+    isBulkUpdating,
+    selectedCount,
     headerCheckboxState,
     getStatusCount,
     totalCount,
@@ -107,6 +112,14 @@ export default function LeadsPageClient() {
           rowsPerPageOptions={rowsPerPageOptions}
           onPageChange={onPageChange}
           onRowsPerPageChange={onRowsPerPageChange}
+        />
+
+        <LeadsBulkActionBar
+          selectedCount={selectedCount}
+          statusOptions={statusCatalog}
+          isBulkUpdating={isBulkUpdating}
+          onApplyStatus={onBulkApplyStatus}
+          onClearSelection={onClearSelection}
         />
 
         {error ? (

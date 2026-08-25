@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { optimizeImageForUpload } from "@/lib/imageCompression";
 import type { Message } from "@/types/inbox";
 import { scheduleStuckPendingFallback } from "./useChatPendingFallback";
@@ -27,6 +28,7 @@ export function useChatSendMessage(
     fetchMessagePage,
     markTempMessagesClientAcked,
   } = params;
+  const toast = useToast();
 
   return useCallback(async () => {
     const hasText = messageInput.trim().length > 0;
@@ -191,7 +193,9 @@ export function useChatSendMessage(
         setAttachmentFile(currentFile);
         setAttachmentPreview(currentPreview);
       }
-      alert("Failed to send message");
+      toast.error("Failed to send message", {
+        description: "Your message wasn't delivered. Please try again.",
+      });
     }
   }, [
     attachmentFile,
@@ -206,6 +210,7 @@ export function useChatSendMessage(
     setAttachmentPreview,
     setChatHistory,
     setMessageInput,
+    toast,
     user,
   ]);
 }

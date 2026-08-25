@@ -1,8 +1,18 @@
-import { Crown, Mail, Shield, Trash2, UserPlus, Users2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Crown,
+  Mail,
+  Shield,
+  Trash2,
+  UserPlus,
+  Users2,
+} from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
 import TeamRoleDropdown from "@/components/settings/TeamRoleDropdown";
+import TransferOwnershipForm from "@/components/settings/TransferOwnershipForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
@@ -17,6 +27,7 @@ import {
   getTeamMembersForOwner,
   getUser,
   removeTeamMemberByOwner,
+  transferWorkspaceOwnership,
 } from "@/lib/userRepository";
 import type { TeamMemberRole } from "@/types/auth";
 
@@ -67,6 +78,45 @@ async function addTeamMemberAction(formData: FormData) {
   redirect("/settings/team?success=member_saved");
 }
 
+async function updateTeamMemberRoleAction(formData: FormData) {
+  "use server";
+
+  const { user } = await requireCurrentUser();
+  if (user.role !== "owner") {
+    redirect("/settings/team");
+  }
+
+  const emailValue = String(formData.get("email") || "")
+    .trim()
+    .toLowerCase();
+  const roleValue = String(formData.get("role") || "")
+    .trim()
+    .toLowerCase();
+
+  if (!EMAIL_REGEX.test(emailValue)) {
+    redirect("/settings/team?error=invalid_email");
+  }
+
+  if (roleValue !== "setter" && roleValue !== "closer") {
+    redirect("/settings/team?error=invalid_role");
+  }
+
+  try {
+    await addTeamMemberByOwner(
+      user.email,
+      emailValue,
+      roleValue as TeamMemberRole,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "failed_to_update_role";
+    redirect(`/settings/team?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath("/settings/team");
+  redirect("/settings/team?success=role_updated");
+}
+
 async function removeTeamMemberAction(formData: FormData) {
   "use server";
 
@@ -92,6 +142,45 @@ async function removeTeamMemberAction(formData: FormData) {
 
   revalidatePath("/settings/team");
   redirect("/settings/team?success=member_removed");
+}
+
+async function transferOwnershipAction(formData: FormData) {
+  "use server";
+
+  const { user } = await requireCurrentUser();
+  if (user.role !== "owner") {
+    redirect("/settings/team");
+  }
+
+  const newOwnerEmail = String(formData.get("newOwnerEmail") || "")
+    .trim()
+    .toLowerCase();
+  const roleValue = String(formData.get("previousOwnerNewRole") || "")
+    .trim()
+    .toLowerCase();
+
+  if (!EMAIL_REGEX.test(newOwnerEmail)) {
+    redirect("/settings/team?error=invalid_email");
+  }
+
+  if (roleValue !== "setter" && roleValue !== "closer") {
+    redirect("/settings/team?error=invalid_role");
+  }
+
+  try {
+    await transferWorkspaceOwnership(
+      user.email,
+      newOwnerEmail,
+      roleValue as TeamMemberRole,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "failed_to_transfer_ownership";
+    redirect(`/settings/team?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath("/settings/team");
+  redirect("/settings/team?success=ownership_transferred");
 }
 
 interface TeamPageProps {
@@ -144,7 +233,11 @@ export default async function SettingsTeamPage({
         <div className="rounded-2xl border border-[#D8D2FF] bg-[#F3F0FF] px-5 py-3 text-sm font-medium text-[#6d5ed6]">
           {success === "member_saved"
             ? "Team member saved successfully."
-            : "Team member removed and account deleted."}
+            : success === "role_updated"
+              ? "Team member role updated successfully."
+              : success === "ownership_transferred"
+                ? "Workspace ownership transferred successfully."
+                : "Team member removed and account deleted."}
         </div>
       )}
 
@@ -279,9 +372,36 @@ export default async function SettingsTeamPage({
                   </div>
 
                   <div className="ml-3 flex items-center gap-2">
-                    <Badge variant="secondary" className="capitalize">
-                      {member.role}
-                    </Badge>
+                    {user.role === "owner" ? (
+                      <form
+                        action={updateTeamMemberRoleAction}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="hidden"
+                          name="email"
+                          value={member.email}
+                        />
+                        <div className="w-[132px]">
+                          <TeamRoleDropdown
+                            name="role"
+                            defaultValue={member.role}
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F0F2F6] text-[#8771FF] transition-colors hover:bg-[#F3F0FF]"
+                          aria-label={`Save role for ${member.email}`}
+                          title="Save role"
+                        >
+                          <Check size={14} />
+                        </button>
+                      </form>
+                    ) : (
+                      <Badge variant="secondary" className="capitalize">
+                        {member.role}
+                      </Badge>
+                    )}
 
                     {user.role === "owner" && (
                       <form action={removeTeamMemberAction}>
@@ -306,6 +426,25 @@ export default async function SettingsTeamPage({
             )}
           </div>
         </div>
+
+        {user.role === "owner" && members.length > 0 && (
+          <div className="border-t border-red-100 bg-red-50/40 px-6 py-6 md:px-8">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-red-700">
+              <AlertTriangle size={16} /> Danger zone
+            </h3>
+            <p className="mb-4 text-sm text-[#606266]">
+              Transfer workspace ownership to an existing team member. This
+              moves all leads, conversations, tags, and settings to the new
+              owner, and you&apos;ll become a Setter or Closer on the
+              workspace instead. Connected Instagram accounts are not moved
+              automatically. This cannot be undone from the app.
+            </p>
+            <TransferOwnershipForm
+              members={members}
+              action={transferOwnershipAction}
+            />
+          </div>
+        )}
       </SettingsSectionCard>
     </div>
   );

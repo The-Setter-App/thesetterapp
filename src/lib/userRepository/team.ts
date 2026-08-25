@@ -3,6 +3,22 @@ import type { TeamMemberRole } from "@/types/auth";
 import { getUser } from "./readers";
 import { isTeamMemberRole, normalizeEmail, toIso } from "./shared";
 
+export interface WorkspaceOwnershipTransferResult {
+  previousOwnerEmail: string;
+  newOwnerEmail: string;
+  previousOwnerNewRole: TeamMemberRole;
+  teamMembersMoved: number;
+  conversationsMoved: number;
+  messagesMoved: number;
+  callEventsMoved: number;
+  calendlyInvitesMoved: number;
+  syncJobMoved: number;
+  statusTagsMoved: number;
+  statusTagsSkipped: number;
+  calendlyConnectionMoved: number;
+  calendlyConnectionSkipped: number;
+}
+
 export async function addTeamMemberByOwner(
   ownerEmail: string,
   memberEmail: string,
@@ -128,4 +144,67 @@ export async function removeTeamMemberByOwner(
   ]);
 
   return true;
+}
+
+export async function transferWorkspaceOwnership(
+  currentOwnerEmail: string,
+  newOwnerEmail: string,
+  previousOwnerNewRole: TeamMemberRole = "closer",
+): Promise<WorkspaceOwnershipTransferResult> {
+  const normalizedCurrentOwnerEmail = normalizeEmail(currentOwnerEmail);
+  const normalizedNewOwnerEmail = normalizeEmail(newOwnerEmail);
+
+  if (!normalizedNewOwnerEmail) {
+    throw new Error("New owner email is required");
+  }
+
+  if (normalizedNewOwnerEmail === normalizedCurrentOwnerEmail) {
+    throw new Error("New owner must be different from the current owner");
+  }
+
+  if (!isTeamMemberRole(previousOwnerNewRole)) {
+    throw new Error("Invalid role for the previous owner");
+  }
+
+  const owner = await getUser(normalizedCurrentOwnerEmail);
+  if (!owner || owner.role !== "owner") {
+    throw new Error("Only the workspace owner can transfer ownership");
+  }
+
+  const isExistingTeamMember = (owner.teamMembers ?? []).some(
+    (member) => normalizeEmail(member.email) === normalizedNewOwnerEmail,
+  );
+  if (!isExistingTeamMember) {
+    throw new Error(
+      "Ownership can only be transferred to an existing team member",
+    );
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.rpc("transfer_workspace_ownership", {
+    p_current_owner_email: normalizedCurrentOwnerEmail,
+    p_new_owner_email: normalizedNewOwnerEmail,
+    p_previous_owner_new_role: previousOwnerNewRole,
+  });
+
+  if (error) {
+    throw new Error(`Failed to transfer ownership: ${error.message}`);
+  }
+
+  const result = data as Record<string, unknown>;
+  return {
+    previousOwnerEmail: String(result.previous_owner_email),
+    newOwnerEmail: String(result.new_owner_email),
+    previousOwnerNewRole: result.previous_owner_new_role as TeamMemberRole,
+    teamMembersMoved: Number(result.team_members_moved ?? 0),
+    conversationsMoved: Number(result.conversations_moved ?? 0),
+    messagesMoved: Number(result.messages_moved ?? 0),
+    callEventsMoved: Number(result.call_events_moved ?? 0),
+    calendlyInvitesMoved: Number(result.calendly_invites_moved ?? 0),
+    syncJobMoved: Number(result.sync_job_moved ?? 0),
+    statusTagsMoved: Number(result.status_tags_moved ?? 0),
+    statusTagsSkipped: Number(result.status_tags_skipped ?? 0),
+    calendlyConnectionMoved: Number(result.calendly_connection_moved ?? 0),
+    calendlyConnectionSkipped: Number(result.calendly_connection_skipped ?? 0),
+  };
 }

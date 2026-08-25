@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useToast } from "@/components/ui/Toast";
 
 export interface AudioRecorderState {
   isRecording: boolean;
@@ -12,6 +13,7 @@ export function useAudioRecorder() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingStartMsRef = useRef<number | null>(null);
+  const toast = useToast();
 
   const startRecording = useCallback(async () => {
     try {
@@ -67,9 +69,11 @@ export function useAudioRecorder() {
       }, 1000);
     } catch (error) {
       console.error("Error starting recording:", error);
-      alert("Could not access microphone. Please check permissions.");
+      toast.error("Could not access microphone", {
+        description: "Please check your browser's microphone permissions.",
+      });
     }
-  }, []);
+  }, [toast]);
 
   const stopRecording = useCallback((): Promise<{
     audioBlob: Blob;

@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import LeadsPageClient from "@/components/leads/LeadsPageClient";
 
 export default function LeadsPage() {
-  return <LeadsPageClient />;
+  return (
+    <Suspense fallback={null}>
+      <LeadsPageClient />
+    </Suspense>
+  );
 }
