@@ -5,16 +5,19 @@ import type {
 import type { User } from "@/types/inbox";
 
 interface ConversationSummary {
+  newLead: number;
+  inContact: number;
   qualified: number;
   booked: number;
-  closed: number;
+  won: number;
+  unqualified: number;
+  noShow: number;
   conversionCount: number;
   totalRevenue: number;
   revenueConversations: number;
 }
 
 interface MessageSummary {
-  linksSent: number;
   incomingConversations: number;
   repliedConversations: number;
   replyPairs: number;
@@ -29,23 +32,45 @@ function parseRevenueAmount(rawAmount: string | undefined): number | null {
 }
 
 function summarizeConversations(users: User[]): ConversationSummary {
+  let newLead = 0;
+  let inContact = 0;
   let qualified = 0;
   let booked = 0;
-  let closed = 0;
+  let won = 0;
+  let unqualified = 0;
+  let noShow = 0;
   let conversionCount = 0;
   let totalRevenue = 0;
   let revenueConversations = 0;
 
   for (const user of users) {
-    if (user.status === "Qualified") {
-      qualified += 1;
-      conversionCount += 1;
-    } else if (user.status === "Booked") {
-      booked += 1;
-      conversionCount += 1;
-    } else if (user.status === "Won") {
-      closed += 1;
-      conversionCount += 1;
+    switch (user.status) {
+      case "New Lead":
+        newLead += 1;
+        break;
+      case "In-Contact":
+        inContact += 1;
+        break;
+      case "Qualified":
+        qualified += 1;
+        conversionCount += 1;
+        break;
+      case "Booked":
+        booked += 1;
+        conversionCount += 1;
+        break;
+      case "Won":
+        won += 1;
+        conversionCount += 1;
+        break;
+      case "Unqualified":
+        unqualified += 1;
+        break;
+      case "No-Show":
+        noShow += 1;
+        break;
+      default:
+        break;
     }
 
     const revenueAmount = parseRevenueAmount(user.paymentDetails?.amount);
@@ -56,9 +81,13 @@ function summarizeConversations(users: User[]): ConversationSummary {
   }
 
   return {
+    newLead,
+    inContact,
     qualified,
     booked,
-    closed,
+    won,
+    unqualified,
+    noShow,
     conversionCount,
     totalRevenue,
     revenueConversations,
@@ -69,7 +98,6 @@ function summarizeMessages(
   users: User[],
   messageStatsByConversationId: Map<string, DashboardMessageStats>,
 ): MessageSummary {
-  let linksSent = 0;
   let incomingConversations = 0;
   let repliedConversations = 0;
   let replyPairs = 0;
@@ -79,7 +107,6 @@ function summarizeMessages(
     const stats = messageStatsByConversationId.get(user.id);
     if (!stats) continue;
 
-    linksSent += stats.linksSentCount;
     replyPairs += stats.replyPairs;
     totalReplyDelayMs += stats.totalReplyDelayMs;
 
@@ -92,7 +119,6 @@ function summarizeMessages(
   }
 
   return {
-    linksSent,
     incomingConversations,
     repliedConversations,
     replyPairs,
@@ -113,11 +139,13 @@ export function createEmptyDashboardSnapshot(
       avgReplyRate: null,
     },
     funnel: {
-      conversations: 0,
+      newLead: 0,
+      inContact: 0,
       qualified: 0,
-      linksSent: 0,
       booked: 0,
-      closed: 0,
+      won: 0,
+      unqualified: 0,
+      noShow: 0,
     },
   };
 }
@@ -166,11 +194,13 @@ export function buildDashboardSnapshot(
       avgReplyRate,
     },
     funnel: {
-      conversations: users.length,
+      newLead: conversationSummary.newLead,
+      inContact: conversationSummary.inContact,
       qualified: conversationSummary.qualified,
-      linksSent: messageSummary.linksSent,
       booked: conversationSummary.booked,
-      closed: conversationSummary.closed,
+      won: conversationSummary.won,
+      unqualified: conversationSummary.unqualified,
+      noShow: conversationSummary.noShow,
     },
   };
 }

@@ -2,11 +2,18 @@
 
 import Head from "next/head";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import React from "react";
-import { LuBell, LuSearch } from "react-icons/lu";
+import {
+  LuChevronDown,
+  LuDollarSign,
+  LuFilter,
+  LuMessageCircle,
+  LuPhone,
+  LuStar,
+  LuUserPlus,
+  LuUsers,
+} from "react-icons/lu";
 import { useDashboardSnapshot } from "@/components/dashboard/hooks/useDashboardSnapshot";
-import PageHeader from "@/components/layout/PageHeader";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
 import type { DashboardSnapshot } from "@/types/dashboard";
 
@@ -93,6 +100,56 @@ function formatConversionRate(
   return rate >= 10 ? `${Math.round(rate)}%` : `${rate.toFixed(1)}%`;
 }
 
+/** A dropdown-styled trigger with exactly one selectable option. There's no
+ * backend to filter by yet, so this stays honest about only offering the
+ * one real choice instead of pretending to be a working multi-option filter. */
+function SinglePillDropdown({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-[#F0F2F6] bg-white px-4 text-sm font-medium text-[#101011] shadow-sm transition-colors hover:bg-[#F8F7FF]"
+      >
+        {icon}
+        <span>{label}</span>
+        <LuChevronDown
+          className={`h-3.5 w-3.5 text-[#8A8D98] transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-2 w-40 rounded-xl border border-[#F0F2F6] bg-white p-1 shadow-sm">
+          <div className="flex h-9 items-center rounded-lg bg-[rgba(135,113,255,0.1)] px-3 text-sm font-medium text-[#8771FF]">
+            {label}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard({
   displayName,
   snapshot: initialSnapshot,
@@ -100,9 +157,8 @@ export default function Dashboard({
   displayName: string;
   snapshot: DashboardSnapshot;
 }) {
-  const [search, setSearch] = React.useState("");
   const snapshot = useDashboardSnapshot(initialSnapshot);
-  const router = useRouter();
+  const funnelGradientId = React.useId().replace(/:/g, "");
 
   if (!snapshot.hasConnectedAccounts) {
     return <NoConnectedAccountsState displayName={displayName} />;
@@ -116,36 +172,40 @@ export default function Dashboard({
 
   const funnelStages = [
     {
-      label: "Conversations",
-      value: snapshot.funnel.conversations,
+      label: "New",
+      value: snapshot.funnel.newLead,
+      icon: LuUserPlus,
+      color: "#F472B6",
     },
-    { label: "Qualified", value: snapshot.funnel.qualified },
-    { label: "Links Sent", value: snapshot.funnel.linksSent },
-    { label: "Booked", value: snapshot.funnel.booked },
-    { label: "Closed", value: snapshot.funnel.closed },
+    {
+      label: "In contact",
+      value: snapshot.funnel.inContact,
+      icon: LuMessageCircle,
+      color: "#22C55E",
+    },
+    {
+      label: "Qualified",
+      value: snapshot.funnel.qualified,
+      icon: LuStar,
+      color: "#FBBF24",
+    },
+    {
+      label: "Booked call",
+      value: snapshot.funnel.booked,
+      icon: LuPhone,
+      color: "#5B21B6",
+    },
+    {
+      label: "Won",
+      value: snapshot.funnel.won,
+      icon: LuDollarSign,
+      color: "#16A34A",
+    },
   ];
   const funnelMaxValue = Math.max(...funnelStages.map((s) => s.value), 1);
   const funnelGeometry = buildFunnelGeometry(
     funnelStages.map((stage) => stage.value),
   );
-  const funnelSegmentFills = [
-    "#D9D2FF",
-    "#BFB2FF",
-    "#A18FFF",
-    "#8771FF",
-    "#5235EF",
-  ];
-
-  // Search bar state and handler
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-  };
-  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const trimmed = search.trim();
-    if (!trimmed) return;
-    router.push(`/leads?q=${encodeURIComponent(trimmed)}`);
-  };
 
   return (
     <>
@@ -156,64 +216,29 @@ export default function Dashboard({
         />
       </Head>
       <div
-        className="min-h-[100dvh] w-full bg-white"
+        className="min-h-[100dvh] w-full bg-[#F3F2FB]"
         style={{ fontFamily: "Inter, sans-serif" }}
       >
-        <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white">
-          {/* Shared page header to keep height/padding consistent with Leads */}
-          <PageHeader
-            title={`Hi, ${displayName}!`}
-            description="Your Setter Dashboard"
-            actions={
-              <div className="flex items-center justify-between gap-3 md:justify-end md:gap-3">
-                <div className="relative cursor-pointer">
-                  <LuBell
-                    className="h-6 w-6 text-[#606266]"
-                    aria-label="Bell"
-                  />
-                </div>
-                <form
-                  onSubmit={handleSearchSubmit}
-                  style={{
-                    width: "100%",
-                    maxWidth: "260px",
-                    height: "44px",
-                    paddingLeft: "16px",
-                    paddingRight: "16px",
-                    boxShadow: "0px 1px 2px rgba(16, 24, 40, 0.05)",
-                    borderRadius: "8px",
-                    outline: "1px #F0F2F6 solid",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    background: "white",
-                  }}
-                >
-                  <LuSearch
-                    className="h-[14px] w-[14px] text-[#9A9CA2]"
-                    aria-label="Search"
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    className="w-full bg-transparent text-sm font-medium text-[#101011] outline-none transition-colors placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
-                    style={{
-                      border: "none",
-                      fontFamily: "Inter, sans-serif",
-                      width: "100%",
-                    }}
-                    aria-label="Search"
-                  />
-                </form>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 lg:px-8">
+          <div className="rounded-3xl border border-[#F0F2F6] bg-white p-5 shadow-sm md:p-8">
+            {/* Header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-[#101011]">
+                  Hello, {displayName}!
+                </h1>
+                <p className="mt-1 text-sm text-[#8A8D98]">
+                  Your Manager dashboard
+                </p>
               </div>
-            }
-          />
+              <SinglePillDropdown
+                icon={<LuUsers className="h-4 w-4 text-[#8A8D98]" />}
+                label="All users"
+              />
+            </div>
 
-          <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6 lg:px-8">
             {/* Metrics Grid */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <MetricCard value={totalRevenue} label="Total revenue" />
               <MetricCard value={avgReplyTime} label="Avg reply time" />
               <MetricCard value={revenuePerCall} label="Revenue per call" />
@@ -221,8 +246,16 @@ export default function Dashboard({
               <MetricCard value={avgReplyRate} label="Avg reply rate" />
             </div>
 
-            {/* Funnel Visualizer */}
-            <div className="overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white shadow-sm">
+            {/* Funnel filter */}
+            <div className="mt-6">
+              <SinglePillDropdown
+                icon={<LuFilter className="h-4 w-4 text-[#8A8D98]" />}
+                label="Default Funnel"
+              />
+            </div>
+
+            {/* Funnel */}
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[#F0F2F6]">
               <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:gap-0">
                 {funnelStages.map((stage, i) => (
                   <div
@@ -234,8 +267,19 @@ export default function Dashboard({
                     }
                     style={i > 0 ? { paddingLeft: 20 } : undefined}
                   >
-                    <div className="text-sm font-semibold text-[#101011]">
-                      {stage.label}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                        style={{ background: `${stage.color}1A` }}
+                      >
+                        <stage.icon
+                          className="h-3.5 w-3.5"
+                          style={{ color: stage.color }}
+                        />
+                      </span>
+                      <span className="text-sm font-medium text-[#8A8D98]">
+                        {stage.label}
+                      </span>
                     </div>
                     <div className="mt-1 text-2xl font-bold text-[#101011]">
                       {stage.value.toLocaleString()}
@@ -259,11 +303,25 @@ export default function Dashboard({
                   preserveAspectRatio="none"
                   viewBox="0 0 100 100"
                 >
-                  {funnelGeometry.segments.map((segment, i) => (
+                  <defs>
+                    <linearGradient
+                      id={funnelGradientId}
+                      gradientUnits="userSpaceOnUse"
+                      x1="0"
+                      y1="0"
+                      x2="100"
+                      y2="0"
+                    >
+                      <stop offset="0%" stopColor="#DCEBFF" />
+                      <stop offset="55%" stopColor="#5B9DFF" />
+                      <stop offset="100%" stopColor="#1D4ED8" />
+                    </linearGradient>
+                  </defs>
+                  {funnelGeometry.segments.map((segment) => (
                     <path
                       key={segment.pathD}
                       d={segment.pathD}
-                      fill={funnelSegmentFills[i]}
+                      fill={`url(#${funnelGradientId})`}
                     />
                   ))}
                 </svg>
@@ -287,6 +345,62 @@ export default function Dashboard({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+
+            {/* Off-funnel status badges */}
+            <div className="mt-4 flex flex-wrap items-center gap-5 px-1 text-sm text-[#606266]">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                Unqualified: {snapshot.funnel.unqualified}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-teal-500" />
+                Deposit: 0
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                No show: {snapshot.funnel.noShow}
+              </span>
+            </div>
+
+            {/* Payments */}
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-[#F0F2F6] p-5">
+                <div className="text-sm font-semibold text-[#101011]">
+                  Upcoming Payments
+                </div>
+                <div className="mt-4">
+                  <div className="text-xs text-[#8A8D98]">Total Pending</div>
+                  <div className="mt-1 text-2xl font-bold text-[#101011]">
+                    $0
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-[#B5B7C0]">
+                  Payment collection tracking isn&apos;t wired up yet.
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[#F0F2F6] p-5">
+                <div className="text-sm font-semibold text-[#101011]">
+                  Recent Collections
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-[#8A8D98]">Cash Collected</div>
+                    <div className="mt-1 text-2xl font-bold text-[#101011]">
+                      $0
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#8A8D98]">Commission</div>
+                    <div className="mt-1 text-2xl font-bold text-[#101011]">
+                      $0
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-[#B5B7C0]">
+                  Payment collection tracking isn&apos;t wired up yet.
                 </div>
               </div>
             </div>

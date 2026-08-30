@@ -16,11 +16,13 @@ export interface DashboardMetricSnapshot {
 }
 
 export interface DashboardFunnelSnapshot {
-  conversations: number;
+  newLead: number;
+  inContact: number;
   qualified: number;
-  linksSent: number;
   booked: number;
-  closed: number;
+  won: number;
+  unqualified: number;
+  noShow: number;
 }
 
 export interface DashboardSnapshot {
