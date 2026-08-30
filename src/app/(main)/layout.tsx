@@ -21,7 +21,7 @@ export default async function MainLayout({
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden bg-white">
+      <div className="flex h-screen overflow-hidden bg-[#F0F2F6]">
         <CalendarCacheWarmupWorker enabled={canAccessInbox(user.role)} />
         <InboxCacheWarmupWorker />
         <InboxSseBridge enabled={canAccessInbox(user.role)} />

@@ -39,16 +39,17 @@ const NavItem = ({ href, activePrefix, icon: Icon, alt }: NavConfig) => {
       className="group relative flex items-center justify-center focus:outline-none"
     >
       <div
-        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200 ${
-          isActive ? "bg-white shadow-sm" : "group-hover:bg-white/60"
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-200 ${
+          isActive ? "bg-[#E4E7EC]" : "group-hover:bg-[#E4E7EC]/60"
         }`}
       >
         <Icon
-          className={`h-5 w-5 transition-colors duration-200 ${
+          className={`h-[22px] w-[22px] transition-colors duration-200 ${
             isActive
-              ? "text-[#8771FF]"
+              ? "text-[#101011]"
               : "text-[#9A9CA2] group-hover:text-[#606266]"
           }`}
+          strokeWidth={isActive ? 2.5 : 2.25}
           aria-label={alt}
         />
       </div>
@@ -140,7 +141,7 @@ const Sidebar = ({
       </div>
 
       {/* Navigation Links */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-5">
         {navItems.map((item) => (
           <NavItem
             key={`${item.alt}-${item.activePrefix ?? item.href}`}
