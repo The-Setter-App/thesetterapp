@@ -8,12 +8,12 @@ import {
   LuBot,
   LuCalendar,
   LuInbox,
-  LuLayoutDashboard,
   LuLogOut,
   LuSettings,
   LuUsers,
 } from "react-icons/lu";
 import { logout } from "@/app/actions/auth";
+import { DashboardFrameIcon } from "@/components/icons/DashboardFrameIcon";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 import { getCurrentCalendarPath } from "@/lib/calendarRoute";
@@ -65,7 +65,7 @@ const NavItem = ({ href, activePrefix, icon: Icon, alt }: NavConfig) => {
 
 const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
   owner: [
-    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
     { href: "/leads", icon: LuUsers, alt: "Leads" },
     {
@@ -78,7 +78,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   setter: [
-    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
     { href: "/leads", icon: LuUsers, alt: "Leads" },
     {
@@ -91,7 +91,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   closer: [
-    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
     { href: "/leads", icon: LuUsers, alt: "Leads" },
     {
@@ -104,7 +104,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
     { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
   viewer: [
-    { href: "/dashboard", icon: LuLayoutDashboard, alt: "Dashboard" },
+    { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/settings/profile", icon: LuSettings, alt: "Settings" },
   ],
 };
