@@ -33,7 +33,7 @@ export default async function MainLayout({
           profileImageBase64={user.profileImageBase64}
         />
         <div className="ml-[76px] flex-1 overflow-hidden">
-          <div className="mt-4 mr-4 h-[calc(100%-16px)] overflow-hidden rounded-tl-md rounded-bl-md rounded-tr-2xl rounded-br-2xl border border-[#F0F2F6] bg-white">
+          <div className="mt-4 mr-4 mb-4 h-[calc(100%-32px)] overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white">
             {children}
           </div>
         </div>
