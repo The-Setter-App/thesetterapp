@@ -10,6 +10,7 @@ import {
   saveConversationsToDb,
   saveMessagesToDb,
   updateConversationSyncState,
+  updateUserAvatar,
 } from "@/lib/inboxRepository";
 import {
   mapConversationToUser,
@@ -104,6 +105,44 @@ async function enrichConversationAvatars(
   }
 
   return enriched;
+}
+
+async function backfillMissingAvatars(
+  ownerEmail: string,
+  conversations: User[],
+  accounts: InstagramAccountConnection[],
+): Promise<void> {
+  const missing = conversations.filter(
+    (conversation) => conversation.recipientId && !conversation.avatar,
+  );
+  if (missing.length === 0) return;
+
+  const tokensByAccountId = new Map<string, string>();
+
+  for (const conversation of missing) {
+    if (!conversation.recipientId) continue;
+    const account = resolveConversationAccount(conversation, accounts);
+    if (!account) continue;
+
+    let accessToken = tokensByAccountId.get(account.accountId);
+    if (!accessToken) {
+      accessToken = decryptData(account.accessToken);
+      tokensByAccountId.set(account.accountId, accessToken);
+    }
+
+    try {
+      const profilePic = await fetchUserProfile(
+        conversation.recipientId,
+        accessToken,
+        account.graphVersion,
+      );
+      if (profilePic) {
+        await updateUserAvatar(conversation.id, ownerEmail, profilePic);
+      }
+    } catch {
+      // Non-blocking: leave the avatar empty and continue.
+    }
+  }
 }
 
 function resolveConversationAccount(
@@ -298,6 +337,12 @@ export async function ensureWorkspaceInboxData(
       conversations = await syncWorkspaceConversationsFromGraph(
         normalizedOwnerEmail,
         options,
+      );
+    } else if (options.enrichAvatars) {
+      await backfillMissingAvatars(
+        normalizedOwnerEmail,
+        conversations,
+        accounts,
       );
     }
 
