@@ -216,192 +216,188 @@ export default function Dashboard({
         />
       </Head>
       <div
-        className="min-h-[100dvh] w-full bg-[#F3F2FB]"
+        className="h-full w-full overflow-y-auto bg-white"
         style={{ fontFamily: "Inter, sans-serif" }}
       >
-        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 lg:px-8">
-          <div className="rounded-3xl border border-[#F0F2F6] bg-white p-5 shadow-sm md:p-8">
-            {/* Header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-[#101011]">
-                  Hello, {displayName}!
-                </h1>
-                <p className="mt-1 text-sm text-[#8A8D98]">
-                  Your Manager dashboard
-                </p>
-              </div>
-              <SinglePillDropdown
-                icon={<LuUsers className="h-4 w-4 text-[#8A8D98]" />}
-                label="All users"
-              />
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+          {/* Header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-[#101011]">
+                Hello, {displayName}!
+              </h1>
+              <p className="mt-1 text-sm text-[#8A8D98]">
+                Your Manager dashboard
+              </p>
             </div>
+            <SinglePillDropdown
+              icon={<LuUsers className="h-4 w-4 text-[#8A8D98]" />}
+              label="All users"
+            />
+          </div>
 
-            {/* Metrics Grid */}
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <MetricCard value={totalRevenue} label="Total revenue" />
-              <MetricCard value={avgReplyTime} label="Avg reply time" />
-              <MetricCard value={revenuePerCall} label="Revenue per call" />
-              <MetricCard value={conversationRate} label="Conversation rate" />
-              <MetricCard value={avgReplyRate} label="Avg reply rate" />
-            </div>
+          {/* Metrics Grid */}
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <MetricCard value={totalRevenue} label="Total revenue" />
+            <MetricCard value={avgReplyTime} label="Avg reply time" />
+            <MetricCard value={revenuePerCall} label="Revenue per call" />
+            <MetricCard value={conversationRate} label="Conversation rate" />
+            <MetricCard value={avgReplyRate} label="Avg reply rate" />
+          </div>
 
-            {/* Funnel filter */}
-            <div className="mt-6">
-              <SinglePillDropdown
-                icon={<LuFilter className="h-4 w-4 text-[#8A8D98]" />}
-                label="Default Funnel"
-              />
-            </div>
+          {/* Funnel filter */}
+          <div className="mt-6">
+            <SinglePillDropdown
+              icon={<LuFilter className="h-4 w-4 text-[#8A8D98]" />}
+              label="Default Funnel"
+            />
+          </div>
 
-            {/* Funnel */}
-            <div className="mt-4 overflow-hidden rounded-2xl border border-[#F0F2F6]">
-              <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:gap-0">
-                {funnelStages.map((stage, i) => (
-                  <div
-                    key={stage.label}
-                    className={
-                      i !== funnelStages.length - 1
-                        ? "lg:border-r lg:border-[#F0F2F6] lg:pr-5"
-                        : undefined
-                    }
-                    style={i > 0 ? { paddingLeft: 20 } : undefined}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: `${stage.color}1A` }}
-                      >
-                        <stage.icon
-                          className="h-3.5 w-3.5"
-                          style={{ color: stage.color }}
-                        />
-                      </span>
-                      <span className="text-sm font-medium text-[#8A8D98]">
-                        {stage.label}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-2xl font-bold text-[#101011]">
-                      {stage.value.toLocaleString()}
-                    </div>
-                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F0F2F6]">
-                      <div
-                        className="h-full rounded-full bg-[#8771FF]"
-                        style={{
-                          width: `${Math.max(4, Math.round((stage.value / funnelMaxValue) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative hidden h-[220px] border-t border-[#F0F2F6] lg:block">
-                <svg
-                  aria-hidden="true"
-                  className="h-full w-full"
-                  preserveAspectRatio="none"
-                  viewBox="0 0 100 100"
+          {/* Funnel */}
+          <div className="mt-4 overflow-hidden rounded-2xl border border-[#F0F2F6]">
+            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:gap-0">
+              {funnelStages.map((stage, i) => (
+                <div
+                  key={stage.label}
+                  className={
+                    i !== funnelStages.length - 1
+                      ? "lg:border-r lg:border-[#F0F2F6] lg:pr-5"
+                      : undefined
+                  }
+                  style={i > 0 ? { paddingLeft: 20 } : undefined}
                 >
-                  <defs>
-                    <linearGradient
-                      id={funnelGradientId}
-                      gradientUnits="userSpaceOnUse"
-                      x1="0"
-                      y1="0"
-                      x2="100"
-                      y2="0"
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: `${stage.color}1A` }}
                     >
-                      <stop offset="0%" stopColor="#DCEBFF" />
-                      <stop offset="55%" stopColor="#5B9DFF" />
-                      <stop offset="100%" stopColor="#1D4ED8" />
-                    </linearGradient>
-                  </defs>
-                  {funnelGeometry.segments.map((segment) => (
-                    <path
-                      key={segment.pathD}
-                      d={segment.pathD}
-                      fill={`url(#${funnelGradientId})`}
+                      <stage.icon
+                        className="h-3.5 w-3.5"
+                        style={{ color: stage.color }}
+                      />
+                    </span>
+                    <span className="text-sm font-medium text-[#8A8D98]">
+                      {stage.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-2xl font-bold text-[#101011]">
+                    {stage.value.toLocaleString()}
+                  </div>
+                  <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F0F2F6]">
+                    <div
+                      className="h-full rounded-full bg-[#8771FF]"
+                      style={{
+                        width: `${Math.max(4, Math.round((stage.value / funnelMaxValue) * 100))}%`,
+                      }}
                     />
-                  ))}
-                </svg>
-                <div className="pointer-events-none absolute inset-0 grid grid-cols-5">
-                  {funnelStages.slice(0, -1).map((stage, i) => {
-                    const rate = formatConversionRate(
-                      stage.value,
-                      funnelStages[i + 1].value,
-                    );
-                    return (
-                      <div
-                        key={stage.label}
-                        className="relative"
-                        style={{ gridColumn: i + 1 }}
-                      >
-                        {rate && (
-                          <span className="absolute top-3 right-0 translate-x-1/2 whitespace-nowrap rounded-full border border-[#F0F2F6] bg-white px-2.5 py-1 text-xs font-semibold text-[#101011] shadow-sm">
-                            {rate} →
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            <div className="relative hidden h-[220px] border-t border-[#F0F2F6] lg:block">
+              <svg
+                aria-hidden="true"
+                className="h-full w-full"
+                preserveAspectRatio="none"
+                viewBox="0 0 100 100"
+              >
+                <defs>
+                  <linearGradient
+                    id={funnelGradientId}
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="0"
+                    x2="100"
+                    y2="0"
+                  >
+                    <stop offset="0%" stopColor="#DCEBFF" />
+                    <stop offset="55%" stopColor="#5B9DFF" />
+                    <stop offset="100%" stopColor="#1D4ED8" />
+                  </linearGradient>
+                </defs>
+                {funnelGeometry.segments.map((segment) => (
+                  <path
+                    key={segment.pathD}
+                    d={segment.pathD}
+                    fill={`url(#${funnelGradientId})`}
+                  />
+                ))}
+              </svg>
+              <div className="pointer-events-none absolute inset-0 grid grid-cols-5">
+                {funnelStages.slice(0, -1).map((stage, i) => {
+                  const rate = formatConversionRate(
+                    stage.value,
+                    funnelStages[i + 1].value,
+                  );
+                  return (
+                    <div
+                      key={stage.label}
+                      className="relative"
+                      style={{ gridColumn: i + 1 }}
+                    >
+                      {rate && (
+                        <span className="absolute top-3 right-0 translate-x-1/2 whitespace-nowrap rounded-full border border-[#F0F2F6] bg-white px-2.5 py-1 text-xs font-semibold text-[#101011] shadow-sm">
+                          {rate} →
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          </div>
 
-            {/* Off-funnel status badges */}
-            <div className="mt-4 flex flex-wrap items-center gap-5 px-1 text-sm text-[#606266]">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-                Unqualified: {snapshot.funnel.unqualified}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-teal-500" />
-                Deposit: 0
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-orange-500" />
-                No show: {snapshot.funnel.noShow}
-              </span>
+          {/* Off-funnel status badges */}
+          <div className="mt-4 flex flex-wrap items-center gap-5 px-1 text-sm text-[#606266]">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              Unqualified: {snapshot.funnel.unqualified}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-teal-500" />
+              Deposit: 0
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-orange-500" />
+              No show: {snapshot.funnel.noShow}
+            </span>
+          </div>
+
+          {/* Payments */}
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-[#F0F2F6] p-5">
+              <div className="text-sm font-semibold text-[#101011]">
+                Upcoming Payments
+              </div>
+              <div className="mt-4">
+                <div className="text-xs text-[#8A8D98]">Total Pending</div>
+                <div className="mt-1 text-2xl font-bold text-[#101011]">$0</div>
+              </div>
+              <div className="mt-3 text-xs text-[#B5B7C0]">
+                Payment collection tracking isn&apos;t wired up yet.
+              </div>
             </div>
-
-            {/* Payments */}
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-[#F0F2F6] p-5">
-                <div className="text-sm font-semibold text-[#101011]">
-                  Upcoming Payments
-                </div>
-                <div className="mt-4">
-                  <div className="text-xs text-[#8A8D98]">Total Pending</div>
+            <div className="rounded-2xl border border-[#F0F2F6] p-5">
+              <div className="text-sm font-semibold text-[#101011]">
+                Recent Collections
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-[#8A8D98]">Cash Collected</div>
                   <div className="mt-1 text-2xl font-bold text-[#101011]">
                     $0
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-[#B5B7C0]">
-                  Payment collection tracking isn&apos;t wired up yet.
+                <div>
+                  <div className="text-xs text-[#8A8D98]">Commission</div>
+                  <div className="mt-1 text-2xl font-bold text-[#101011]">
+                    $0
+                  </div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#F0F2F6] p-5">
-                <div className="text-sm font-semibold text-[#101011]">
-                  Recent Collections
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-[#8A8D98]">Cash Collected</div>
-                    <div className="mt-1 text-2xl font-bold text-[#101011]">
-                      $0
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[#8A8D98]">Commission</div>
-                    <div className="mt-1 text-2xl font-bold text-[#101011]">
-                      $0
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-[#B5B7C0]">
-                  Payment collection tracking isn&apos;t wired up yet.
-                </div>
+              <div className="mt-3 text-xs text-[#B5B7C0]">
+                Payment collection tracking isn&apos;t wired up yet.
               </div>
             </div>
           </div>

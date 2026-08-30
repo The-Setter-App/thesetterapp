@@ -21,7 +21,7 @@ export default async function MainLayout({
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden bg-[#F8F7FF]">
+      <div className="flex h-screen overflow-hidden bg-white">
         <CalendarCacheWarmupWorker enabled={canAccessInbox(user.role)} />
         <InboxCacheWarmupWorker />
         <InboxSseBridge enabled={canAccessInbox(user.role)} />
@@ -32,7 +32,11 @@ export default async function MainLayout({
           email={user.email}
           profileImageBase64={user.profileImageBase64}
         />
-        <div className="ml-16 flex-1 overflow-hidden">{children}</div>
+        <div className="ml-[76px] flex-1 overflow-hidden">
+          <div className="mt-4 mr-4 h-[calc(100%-16px)] overflow-hidden rounded-tl-md rounded-bl-md rounded-tr-2xl rounded-br-2xl border border-[#F0F2F6] bg-white">
+            {children}
+          </div>
+        </div>
       </div>
     </ToastProvider>
   );

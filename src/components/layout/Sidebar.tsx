@@ -33,33 +33,32 @@ const NavItem = ({ href, activePrefix, icon: Icon, alt }: NavConfig) => {
     pathname === activePath || pathname.startsWith(`${activePath}/`);
 
   return (
-    <div className="relative w-full flex justify-center mb-8">
-      {/* Active Indicator: Vertical Bar */}
-      {isActive && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#8771FF] rounded-r-md" />
-      )}
-
-      <Link
-        href={href}
-        prefetch={true}
-        className={`group flex items-center justify-center relative transition-colors duration-200 focus:outline-none ${
-          isActive ? "text-[#8771FF]" : "text-[#9A9CA2] hover:text-[#606266]"
+    <Link
+      href={href}
+      prefetch={true}
+      className="group relative flex items-center justify-center focus:outline-none"
+    >
+      <div
+        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200 ${
+          isActive ? "bg-white shadow-sm" : "group-hover:bg-white/60"
         }`}
       >
-        <div className="relative flex items-center justify-center">
-          <Icon
-            className="w-5 h-5 transition-colors duration-200"
-            aria-label={alt}
-          />
-        </div>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-full border border-[#F0F2F6] bg-white px-3 py-1 text-xs font-medium text-[#101011] shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
-        >
-          {alt}
-        </span>
-      </Link>
-    </div>
+        <Icon
+          className={`h-5 w-5 transition-colors duration-200 ${
+            isActive
+              ? "text-[#8771FF]"
+              : "text-[#9A9CA2] group-hover:text-[#606266]"
+          }`}
+          aria-label={alt}
+        />
+      </div>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-full border border-[#F0F2F6] bg-white px-3 py-1 text-xs font-medium text-[#101011] shadow-sm opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-10"
+      >
+        {alt}
+      </span>
+    </Link>
   );
 };
 
@@ -126,10 +125,10 @@ const Sidebar = ({
   const navItems = NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.viewer;
 
   return (
-    <div className="w-16 bg-white h-screen flex flex-col items-center py-6 border-r border-[#F0F2F6] fixed left-0 top-0 z-50">
-      {/* Profile Icon */}
-      <div className="mb-8">
-        <div className="w-9 h-9 rounded-full overflow-hidden border border-[#F0F2F6] relative">
+    <div className="fixed left-0 top-0 z-50 flex h-screen w-[76px] flex-col items-center bg-[#F0F2F6] py-5">
+      {/* Logo / profile badge - sits above the nav group, own spacing */}
+      <div className="mb-5">
+        <div className="w-9 h-9 rounded-full overflow-hidden border border-white relative">
           <AppImage
             src={profileImageBase64 || "/images/no_profile.jpg"}
             alt={`${displayName} avatar`}
@@ -141,7 +140,7 @@ const Sidebar = ({
       </div>
 
       {/* Navigation Links */}
-      <div className="flex flex-col w-full">
+      <div className="flex flex-col items-center gap-2">
         {navItems.map((item) => (
           <NavItem
             key={`${item.alt}-${item.activePrefix ?? item.href}`}
@@ -151,11 +150,11 @@ const Sidebar = ({
       </div>
 
       {/* Logout Button */}
-      <div className="mt-auto w-full flex justify-center mb-6">
+      <div className="mt-auto">
         <button
           type="button"
           onClick={() => setShowLogoutDialog(true)}
-          className="p-2 text-[#9A9CA2] hover:text-red-500 transition-colors duration-200 group relative"
+          className="group relative p-2 text-[#9A9CA2] hover:text-red-500 transition-colors duration-200"
           title="Logout"
         >
           <LuLogOut className="w-5 h-5" />
