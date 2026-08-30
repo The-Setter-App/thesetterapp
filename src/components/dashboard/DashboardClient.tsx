@@ -4,14 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React from "react";
-import {
-  LuBadgePercent,
-  LuBell,
-  LuDollarSign,
-  LuHourglass,
-  LuReply,
-  LuSearch,
-} from "react-icons/lu";
+import { LuBell, LuSearch } from "react-icons/lu";
 import { useDashboardSnapshot } from "@/components/dashboard/hooks/useDashboardSnapshot";
 import PageHeader from "@/components/layout/PageHeader";
 import { buildFunnelGeometry } from "@/lib/dashboard/funnelGeometry";
@@ -20,7 +13,6 @@ import type { DashboardSnapshot } from "@/types/dashboard";
 interface MetricCardProps {
   value: string;
   label: string;
-  icon: React.ReactNode;
 }
 
 function formatCurrency(value: number): string {
@@ -82,45 +74,24 @@ function NoConnectedAccountsState({ displayName }: { displayName: string }) {
   );
 }
 
-const MetricCard = ({ value, label, icon }: MetricCardProps) => (
-  <div
-    className="flex h-full w-full items-center gap-4 rounded-2xl border border-[#F0F2F6] p-4 shadow-sm md:p-5"
-    style={{ background: "rgba(135, 113, 255, 0.10)" }}
-  >
-    <div
-      className="w-12 h-12 rounded-full flex items-center justify-center"
-      style={{ background: "rgba(82, 53, 239, 0.20)" }}
-    >
-      {icon}
-    </div>
-    <div>
-      <div
-        style={{
-          width: "100%",
-          color: "#101011",
-          fontSize: 22,
-          fontFamily: "Inter, sans-serif",
-          fontWeight: 700,
-          wordWrap: "break-word",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          width: "100%",
-          color: "black",
-          fontSize: 14,
-          fontFamily: "Inter, sans-serif",
-          fontWeight: 400,
-          wordWrap: "break-word",
-        }}
-      >
-        {label}
-      </div>
+const MetricCard = ({ value, label }: MetricCardProps) => (
+  <div className="flex h-full w-full flex-col gap-2 rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+    <div className="text-sm text-[#8A8D98]">{label}</div>
+    <div className="text-[28px] font-bold leading-none text-[#101011]">
+      {value}
     </div>
   </div>
 );
+
+function formatConversionRate(
+  fromCount: number,
+  toCount: number,
+): string | null {
+  if (fromCount <= 0) return null;
+  const rate = (toCount / fromCount) * 100;
+  if (!Number.isFinite(rate)) return null;
+  return rate >= 10 ? `${Math.round(rate)}%` : `${rate.toFixed(1)}%`;
+}
 
 export default function Dashboard({
   displayName,
@@ -129,7 +100,6 @@ export default function Dashboard({
   displayName: string;
   snapshot: DashboardSnapshot;
 }) {
-  const funnelClipPathId = React.useId().replace(/:/g, "");
   const [search, setSearch] = React.useState("");
   const snapshot = useDashboardSnapshot(initialSnapshot);
   const router = useRouter();
@@ -144,26 +114,27 @@ export default function Dashboard({
   const conversationRate = `${snapshot.metrics.conversationRate}%`;
   const avgReplyRate = formatRate(snapshot.metrics.avgReplyRate);
 
-  const funnelGeometry = buildFunnelGeometry([
-    snapshot.funnel.conversations,
-    snapshot.funnel.qualified,
-    snapshot.funnel.linksSent,
-    snapshot.funnel.booked,
-    snapshot.funnel.closed,
-  ]);
-
-  // SVG icon components
-  const iconClassName = "text-[#5235EF]";
-  const DollarIcon = (
-    <LuDollarSign className={`${iconClassName} h-[30px] w-[30px]`} />
+  const funnelStages = [
+    {
+      label: "Conversations",
+      value: snapshot.funnel.conversations,
+    },
+    { label: "Qualified", value: snapshot.funnel.qualified },
+    { label: "Links Sent", value: snapshot.funnel.linksSent },
+    { label: "Booked", value: snapshot.funnel.booked },
+    { label: "Closed", value: snapshot.funnel.closed },
+  ];
+  const funnelMaxValue = Math.max(...funnelStages.map((s) => s.value), 1);
+  const funnelGeometry = buildFunnelGeometry(
+    funnelStages.map((stage) => stage.value),
   );
-  const HourglassIcon = (
-    <LuHourglass className={`${iconClassName} h-[30px] w-[30px]`} />
-  );
-  const ConversionRateIcon = (
-    <LuBadgePercent className={`${iconClassName} h-6 w-6`} />
-  );
-  const ReplyIcon = <LuReply className={`${iconClassName} h-7 w-6`} />;
+  const funnelSegmentFills = [
+    "#D9D2FF",
+    "#BFB2FF",
+    "#A18FFF",
+    "#8771FF",
+    "#5235EF",
+  ];
 
   // Search bar state and handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,120 +214,80 @@ export default function Dashboard({
           <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6 lg:px-8">
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <MetricCard
-                value={totalRevenue}
-                label="Total revenue"
-                icon={DollarIcon}
-              />
-              <MetricCard
-                value={avgReplyTime}
-                label="Avg reply time"
-                icon={HourglassIcon}
-              />
-              <MetricCard
-                value={revenuePerCall}
-                label="Revenue per call"
-                icon={DollarIcon}
-              />
-              <MetricCard
-                value={conversationRate}
-                label="Conversation rate"
-                icon={ConversionRateIcon}
-              />
-              <MetricCard
-                value={avgReplyRate}
-                label="Avg reply rate"
-                icon={ReplyIcon}
-              />
+              <MetricCard value={totalRevenue} label="Total revenue" />
+              <MetricCard value={avgReplyTime} label="Avg reply time" />
+              <MetricCard value={revenuePerCall} label="Revenue per call" />
+              <MetricCard value={conversationRate} label="Conversation rate" />
+              <MetricCard value={avgReplyRate} label="Avg reply rate" />
             </div>
 
             {/* Funnel Visualizer */}
-            <div className="relative overflow-hidden rounded-2xl border border-[rgba(135,113,255,0.2)] bg-white">
-              <div className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
+            <div className="overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white shadow-sm">
+              <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:gap-0">
+                {funnelStages.map((stage, i) => (
+                  <div
+                    key={stage.label}
+                    className={
+                      i !== funnelStages.length - 1
+                        ? "lg:border-r lg:border-[#F0F2F6] lg:pr-5"
+                        : undefined
+                    }
+                    style={i > 0 ? { paddingLeft: 20 } : undefined}
+                  >
+                    <div className="text-sm font-semibold text-[#101011]">
+                      {stage.label}
+                    </div>
+                    <div className="mt-1 text-2xl font-bold text-[#101011]">
+                      {stage.value.toLocaleString()}
+                    </div>
+                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F0F2F6]">
+                      <div
+                        className="h-full rounded-full bg-[#8771FF]"
+                        style={{
+                          width: `${Math.max(4, Math.round((stage.value / funnelMaxValue) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="relative hidden h-[220px] border-t border-[#F0F2F6] lg:block">
                 <svg
                   aria-hidden="true"
                   className="h-full w-full"
                   preserveAspectRatio="none"
                   viewBox="0 0 100 100"
                 >
-                  <defs>
-                    <clipPath id={funnelClipPathId}>
-                      <path d={funnelGeometry.pathD} />
-                    </clipPath>
-                  </defs>
-
-                  {funnelGeometry.segments.map((segment) => (
+                  {funnelGeometry.segments.map((segment, i) => (
                     <path
                       key={segment.pathD}
                       d={segment.pathD}
-                      fill="#8771FF"
-                      opacity={segment.opacity}
+                      fill={funnelSegmentFills[i]}
                     />
                   ))}
-
-                  <line
-                    clipPath={`url(#${funnelClipPathId})`}
-                    stroke="rgba(86,90,104,0.55)"
-                    strokeWidth="0.35"
-                    x1="0"
-                    x2="100"
-                    y1={funnelGeometry.centerLineY}
-                    y2={funnelGeometry.centerLineY}
-                  />
                 </svg>
-              </div>
-              <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:h-[357px] lg:grid-cols-5">
-                {[
-                  {
-                    label: "Conversations",
-                    value: snapshot.funnel.conversations.toLocaleString(),
-                  },
-                  {
-                    label: "Qualified",
-                    value: snapshot.funnel.qualified.toLocaleString(),
-                  },
-                  {
-                    label: "Links Sent",
-                    value: snapshot.funnel.linksSent.toLocaleString(),
-                  },
-                  {
-                    label: "Booked",
-                    value: snapshot.funnel.booked.toLocaleString(),
-                  },
-                  {
-                    label: "Closed",
-                    value: snapshot.funnel.closed.toLocaleString(),
-                  },
-                ].map((step, i, arr) => (
-                  <div
-                    key={step.label}
-                    className={`flex flex-col gap-3 p-4 md:p-5 lg:p-6 ${i !== arr.length - 1 ? "border-b border-[rgba(135,113,255,0.2)] md:border-b-0 md:border-r" : ""}`}
-                  >
-                    <div
-                      style={{
-                        color: "#101011",
-                        fontSize: 14,
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 600,
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      {step.label}
-                    </div>
-                    <div
-                      style={{
-                        color: "#8771FF",
-                        fontSize: 24,
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 700,
-                        wordWrap: "break-word",
-                        marginTop: 4,
-                      }}
-                    >
-                      {step.value}
-                    </div>
-                  </div>
-                ))}
+                <div className="pointer-events-none absolute inset-0 grid grid-cols-5">
+                  {funnelStages.slice(0, -1).map((stage, i) => {
+                    const rate = formatConversionRate(
+                      stage.value,
+                      funnelStages[i + 1].value,
+                    );
+                    return (
+                      <div
+                        key={stage.label}
+                        className="relative"
+                        style={{ gridColumn: i + 1 }}
+                      >
+                        {rate && (
+                          <span className="absolute top-3 right-0 translate-x-1/2 whitespace-nowrap rounded-full border border-[#F0F2F6] bg-white px-2.5 py-1 text-xs font-semibold text-[#101011] shadow-sm">
+                            {rate} →
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
