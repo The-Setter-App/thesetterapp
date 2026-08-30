@@ -107,7 +107,7 @@ async function enrichConversationAvatars(
   return enriched;
 }
 
-async function backfillMissingAvatars(
+export async function backfillMissingAvatars(
   ownerEmail: string,
   conversations: User[],
   accounts: InstagramAccountConnection[],

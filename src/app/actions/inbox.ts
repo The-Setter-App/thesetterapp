@@ -2,7 +2,10 @@
 
 import { decryptData } from "@/lib/crypto";
 import { fetchMessages, sendMessage } from "@/lib/graphApi";
-import { ensureWorkspaceInboxData } from "@/lib/inbox/bootstrap";
+import {
+  backfillMissingAvatars,
+  ensureWorkspaceInboxData,
+} from "@/lib/inbox/bootstrap";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   addStatusTimelineEvent,
@@ -120,7 +123,10 @@ export async function getInboxUsers(): Promise<User[]> {
     const ownerEmail = await getOwnerEmail();
     const dbUsers = await getConversationsFromDb(ownerEmail);
     if (dbUsers.length > 0) {
-      return await hydrateConversationReplyState(dbUsers, ownerEmail);
+      const accounts = await getConnectedInstagramAccounts(ownerEmail);
+      await backfillMissingAvatars(ownerEmail, dbUsers, accounts);
+      const refreshedUsers = await getConversationsFromDb(ownerEmail);
+      return await hydrateConversationReplyState(refreshedUsers, ownerEmail);
     }
 
     const syncedUsers = await ensureWorkspaceInboxData(ownerEmail, {
