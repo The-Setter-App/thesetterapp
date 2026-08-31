@@ -74,6 +74,25 @@ const SLIDES: Slide[] = [
 
 const SLIDE_INTERVAL_MS = 5000;
 
+function CloudBackground() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background:
+          "radial-gradient(140% 110% at 20% 0%, #F3F0FF 0%, #DACEFF 30%, #B49CFF 60%, #8771FF 85%, #6d5ed6 100%)",
+      }}
+    >
+      <div className="drift-blob absolute -left-16 top-10 h-72 w-72 rounded-full bg-white/40 blur-3xl" />
+      <div className="drift-blob-slow absolute left-1/3 top-1/4 h-64 w-64 rounded-full bg-white/25 blur-3xl" />
+      <div className="drift-blob-slow absolute right-[22%] top-10 h-56 w-56 rounded-full bg-white/30 blur-3xl" />
+      <div className="drift-blob absolute right-0 top-1/3 h-96 w-96 rounded-full bg-[#5235EF]/25 blur-3xl" />
+      <div className="drift-blob-slow absolute bottom-0 left-1/4 h-80 w-80 rounded-full bg-white/25 blur-3xl" />
+      <div className="drift-blob absolute -right-10 bottom-0 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
+    </div>
+  );
+}
+
 function BrandPanel() {
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -85,20 +104,8 @@ function BrandPanel() {
   }, []);
 
   return (
-    <div
-      className="relative hidden h-full w-full overflow-hidden lg:flex lg:flex-col lg:items-center lg:justify-center"
-      style={{
-        background:
-          "radial-gradient(120% 100% at 15% 10%, #F3F0FF 0%, #E4DBFF 35%, #C9B8FF 70%, #8771FF 100%)",
-      }}
-    >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="drift-blob absolute -left-16 top-10 h-64 w-64 rounded-full bg-white/40 blur-3xl" />
-        <div className="drift-blob-slow absolute right-0 top-1/3 h-80 w-80 rounded-full bg-[#8771FF]/30 blur-3xl" />
-        <div className="drift-blob absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-white/30 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-8">
+    <div className="relative z-10 hidden flex-1 flex-col items-center justify-center lg:flex">
+      <div className="flex w-full max-w-md flex-col items-center px-8">
         <div className="mb-10 flex items-center gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-sm">
           {SLIDES[activeSlide].cards.map((card) => (
             <span
@@ -130,7 +137,7 @@ function BrandPanel() {
         </div>
 
         <div key={activeSlide} className="fade-in-up text-center">
-          <h2 className="text-2xl font-extrabold leading-tight text-[#101011] text-balance">
+          <h2 className="text-2xl font-extrabold leading-tight text-balance text-[#101011]">
             {SLIDES[activeSlide].headline}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-[#3f3d47]">
@@ -152,29 +159,6 @@ function BrandPanel() {
           ))}
         </div>
       </div>
-
-      <style>{`
-        @keyframes drift {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(12px, -16px); }
-        }
-        @keyframes drift-slow {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(-16px, 12px); }
-        }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .drift-blob { animation: drift 9s ease-in-out infinite; }
-        .drift-blob-slow { animation: drift-slow 13s ease-in-out infinite; }
-        .drift-card { animation: drift 6s ease-in-out infinite; }
-        .drift-card:nth-child(2) { animation-delay: 1.2s; }
-        .fade-in-up { animation: fade-in-up 0.5s ease-out; }
-        @media (prefers-reduced-motion: reduce) {
-          .drift-blob, .drift-blob-slow, .drift-card, .fade-in-up { animation: none; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -323,13 +307,25 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex h-[100dvh] w-full font-sans"
+      className="relative flex h-[100dvh] w-full items-center overflow-hidden font-sans"
       style={{ fontFamily: "Inter, sans-serif" }}
     >
+      <CloudBackground />
+
       <BrandPanel />
 
-      <div className="flex w-full flex-col items-center justify-center bg-white px-6 lg:w-[480px] lg:flex-shrink-0 lg:px-12">
-        <div className="flex w-full max-w-sm flex-col items-center">
+      <div className="relative z-10 flex w-full items-center justify-center p-4 lg:w-[520px] lg:flex-shrink-0 lg:p-6">
+        <div
+          className="glass-panel flex w-full max-w-sm flex-col items-center rounded-[32px] px-8 py-10 sm:px-10"
+          style={{
+            background: "rgba(255, 255, 255, 0.55)",
+            backdropFilter: "blur(28px) saturate(160%)",
+            WebkitBackdropFilter: "blur(28px) saturate(160%)",
+            border: "1px solid rgba(255, 255, 255, 0.65)",
+            boxShadow:
+              "0 8px 32px rgba(76, 55, 158, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
+          }}
+        >
           <AppImage
             src="/images/setter-header.png"
             alt="Setter"
@@ -340,7 +336,7 @@ export default function LoginPage() {
           <h1 className="text-center text-2xl font-bold text-[#101011]">
             {step === "email" ? "Let's get started" : "Check your inbox"}
           </h1>
-          <p className="mt-2 text-center text-sm text-[#606266]">
+          <p className="mt-2 text-center text-sm text-[#3f3d47]">
             {step === "email"
               ? "Enter your email to access your Setter account, whether you're new or returning."
               : `We sent a code to ${email}. Enter it below to verify.`}
@@ -357,7 +353,7 @@ export default function LoginPage() {
               onSubmit={handleSendOTP}
               className="mt-6 flex w-full flex-col items-center"
             >
-              <div className="flex h-13 w-full items-center rounded-full border border-[#F0F2F6] bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
+              <div className="flex h-13 w-full items-center rounded-full border border-white/70 bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
                 <input
                   id="email"
                   type="email"
@@ -394,7 +390,7 @@ export default function LoginPage() {
                 id="otp"
                 type="text"
                 placeholder="123456"
-                className="h-13 w-full rounded-full border border-[#F0F2F6] bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
+                className="h-13 w-full rounded-full border border-white/70 bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 required
@@ -418,20 +414,20 @@ export default function LoginPage() {
                   setStep("email");
                   setError("");
                 }}
-                className="mt-3 text-sm text-[#9A9CA2] hover:text-[#606266]"
+                className="mt-3 text-sm text-[#3f3d47] hover:text-[#101011]"
               >
                 Change email
               </button>
             </form>
           )}
 
-          <p className="mt-6 text-center text-xs leading-relaxed text-[#9A9CA2]">
+          <p className="mt-6 text-center text-xs leading-relaxed text-[#4b4959]">
             By continuing, you agree to our{" "}
             <a
               href="https://thesetter.app/legal-pages/terms-and-conditions"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-[#606266]"
+              className="underline hover:text-[#101011]"
             >
               Terms of Service
             </a>{" "}
@@ -440,7 +436,7 @@ export default function LoginPage() {
               href="https://thesetter.app/legal-pages/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-[#606266]"
+              className="underline hover:text-[#101011]"
             >
               Privacy Policy
             </a>
@@ -448,6 +444,29 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      <style>{`
+        @keyframes drift {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(12px, -16px); }
+        }
+        @keyframes drift-slow {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(-16px, 12px); }
+        }
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .drift-blob { animation: drift 9s ease-in-out infinite; }
+        .drift-blob-slow { animation: drift-slow 13s ease-in-out infinite; }
+        .drift-card { animation: drift 6s ease-in-out infinite; }
+        .drift-card:nth-child(2) { animation-delay: 1.2s; }
+        .fade-in-up { animation: fade-in-up 0.5s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .drift-blob, .drift-blob-slow, .drift-card, .fade-in-up { animation: none; }
+        }
+      `}</style>
     </div>
   );
 }
