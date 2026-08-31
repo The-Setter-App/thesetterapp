@@ -6,10 +6,10 @@ import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
 const TESTIMONIAL_POSITIONS = [
-  "left-[0%] top-[4%] -rotate-6",
-  "right-[0%] top-[10%] rotate-3",
-  "left-[2%] bottom-[6%] rotate-2",
-  "right-[2%] bottom-[2%] -rotate-4",
+  "left-[6%] top-[22%] -rotate-6",
+  "right-[8%] top-[28%] rotate-3",
+  "left-[10%] bottom-[26%] rotate-2",
+  "right-[6%] bottom-[20%] -rotate-4",
 ];
 
 function CloudBackground() {
@@ -27,7 +27,7 @@ function BrandPanel() {
       <div className="pointer-events-none absolute inset-0">
         {TESTIMONIAL_POSITIONS.map((position, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static, never reorders
-          <div key={i} className={`drift-card absolute w-60 ${position}`}>
+          <div key={i} className={`drift-card absolute w-80 ${position}`}>
             <AppImage
               src="/images/testimonial.png"
               alt=""
