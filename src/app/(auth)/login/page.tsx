@@ -313,10 +313,10 @@ export default function LoginPage() {
               loadingMode="eager"
             />
 
-            <h1 className="text-center text-3xl font-bold text-[#101011]">
+            <h1 className="text-center text-3xl font-extrabold text-[#101011]">
               {step === "email" ? "Let's get started" : "Check your inbox"}
             </h1>
-            <p className="mt-3 text-center text-base text-[#3f3d47]">
+            <p className="mt-3 text-center text-base font-bold text-[#606266]">
               {step === "email"
                 ? "Enter your email to join Setter — whether you're new or returning, we'll get you in fast."
                 : `We sent a code to ${email}. Enter it below to verify.`}
@@ -421,7 +421,8 @@ export default function LoginPage() {
                 Privacy Policy
               </a>
               .
-              <br />
+            </p>
+            <p className="mt-1 text-center text-xs text-[#4b4959]">
               Your trial starts after signup without any payment.
             </p>
           </div>
