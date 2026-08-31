@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import CommentAutomationsSettingsContent from "@/components/settings/CommentAutomationsSettingsContent";
-import { listCommentAutomations } from "@/lib/commentAutomationsRepository";
+import { listCommentAutomationsWithDetails } from "@/lib/commentAutomationsRepository";
 import { canAccessCommentAutomationsSettings } from "@/lib/permissions";
 import { requireWorkspaceContext } from "@/lib/workspace";
 
@@ -10,7 +10,7 @@ export default async function SettingsCommentAutomationsPage() {
     redirect("/settings/profile");
   }
 
-  const initialAutomations = await listCommentAutomations(
+  const initialAutomations = await listCommentAutomationsWithDetails(
     context.workspaceOwnerEmail,
   );
 

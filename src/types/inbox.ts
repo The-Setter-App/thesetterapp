@@ -102,6 +102,8 @@ export interface User {
   aiTagsClassifiedAt?: string;
   assignedToEmail?: string;
   assignedToLabel?: string;
+  commentAutomationId?: string;
+  commentAutomationVariantId?: string;
 }
 
 export type LeadSourceType = "story_reply" | "story_mention" | "ad_referral";

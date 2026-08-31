@@ -6,8 +6,12 @@ import {
 } from "@/lib/blockedUsernamesRepository";
 import {
   incrementCommentAutomationTriggerCount,
+  incrementVariantTriggerCount,
   listActiveCommentAutomations,
+  listAutomationVariants,
   matchCommentAutomation,
+  pickVariant,
+  recordPendingCommentAutomationSend,
 } from "@/lib/commentAutomationsRepository";
 import { decryptData } from "@/lib/crypto";
 import {
@@ -698,13 +702,13 @@ async function handleCommentChange(entryId: string, rawValue: unknown) {
     const commentId = value?.comment_id;
     const mediaId = value?.media?.id;
     const commenterId = value?.from?.id;
-    if (!commentId || !mediaId || value?.parent_id) return;
+    if (!commentId || !mediaId || !commenterId || value?.parent_id) return;
 
     const identity = await getUserByInstagramId(entryId);
     if (!identity) return;
 
     const { user: owner, account: creds } = identity;
-    if (commenterId && commenterId === creds.instagramUserId) return;
+    if (commenterId === creds.instagramUserId) return;
 
     const automations = await listActiveCommentAutomations(owner.email);
     if (automations.length === 0) return;
@@ -715,15 +719,28 @@ async function handleCommentChange(entryId: string, rawValue: unknown) {
     });
     if (!automation) return;
 
+    const variants = await listAutomationVariants(owner.email, automation.id);
+    const variant = pickVariant(variants);
+    const replyText = variant?.message || automation.replyMessage;
+
     const accessToken = decryptData(creds.accessToken);
     await sendPrivateReplyToComment(
       creds.pageId,
       commentId,
-      automation.replyMessage,
+      replyText,
       accessToken,
       creds.graphVersion,
     );
     await incrementCommentAutomationTriggerCount(owner.email, automation.id);
+    if (variant) {
+      await incrementVariantTriggerCount(owner.email, variant.id);
+    }
+    await recordPendingCommentAutomationSend({
+      ownerEmail: owner.email,
+      automationId: automation.id,
+      variantId: variant?.id ?? null,
+      commenterInstagramId: commenterId,
+    });
     webhookDebug(
       `[Webhook] Fired comment automation "${automation.name}" for comment ${commentId}`,
     );

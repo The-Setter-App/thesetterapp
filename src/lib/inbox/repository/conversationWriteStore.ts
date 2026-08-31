@@ -2,6 +2,7 @@ import {
   extractUsernameFromUser,
   getBlockedUsernameSet,
 } from "@/lib/blockedUsernamesRepository";
+import { resolvePendingCommentAutomationSend } from "@/lib/commentAutomationsRepository";
 import { revalidateDashboardSnapshotCache } from "@/lib/dashboard/cacheInvalidation";
 import { buildConversationSetPayload } from "@/lib/inbox/repository/conversationShared";
 import {
@@ -48,6 +49,19 @@ export async function saveConversationToDb(
     if (assignee) {
       merged.payload.assignedToEmail = assignee.email;
       merged.payload.assignedToLabel = assignee.label;
+    }
+
+    if (merged.payload.recipientId) {
+      const resolved = await resolvePendingCommentAutomationSend(
+        ownerEmail,
+        merged.payload.recipientId,
+        conversation.id,
+      );
+      if (resolved) {
+        merged.payload.commentAutomationId = resolved.automationId;
+        merged.payload.commentAutomationVariantId =
+          resolved.variantId ?? undefined;
+      }
     }
   }
 
@@ -109,6 +123,19 @@ export async function saveConversationsToDb(
       if (assignee) {
         merged.payload.assignedToEmail = assignee.email;
         merged.payload.assignedToLabel = assignee.label;
+      }
+
+      if (merged.payload.recipientId) {
+        const resolved = await resolvePendingCommentAutomationSend(
+          ownerEmail,
+          merged.payload.recipientId,
+          conversation.id,
+        );
+        if (resolved) {
+          merged.payload.commentAutomationId = resolved.automationId;
+          merged.payload.commentAutomationVariantId =
+            resolved.variantId ?? undefined;
+        }
       }
     }
 
