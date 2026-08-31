@@ -9,19 +9,23 @@ import { resetCache } from "@/lib/cache";
 const TESTIMONIALS = [
   {
     src: "/images/testimonial.png",
-    position: "left-[4%] top-[24%] rotate-[-10deg]",
+    position: "left-[4%] top-[24%]",
+    rotate: -10,
   },
   {
     src: "/images/testimonial-2.png",
-    position: "right-[6%] top-[25%] rotate-[5deg]",
+    position: "right-[6%] top-[25%]",
+    rotate: 5,
   },
   {
     src: "/images/testimonial-3.png",
-    position: "left-[7%] bottom-[24%] rotate-[-6deg]",
+    position: "left-[7%] bottom-[24%]",
+    rotate: -6,
   },
   {
     src: "/images/testimonial-4.png",
-    position: "right-[4%] bottom-[22%] rotate-[8deg]",
+    position: "right-[4%] bottom-[22%]",
+    rotate: 8,
   },
 ];
 
@@ -42,6 +46,11 @@ function BrandPanel() {
           <div
             key={testimonial.src}
             className={`drift-card absolute hidden w-60 xl:block 2xl:w-80 ${testimonial.position}`}
+            style={
+              {
+                "--card-rotate": `${testimonial.rotate}deg`,
+              } as React.CSSProperties
+            }
           >
             <AppImage
               src={testimonial.src}
@@ -384,13 +393,13 @@ export default function LoginPage() {
 
       <style>{`
         @keyframes drift {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(12px, -16px); }
+          0%, 100% { transform: translate(0, 0) rotate(var(--card-rotate, 0deg)) translateZ(0); }
+          50% { transform: translate(12px, -16px) rotate(var(--card-rotate, 0deg)) translateZ(0); }
         }
         .drift-card {
           animation: drift 7s ease-in-out infinite;
           will-change: transform;
-          transform: translateZ(0);
+          transform: rotate(var(--card-rotate, 0deg)) translateZ(0);
           backface-visibility: hidden;
         }
         .drift-card:nth-child(1) { animation-delay: 0s; }
