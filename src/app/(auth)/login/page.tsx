@@ -329,7 +329,7 @@ export default function LoginPage() {
             </h1>
             <p className="mt-3 text-center text-base text-[#3f3d47]">
               {step === "email"
-                ? "Enter your email to access your Setter account, whether you're new or returning."
+                ? "Enter your email to join Setter — whether you're new or returning, we'll get you in fast."
                 : `We sent a code to ${email}. Enter it below to verify.`}
             </p>
 
@@ -432,6 +432,8 @@ export default function LoginPage() {
                 Privacy Policy
               </a>
               .
+              <br />
+              Your trial starts after signup without any payment.
             </p>
           </div>
         </div>
