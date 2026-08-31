@@ -359,14 +359,25 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     );
     try {
       const accessToken = decryptData(creds.accessToken);
-      const [rawConvs, newStatusTag] = await Promise.all([
-        fetchAllConversations(creds.pageId, accessToken, {
-          pageLimit: 50,
-          maxPages: 20,
-          graphVersion: creds.graphVersion,
-        }),
-        findWorkspaceTagByRole(ownerEmail, "new"),
-      ]);
+      const rawConvs = await fetchAllConversations(creds.pageId, accessToken, {
+        pageLimit: 50,
+        maxPages: 20,
+        graphVersion: creds.graphVersion,
+      });
+      // Best-effort only: resolving the workspace's "new lead" status must
+      // never block saving the conversation itself. A failure here (e.g. a
+      // migration that hasn't fully applied yet) just falls back to the
+      // literal "New Lead" default inside mapConversationToUser.
+      const newStatusTag = await findWorkspaceTagByRole(
+        ownerEmail,
+        "new",
+      ).catch((error) => {
+        console.error(
+          "[Webhook] Failed to resolve new-lead status tag, falling back to default:",
+          error,
+        );
+        return null;
+      });
       const users = rawConvs.data.map((c) =>
         mapConversationToUser(c, instagramUserId, {
           accountId: creds.accountId,

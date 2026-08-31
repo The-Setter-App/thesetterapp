@@ -271,10 +271,19 @@ export async function syncWorkspaceConversationsFromGraph(
     return [];
   }
 
+  // Best-effort only: resolving the workspace's "new lead" status must
+  // never block syncing conversations. A failure here just falls back to
+  // the literal "New Lead" default inside mapConversationToUser.
   const newStatusTag = await findWorkspaceTagByRole(
     normalizedOwnerEmail,
     "new",
-  );
+  ).catch((error) => {
+    console.error(
+      "[InboxBootstrap] Failed to resolve new-lead status tag, falling back to default:",
+      error,
+    );
+    return null;
+  });
 
   const syncedUsers: User[] = [];
   for (const account of accounts) {
