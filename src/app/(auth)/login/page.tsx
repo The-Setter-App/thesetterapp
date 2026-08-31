@@ -218,7 +218,7 @@ export default function LoginPage() {
         <div
           className="glass-panel flex min-h-[clamp(560px,78dvh,1000px)] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-16 sm:px-20"
           style={{
-            background: "rgba(255, 255, 255, 0.55)",
+            background: "rgba(255, 255, 255, 0.3)",
             backdropFilter: "blur(28px) saturate(160%)",
             WebkitBackdropFilter: "blur(28px) saturate(160%)",
             border: "1px solid rgba(255, 255, 255, 0.65)",
