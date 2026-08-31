@@ -8,6 +8,7 @@ import {
   CONVERSATIONS_COLLECTION,
   getInboxSupabase,
 } from "@/lib/inbox/repository/core";
+import { pickNextRoundRobinAssignee } from "@/lib/roundRobinRepository";
 import type { DashboardMessageStats } from "@/types/dashboard";
 import type { LeadSource, User } from "@/types/inbox";
 
@@ -41,6 +42,14 @@ export async function saveConversationToDb(
     ownerEmail,
     existing,
   );
+
+  if (!existing) {
+    const assignee = await pickNextRoundRobinAssignee(ownerEmail);
+    if (assignee) {
+      merged.payload.assignedToEmail = assignee.email;
+      merged.payload.assignedToLabel = assignee.label;
+    }
+  }
 
   const row = {
     owner_email: ownerEmail,
@@ -94,6 +103,15 @@ export async function saveConversationsToDb(
       ownerEmail,
       existing,
     );
+
+    if (!existing) {
+      const assignee = await pickNextRoundRobinAssignee(ownerEmail);
+      if (assignee) {
+        merged.payload.assignedToEmail = assignee.email;
+        merged.payload.assignedToLabel = assignee.label;
+      }
+    }
+
     rows.push({
       owner_email: ownerEmail,
       id: conversation.id,
