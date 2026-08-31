@@ -304,9 +304,9 @@ export default function LoginPage() {
 
       <BrandPanel />
 
-      <div className="relative z-10 flex w-full items-center justify-center p-4 lg:w-[520px] lg:flex-shrink-0 lg:p-6">
+      <div className="relative z-10 flex w-full items-center justify-center p-4 lg:flex-1 lg:p-10">
         <div
-          className="glass-panel flex w-full max-w-sm flex-col items-center rounded-[32px] px-8 py-10 sm:px-10"
+          className="glass-panel flex w-full max-w-2xl flex-col items-center rounded-[40px] px-10 py-14 sm:px-16"
           style={{
             background: "rgba(255, 255, 255, 0.55)",
             backdropFilter: "blur(28px) saturate(160%)",
@@ -316,122 +316,124 @@ export default function LoginPage() {
               "0 8px 32px rgba(76, 55, 158, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
           }}
         >
-          <AppImage
-            src="/images/setter-header.png"
-            alt="Setter"
-            className="mb-10 h-auto w-24"
-            loadingMode="eager"
-          />
+          <div className="flex w-full max-w-sm flex-col items-center">
+            <AppImage
+              src="/images/setter-header.png"
+              alt="Setter"
+              className="mb-10 h-auto w-24"
+              loadingMode="eager"
+            />
 
-          <h1 className="text-center text-2xl font-bold text-[#101011]">
-            {step === "email" ? "Let's get started" : "Check your inbox"}
-          </h1>
-          <p className="mt-2 text-center text-sm text-[#3f3d47]">
-            {step === "email"
-              ? "Enter your email to access your Setter account, whether you're new or returning."
-              : `We sent a code to ${email}. Enter it below to verify.`}
-          </p>
+            <h1 className="text-center text-2xl font-bold text-[#101011]">
+              {step === "email" ? "Let's get started" : "Check your inbox"}
+            </h1>
+            <p className="mt-2 text-center text-sm text-[#3f3d47]">
+              {step === "email"
+                ? "Enter your email to access your Setter account, whether you're new or returning."
+                : `We sent a code to ${email}. Enter it below to verify.`}
+            </p>
 
-          {error && (
-            <div className="mt-4 w-full rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="mt-4 w-full rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
+                {error}
+              </div>
+            )}
 
-          {step === "email" ? (
-            <form
-              onSubmit={handleSendOTP}
-              className="mt-6 flex w-full flex-col items-center"
-            >
-              <div className="flex h-13 w-full items-center rounded-full border border-white/70 bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
+            {step === "email" ? (
+              <form
+                onSubmit={handleSendOTP}
+                className="mt-6 flex w-full flex-col items-center"
+              >
+                <div className="flex h-13 w-full items-center rounded-full border border-white/70 bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    className="h-11 flex-1 border-none bg-transparent text-sm text-[#101011] outline-none placeholder:text-[#9A9CA2]"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="submit"
+                    className={`h-10 shrink-0 rounded-full px-5 text-sm font-semibold transition-colors ${
+                      email && !loading
+                        ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
+                        : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
+                    }`}
+                    disabled={!email || loading || sendCooldownSeconds > 0}
+                  >
+                    {loading
+                      ? "Sending…"
+                      : sendCooldownSeconds > 0
+                        ? `Wait ${formatCooldown(sendCooldownSeconds)}`
+                        : "Continue"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form
+                onSubmit={handleVerifyOTP}
+                className="mt-6 flex w-full flex-col items-center"
+              >
                 <input
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  className="h-11 flex-1 border-none bg-transparent text-sm text-[#101011] outline-none placeholder:text-[#9A9CA2]"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="otp"
+                  type="text"
+                  placeholder="123456"
+                  className="h-13 w-full rounded-full border border-white/70 bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
                   required
                   disabled={loading}
+                  maxLength={6}
                 />
                 <button
                   type="submit"
-                  className={`h-10 shrink-0 rounded-full px-5 text-sm font-semibold transition-colors ${
-                    email && !loading
+                  className={`mt-3 h-11 w-full rounded-full text-sm font-semibold transition-colors ${
+                    otp.length >= 4 && !loading
                       ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
                       : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
                   }`}
-                  disabled={!email || loading || sendCooldownSeconds > 0}
+                  disabled={!otp || loading}
                 >
-                  {loading
-                    ? "Sending…"
-                    : sendCooldownSeconds > 0
-                      ? `Wait ${formatCooldown(sendCooldownSeconds)}`
-                      : "Continue"}
+                  {loading ? "Verifying…" : "Verify & log in"}
                 </button>
-              </div>
-            </form>
-          ) : (
-            <form
-              onSubmit={handleVerifyOTP}
-              className="mt-6 flex w-full flex-col items-center"
-            >
-              <input
-                id="otp"
-                type="text"
-                placeholder="123456"
-                className="h-13 w-full rounded-full border border-white/70 bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                required
-                disabled={loading}
-                maxLength={6}
-              />
-              <button
-                type="submit"
-                className={`mt-3 h-11 w-full rounded-full text-sm font-semibold transition-colors ${
-                  otp.length >= 4 && !loading
-                    ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
-                    : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
-                }`}
-                disabled={!otp || loading}
-              >
-                {loading ? "Verifying…" : "Verify & log in"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("email");
-                  setError("");
-                }}
-                className="mt-3 text-sm text-[#3f3d47] hover:text-[#101011]"
-              >
-                Change email
-              </button>
-            </form>
-          )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("email");
+                    setError("");
+                  }}
+                  className="mt-3 text-sm text-[#3f3d47] hover:text-[#101011]"
+                >
+                  Change email
+                </button>
+              </form>
+            )}
 
-          <p className="mt-6 text-center text-xs leading-relaxed text-[#4b4959]">
-            By continuing, you agree to our{" "}
-            <a
-              href="https://thesetter.app/legal-pages/terms-and-conditions"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-[#101011]"
-            >
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a
-              href="https://thesetter.app/legal-pages/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-[#101011]"
-            >
-              Privacy Policy
-            </a>
-            .
-          </p>
+            <p className="mt-6 text-center text-xs leading-relaxed text-[#4b4959]">
+              By continuing, you agree to our{" "}
+              <a
+                href="https://thesetter.app/legal-pages/terms-and-conditions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[#101011]"
+              >
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a
+                href="https://thesetter.app/legal-pages/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[#101011]"
+              >
+                Privacy Policy
+              </a>
+              .
+            </p>
+          </div>
         </div>
       </div>
 
