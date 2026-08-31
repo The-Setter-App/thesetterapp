@@ -4,8 +4,17 @@ import {
   extractUsernameFromUser,
   getBlockedUsernameSet,
 } from "@/lib/blockedUsernamesRepository";
+import {
+  incrementCommentAutomationTriggerCount,
+  listActiveCommentAutomations,
+  matchCommentAutomation,
+} from "@/lib/commentAutomationsRepository";
 import { decryptData } from "@/lib/crypto";
-import { fetchAllConversations, fetchUserProfile } from "@/lib/graphApi";
+import {
+  fetchAllConversations,
+  fetchUserProfile,
+  sendPrivateReplyToComment,
+} from "@/lib/graphApi";
 import { maybeClassifyConversationAiTags } from "@/lib/inbox/aiTagClassificationJob";
 import { extractLeadSourceFromWebhookMessage } from "@/lib/inbox/leadSource";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
@@ -110,10 +119,10 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Handle changes (e.g., message reactions, deletions)
+        // Handle changes (e.g., message reactions, deletions, comments)
         if (entry.changes) {
           for (const change of entry.changes) {
-            await handleChange(change);
+            await handleChange(change, entry.id);
           }
         }
       }
@@ -646,7 +655,10 @@ async function isConversationUsernameBlocked(
 /**
  * Handle change events (reactions, deletions, etc.)
  */
-async function handleChange(change: { field?: string }) {
+async function handleChange(
+  change: { field?: string; value?: unknown },
+  entryId: string,
+) {
   webhookDebug("[Webhook] Change event:", change.field);
 
   // Handle different types of changes
@@ -657,7 +669,65 @@ async function handleChange(change: { field?: string }) {
     case "message_reactions":
       webhookDebug("[Webhook] Message reaction detected");
       break;
+    case "comments":
+      await handleCommentChange(entryId, change.value);
+      break;
     default:
       webhookDebug("[Webhook] Unknown change type:", change.field);
+  }
+}
+
+interface CommentWebhookValue {
+  comment_id?: string;
+  text?: string;
+  parent_id?: string;
+  from?: { id?: string; username?: string };
+  media?: { id?: string };
+}
+
+/**
+ * Fires a workspace's keyword-triggered comment automation, if one
+ * matches. Only top-level comments trigger automations - a reply to
+ * someone else's comment is ignored so replying-to-a-reply doesn't look
+ * like a second automated DM firing off the same post. Never throws - a
+ * broken automation should never take down comment webhook processing.
+ */
+async function handleCommentChange(entryId: string, rawValue: unknown) {
+  try {
+    const value = rawValue as CommentWebhookValue;
+    const commentId = value?.comment_id;
+    const mediaId = value?.media?.id;
+    const commenterId = value?.from?.id;
+    if (!commentId || !mediaId || value?.parent_id) return;
+
+    const identity = await getUserByInstagramId(entryId);
+    if (!identity) return;
+
+    const { user: owner, account: creds } = identity;
+    if (commenterId && commenterId === creds.instagramUserId) return;
+
+    const automations = await listActiveCommentAutomations(owner.email);
+    if (automations.length === 0) return;
+
+    const automation = matchCommentAutomation(automations, {
+      mediaId,
+      commentText: value?.text || "",
+    });
+    if (!automation) return;
+
+    const accessToken = decryptData(creds.accessToken);
+    await sendPrivateReplyToComment(
+      creds.pageId,
+      commentId,
+      automation.replyMessage,
+      accessToken,
+      creds.graphVersion,
+    );
+    await incrementCommentAutomationTriggerCount(owner.email, automation.id);
+    webhookDebug(
+      `[Webhook] Fired comment automation "${automation.name}" for comment ${commentId}`,
+    );
+  } catch (error) {
+    console.error("[Webhook] Failed to process comment automation:", error);
   }
 }

@@ -3,6 +3,7 @@
 import {
   Instagram,
   type LucideIcon,
+  MessageSquareText,
   PlugZap,
   ShieldOff,
   Shuffle,
@@ -25,6 +26,11 @@ const ownerSettingsNavItems: SettingsNavItem[] = [
   { href: "/settings/profile", label: "Profile", icon: UserRound },
   { href: "/settings/team", label: "Team", icon: Users2 },
   { href: "/settings/distribution", label: "Lead Distribution", icon: Shuffle },
+  {
+    href: "/settings/comment-automations",
+    label: "Comment Automations",
+    icon: MessageSquareText,
+  },
   { href: "/settings/socials", label: "Socials", icon: Instagram },
   { href: "/settings/tags", label: "Status Tags", icon: Tags },
   { href: "/settings/ai-tags", label: "AI Tags", icon: Sparkles },

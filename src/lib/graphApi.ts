@@ -375,6 +375,59 @@ export async function sendMessage(
 }
 
 /**
+ * Send a private reply (a DM) to whoever left a specific comment, using the
+ * same POST /{pageId}/messages endpoint as sendMessage but with
+ * recipient.comment_id instead of recipient.id. Per Meta's docs this only
+ * works within 7 days of the comment, and only one private reply can ever
+ * be sent per comment - after that it's an ordinary message-window-gated
+ * conversation like any other. No message tag applies here.
+ */
+export async function sendPrivateReplyToComment(
+  pageId: string,
+  commentId: string,
+  text: string,
+  accessToken: string,
+  graphVersion: string = DEFAULT_GRAPH_VERSION,
+): Promise<GraphSendResult> {
+  const baseUrl = `https://graph.facebook.com/${graphVersion}`;
+
+  const url = new URL(`${baseUrl}/${pageId}/messages`);
+  url.searchParams.append("platform", "instagram");
+  url.searchParams.append("access_token", accessToken);
+
+  const payload = {
+    recipient: { comment_id: commentId },
+    message: { text },
+  };
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData: GraphApiError = await response.json();
+      throw new Error(
+        `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
+      );
+    }
+
+    const sendResponse = (await response.json()) as GraphSendResponse;
+    return {
+      messageId: sendResponse.message_id,
+      recipientId: sendResponse.recipient_id,
+    };
+  } catch (error) {
+    console.error("[GraphAPI] Error sending private reply to comment:", error);
+    throw error;
+  }
+}
+
+/**
  * Send an attachment message by uploading the file binary directly to the Graph API.
  * Uses multipart/form-data with the `filedata` field so no external file hosting is needed.
  * Facebook will host the file and generate its own CDN URL.

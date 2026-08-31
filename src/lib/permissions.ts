@@ -36,6 +36,10 @@ export function canAccessDistributionSettings(role: UserRole): boolean {
   return role === "owner";
 }
 
+export function canAccessCommentAutomationsSettings(role: UserRole): boolean {
+  return role === "owner";
+}
+
 export function getDefaultSettingsRoute(role: UserRole): string {
   if (role === "owner") return "/settings/profile";
   if (role === "setter" || role === "closer") return "/settings/team";
