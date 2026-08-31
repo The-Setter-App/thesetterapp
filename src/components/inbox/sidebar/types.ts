@@ -1,4 +1,3 @@
-import type { AiTagCatalogEntry } from "@/lib/inbox/clientAiTagsCatalog";
 import type { User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 
@@ -19,7 +18,6 @@ export interface UseInboxSidebarDataResult {
   hasConnectedAccounts: boolean;
   statusCatalog: TagRow[];
   statusLookup: Record<string, TagRow>;
-  aiTagLookup: Record<string, AiTagCatalogEntry>;
   handleConversationAction: (
     userId: string,
     action: ConversationAction,

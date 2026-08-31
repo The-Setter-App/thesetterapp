@@ -14,10 +14,9 @@ interface NvidiaChatCompletionResponse {
   choices?: NvidiaChatChoice[];
 }
 
-export interface AiTagDefinition {
-  id: string;
+export interface StatusOption {
   name: string;
-  criteria: string;
+  description: string;
 }
 
 function extractText(message: Message): string {
@@ -45,9 +44,12 @@ function buildConversationTranscript(
   return joined.slice(joined.length - maxChars);
 }
 
-function parseTagIdsJson(content: string, validIds: Set<string>): string[] {
+function parseStatusJson(
+  content: string,
+  validNames: Set<string>,
+): string | null {
   const trimmed = content.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return null;
 
   const tryParse = (text: string): unknown => {
     try {
@@ -66,30 +68,30 @@ function parseTagIdsJson(content: string, validIds: Set<string>): string[] {
     }
   }
 
-  const rawIds =
-    parsed && typeof parsed === "object" && "tagIds" in parsed
-      ? (parsed as { tagIds?: unknown }).tagIds
+  const status =
+    parsed && typeof parsed === "object" && "status" in parsed
+      ? (parsed as { status?: unknown }).status
       : null;
-  if (!Array.isArray(rawIds)) return [];
+  if (typeof status !== "string" || !status) return null;
 
-  // Defensive filter: only ever return ids we actually gave the model.
-  return rawIds.filter(
-    (id): id is string => typeof id === "string" && validIds.has(id),
-  );
+  // Defensive: only ever return a status we actually offered.
+  return validNames.has(status) ? status : null;
 }
 
 /**
- * Classifies a conversation transcript against the workspace's AI tag
- * definitions and returns the subset of tag ids that apply. Returns []
- * (never throws for "no match") - callers should still handle upstream
- * failures since a bad classification pass shouldn't break message
+ * Classifies a conversation transcript against the workspace's own status
+ * definitions (every status's description doubles as its AI matching
+ * criteria - default statuses included, not just custom ones) and returns
+ * the single best-matching status name, or null if none clearly apply.
+ * Never throws for "no match" - callers handle upstream failures
+ * separately since a bad classification pass shouldn't break message
  * delivery.
  */
-export async function classifyConversationAiTags(
+export async function classifyConversationStatus(
   messages: Message[],
-  tagDefinitions: AiTagDefinition[],
-): Promise<string[]> {
-  if (tagDefinitions.length === 0) return [];
+  statusOptions: StatusOption[],
+): Promise<string | null> {
+  if (statusOptions.length === 0) return null;
 
   const baseUrl = process.env.NVIDIA_BASE_URL;
   const apiKey = process.env.NVIDIA_API_KEY;
@@ -107,28 +109,28 @@ export async function classifyConversationAiTags(
   }
 
   const transcript = buildConversationTranscript(messages, 8000);
-  if (!transcript.trim()) return [];
+  if (!transcript.trim()) return null;
 
-  const validIds = new Set(tagDefinitions.map((tag) => tag.id));
-  const tagList = tagDefinitions
-    .map((tag) => `- id="${tag.id}" name="${tag.name}": ${tag.criteria}`)
+  const validNames = new Set(statusOptions.map((option) => option.name));
+  const statusList = statusOptions
+    .map((option) => `- "${option.name}": ${option.description}`)
     .join("\n");
 
   const promptMessages: NvidiaChatMessage[] = [
     {
       role: "system",
       content:
-        "You classify Instagram DM sales conversations against a workspace's own tag definitions. Return strict JSON only. No markdown. Only use ids from the list you are given - never invent one.",
+        "You classify Instagram DM sales conversations against a workspace's own pipeline statuses. Return strict JSON only. No markdown. Only use a status name from the list you are given, exactly as written - never invent one.",
     },
     {
       role: "user",
       content: [
-        "Given this conversation transcript and these tag definitions, return every tag id that applies. A conversation can match zero, one, or multiple tags.",
+        "Given this conversation transcript and these status definitions, pick the single status that best matches where this lead is right now. If none of them clearly apply based on the transcript, return null.",
         "",
-        "Tag definitions:",
-        tagList,
+        "Status definitions:",
+        statusList,
         "",
-        'Output schema: {"tagIds":["<id>", "..."]}',
+        'Output schema: {"status": "<exact status name>" | null}',
         "",
         "Transcript:",
         transcript,
@@ -146,7 +148,7 @@ export async function classifyConversationAiTags(
     body: JSON.stringify({
       model,
       temperature,
-      max_tokens: 300,
+      max_tokens: 200,
       stream: false,
       messages: promptMessages,
       response_format: { type: "json_object" },
@@ -160,5 +162,5 @@ export async function classifyConversationAiTags(
 
   const data = (await upstream.json()) as NvidiaChatCompletionResponse;
   const content = data.choices?.[0]?.message?.content?.trim() || "";
-  return parseTagIdsJson(content, validIds);
+  return parseStatusJson(content, validNames);
 }

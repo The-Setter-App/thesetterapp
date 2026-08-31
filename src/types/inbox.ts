@@ -98,8 +98,7 @@ export interface User {
   dashboardMessageStats?: DashboardMessageStats;
   lastInboundAt?: string;
   leadSource?: LeadSource;
-  aiTagIds?: string[];
-  aiTagsClassifiedAt?: string;
+  statusClassifiedAt?: string;
   assignedToEmail?: string;
   assignedToLabel?: string;
   commentAutomationId?: string;

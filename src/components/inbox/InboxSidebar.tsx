@@ -36,7 +36,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     hasConnectedAccounts,
     statusCatalog,
     statusLookup,
-    aiTagLookup,
     handleConversationAction,
   } = useInboxSidebarData({
     epoch,
@@ -93,7 +92,6 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
             onSelectUser={(id) => router.push(`/inbox/${id}`)}
             onAction={handleConversationAction}
             statusLookup={statusLookup}
-            aiTagLookup={aiTagLookup}
           />
         ) : loading ? (
           <SidebarLoadingState />

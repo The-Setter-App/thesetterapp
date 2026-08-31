@@ -7,7 +7,6 @@ import {
   PlugZap,
   ShieldOff,
   Shuffle,
-  Sparkles,
   Tags,
   UserRound,
   Users2,
@@ -33,7 +32,6 @@ const ownerSettingsNavItems: SettingsNavItem[] = [
   },
   { href: "/settings/socials", label: "Socials", icon: Instagram },
   { href: "/settings/tags", label: "Status Tags", icon: Tags },
-  { href: "/settings/ai-tags", label: "AI Tags", icon: Sparkles },
   {
     href: "/settings/blocked-users",
     label: "Blocked Accounts",
@@ -46,7 +44,6 @@ const teamMemberSettingsNavItems: SettingsNavItem[] = [
   { href: "/settings/profile", label: "Profile", icon: UserRound },
   { href: "/settings/team", label: "Team", icon: Users2 },
   { href: "/settings/tags", label: "Status Tags", icon: Tags },
-  { href: "/settings/ai-tags", label: "AI Tags", icon: Sparkles },
   {
     href: "/settings/blocked-users",
     label: "Blocked Accounts",

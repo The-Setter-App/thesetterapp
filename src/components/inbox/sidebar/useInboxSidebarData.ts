@@ -2,7 +2,6 @@ import type {
   UseInboxSidebarDataOptions,
   UseInboxSidebarDataResult,
 } from "./types";
-import useInboxAiTagsCatalog from "./useInboxAiTagsCatalog";
 import useInboxSidebarActions from "./useInboxSidebarActions";
 import useInboxSidebarRealtime from "./useInboxSidebarRealtime";
 import useInboxSidebarStatusCatalog from "./useInboxSidebarStatusCatalog";
@@ -25,7 +24,6 @@ export default function useInboxSidebarData({
   });
 
   const { statusCatalog, statusLookup } = useInboxSidebarStatusCatalog();
-  const aiTagLookup = useInboxAiTagsCatalog();
 
   const {
     applyHydratedPreview,
@@ -57,7 +55,6 @@ export default function useInboxSidebarData({
     hasConnectedAccounts,
     statusCatalog,
     statusLookup,
-    aiTagLookup,
     handleConversationAction,
   };
 }

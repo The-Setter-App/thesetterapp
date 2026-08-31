@@ -27,7 +27,7 @@ export default function TagsSettingsContent(props: TagsSettingsContentProps) {
 
       <SettingsSectionCard
         title="Status tags"
-        description="Manage default and custom statuses used in Inbox and Leads."
+        description="Manage default and custom statuses used in Inbox and Leads. Every status's description also acts as AI matching criteria, so AI can move a lead into it automatically."
       >
         <TagsSettingsSummaryMetrics
           totalTags={allTags.length}

@@ -19,9 +19,9 @@ import {
   fetchUserProfile,
   sendPrivateReplyToComment,
 } from "@/lib/graphApi";
-import { maybeClassifyConversationAiTags } from "@/lib/inbox/aiTagClassificationJob";
 import { extractLeadSourceFromWebhookMessage } from "@/lib/inbox/leadSource";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
+import { maybeClassifyConversationStatus } from "@/lib/inbox/statusClassificationJob";
 import {
   findConversationById,
   findConversationIdByParticipantAndAccount,
@@ -560,12 +560,12 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           `[Webhook] Updated metadata for conversation ${conversationId}`,
         );
 
-        // Run AI tag classification after the response is sent - Meta
+        // Run status classification after the response is sent - Meta
         // expects a fast ack, and a non-streaming LLM call can take a
         // couple of seconds.
         if (incrementUnread) {
           after(() =>
-            maybeClassifyConversationAiTags(conversationId, ownerEmail),
+            maybeClassifyConversationStatus(conversationId, ownerEmail),
           );
         }
 

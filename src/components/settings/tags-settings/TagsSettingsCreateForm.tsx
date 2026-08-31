@@ -58,7 +58,7 @@ export default function TagsSettingsCreateForm({
             htmlFor="tag-description"
             className="mb-1 block text-xs font-medium text-[#606266]"
           >
-            Description
+            Description (also used as AI matching criteria)
           </label>
           <input
             id="tag-description"
@@ -69,7 +69,7 @@ export default function TagsSettingsCreateForm({
             onChange={(event) =>
               createForm.onTagDescriptionChange(event.target.value)
             }
-            placeholder="Short note for teammates"
+            placeholder="e.g. Lead mentions a budget over $2000"
             className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF]"
           />
         </div>
@@ -129,7 +129,10 @@ export default function TagsSettingsCreateForm({
       </div>
 
       <p className="mt-3 text-xs text-[#606266]">
-        Custom statuses are available in Inbox status dropdowns and filters.
+        Custom statuses are available in Inbox status dropdowns and filters. AI
+        checks new messages against every status's description and moves the
+        conversation automatically when one clearly matches — you can always
+        change it manually too.
       </p>
     </form>
   );

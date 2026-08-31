@@ -219,10 +219,17 @@ export async function updateConversationMetadata(
   revalidateDashboardSnapshotCache();
 }
 
-export async function setConversationAiTags(
+/**
+ * Records that AI classification ran, and applies the matched status if it
+ * differs from the current one. Always stamps statusClassifiedAt (even on
+ * no match) so the classification cooldown holds regardless of outcome.
+ * Deliberately separate from updateUserStatus, which is the manual-change
+ * path (from the status dropdown) and shouldn't be tagged as AI-driven.
+ */
+export async function applyStatusClassificationResult(
   conversationId: string,
   ownerEmail: string,
-  aiTagIds: string[],
+  matchedStatus: string | null,
   classifiedAt: string,
 ): Promise<void> {
   const supabase = getInboxSupabase();
@@ -232,17 +239,30 @@ export async function setConversationAiTags(
   );
   if (!existing) return;
 
+  const nextStatus =
+    matchedStatus && matchedStatus !== existing.status
+      ? (matchedStatus as User["status"])
+      : existing.status;
+
   const nextPayload: User = {
     ...existing,
-    aiTagIds,
-    aiTagsClassifiedAt: classifiedAt,
+    status: nextStatus,
+    statusClassifiedAt: classifiedAt,
   };
 
   await supabase
     .from(CONVERSATIONS_COLLECTION)
-    .update({ payload: nextPayload })
+    .update({
+      payload: nextPayload,
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    })
     .eq("owner_email", ownerEmail)
     .eq("id", conversationId);
+
+  if (nextStatus !== existing.status) {
+    revalidateDashboardSnapshotCache();
+  }
 }
 
 /**

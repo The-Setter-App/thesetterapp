@@ -28,10 +28,6 @@ export function canAccessBlockedUsersSettings(role: UserRole): boolean {
   return role !== "viewer";
 }
 
-export function canAccessAiTagsSettings(role: UserRole): boolean {
-  return role !== "viewer";
-}
-
 export function canAccessDistributionSettings(role: UserRole): boolean {
   return role === "owner";
 }
