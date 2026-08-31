@@ -2,8 +2,182 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  LuBot,
+  LuCalendarCheck2,
+  LuDollarSign,
+  LuInbox,
+  LuTrendingUp,
+  LuUsers,
+} from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
+
+interface SlideCard {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  caption: string;
+}
+
+interface Slide {
+  headline: string;
+  sub: string;
+  cards: [SlideCard, SlideCard];
+}
+
+const SLIDES: Slide[] = [
+  {
+    headline: "Never lose a lead in the DMs again",
+    sub: "One inbox for every Instagram conversation, organized by stage so your team always knows who to message next.",
+    cards: [
+      {
+        icon: LuInbox,
+        title: "Unified Inbox",
+        caption: "Every account, one view",
+      },
+      {
+        icon: LuUsers,
+        title: "Team Roles",
+        caption: "Setters, closers, owners",
+      },
+    ],
+  },
+  {
+    headline: "An AI copilot for every reply",
+    sub: "Setter AI reads the conversation and helps you write the next message, so replies go out faster instead of generic.",
+    cards: [
+      { icon: LuBot, title: "Setter AI", caption: "Draft replies instantly" },
+      {
+        icon: LuCalendarCheck2,
+        title: "Booked Calls",
+        caption: "Attributed to the setter",
+      },
+    ],
+  },
+  {
+    headline: "See exactly what's driving revenue",
+    sub: "A live funnel from first message to closed deal, so you know what's working and what isn't.",
+    cards: [
+      {
+        icon: LuTrendingUp,
+        title: "Revenue Funnel",
+        caption: "New lead to Won",
+      },
+      {
+        icon: LuDollarSign,
+        title: "Live Dashboard",
+        caption: "Real numbers, not guesses",
+      },
+    ],
+  },
+];
+
+const SLIDE_INTERVAL_MS = 5000;
+
+function BrandPanel() {
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % SLIDES.length);
+    }, SLIDE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      className="relative hidden h-full w-full overflow-hidden lg:flex lg:flex-col lg:items-center lg:justify-center"
+      style={{
+        background:
+          "radial-gradient(120% 100% at 15% 10%, #F3F0FF 0%, #E4DBFF 35%, #C9B8FF 70%, #8771FF 100%)",
+      }}
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="drift-blob absolute -left-16 top-10 h-64 w-64 rounded-full bg-white/40 blur-3xl" />
+        <div className="drift-blob-slow absolute right-0 top-1/3 h-80 w-80 rounded-full bg-[#8771FF]/30 blur-3xl" />
+        <div className="drift-blob absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-white/30 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-8">
+        <div className="mb-10 flex items-center gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-sm">
+          {SLIDES[activeSlide].cards.map((card) => (
+            <span
+              key={card.title}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#8771FF] shadow-sm"
+            >
+              <card.icon className="h-4 w-4" />
+            </span>
+          ))}
+        </div>
+
+        <div className="relative mb-8 h-40 w-full">
+          {SLIDES[activeSlide].cards.map((card, i) => (
+            <div
+              key={card.title}
+              className={`drift-card absolute w-44 rounded-2xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur-sm ${
+                i === 0 ? "left-0 top-0 -rotate-3" : "right-0 top-16 rotate-3"
+              }`}
+            >
+              <card.icon className="mb-3 h-6 w-6 text-[#8771FF]" />
+              <div className="text-sm font-bold text-[#101011]">
+                {card.title}
+              </div>
+              <div className="mt-0.5 text-xs text-[#606266]">
+                {card.caption}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div key={activeSlide} className="fade-in-up text-center">
+          <h2 className="text-2xl font-extrabold leading-tight text-[#101011] text-balance">
+            {SLIDES[activeSlide].headline}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-[#3f3d47]">
+            {SLIDES[activeSlide].sub}
+          </p>
+        </div>
+
+        <div className="mt-8 flex items-center gap-1.5">
+          {SLIDES.map((slide, i) => (
+            <button
+              key={slide.headline}
+              type="button"
+              onClick={() => setActiveSlide(i)}
+              aria-label={`Show slide ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === activeSlide ? "w-6 bg-[#8771FF]" : "w-1.5 bg-white/70"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes drift {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(12px, -16px); }
+        }
+        @keyframes drift-slow {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(-16px, 12px); }
+        }
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .drift-blob { animation: drift 9s ease-in-out infinite; }
+        .drift-blob-slow { animation: drift-slow 13s ease-in-out infinite; }
+        .drift-card { animation: drift 6s ease-in-out infinite; }
+        .drift-card:nth-child(2) { animation-delay: 1.2s; }
+        .fade-in-up { animation: fade-in-up 0.5s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .drift-blob, .drift-blob-slow, .drift-card, .fade-in-up { animation: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -149,101 +323,78 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen relative"
-      style={{
-        background:
-          "linear-gradient(180deg, #FFFFFF 0%, rgba(135, 113, 255, 0.3) 50%, #FFFFFF 100%)",
-      }}
+      className="flex h-[100dvh] w-full font-sans"
+      style={{ fontFamily: "Inter, sans-serif" }}
     >
-      <header className="absolute top-0 left-0 w-full">
-        <div className="mx-auto w-full max-w-[1800px] px-6 md:px-8 pt-5 md:pt-6 pl-40 md:pl-60 flex justify-start">
+      <BrandPanel />
+
+      <div className="flex w-full flex-col items-center justify-center bg-white px-6 lg:w-[480px] lg:flex-shrink-0 lg:px-12">
+        <div className="flex w-full max-w-sm flex-col items-center">
           <AppImage
             src="/images/setter-header.png"
             alt="Setter"
-            className="w-[76px] md:w-[120px] h-auto"
+            className="mb-10 h-auto w-24"
             loadingMode="eager"
           />
-        </div>
-      </header>
 
-      <div className="min-h-screen flex items-center justify-center px-4 pb-8 pt-24 md:pt-28">
-        <div className="bg-white bg-opacity-70 shadow-xl rounded-2xl px-10 py-8 flex flex-col items-center w-full max-w-md">
-          {/* Title */}
-          <h2
-            className="text-center mt-0 mb-3 text-gray-900 font-bold"
-            style={{ fontFamily: "Inter, sans-serif", fontSize: 18 }}
-          >
-            {step === "email" ? "Let's Get Started" : "Check Your Inbox"}
-          </h2>
-
-          <p
-            className="text-center mb-6 text-gray-700 font-bold"
-            style={{ fontFamily: "Inter, sans-serif", fontSize: 14 }}
-          >
+          <h1 className="text-center text-2xl font-bold text-[#101011]">
+            {step === "email" ? "Let's get started" : "Check your inbox"}
+          </h1>
+          <p className="mt-2 text-center text-sm text-[#606266]">
             {step === "email"
-              ? "Enter your email to access your Setter account — we’ll get you in fast."
+              ? "Enter your email to access your Setter account, whether you're new or returning."
               : `We sent a code to ${email}. Enter it below to verify.`}
           </p>
 
-          {/* Error Message */}
           {error && (
-            <div className="w-full bg-red-100 text-red-600 p-2 rounded mb-4 text-sm text-center">
+            <div className="mt-4 w-full rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
               {error}
             </div>
           )}
 
-          {/* Forms */}
           {step === "email" ? (
             <form
               onSubmit={handleSendOTP}
-              className="w-full flex flex-col items-center"
+              className="mt-6 flex w-full flex-col items-center"
             >
-              <label
-                htmlFor="email"
-                className="self-start text-gray-800 mb-1 font-bold"
-                style={{ fontFamily: "Inter, sans-serif", fontSize: 13 }}
-              >
-                Enter your email
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="name@gmail.com"
-                className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${email && !loading ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
-                disabled={!email || loading || sendCooldownSeconds > 0}
-              >
-                {loading
-                  ? "Sending..."
-                  : sendCooldownSeconds > 0
-                    ? `Retry in ${formatCooldown(sendCooldownSeconds)}`
-                    : "Continue"}
-              </button>
+              <div className="flex h-13 w-full items-center rounded-full border border-[#F0F2F6] bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  className="h-11 flex-1 border-none bg-transparent text-sm text-[#101011] outline-none placeholder:text-[#9A9CA2]"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  className={`h-10 shrink-0 rounded-full px-5 text-sm font-semibold transition-colors ${
+                    email && !loading
+                      ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
+                      : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
+                  }`}
+                  disabled={!email || loading || sendCooldownSeconds > 0}
+                >
+                  {loading
+                    ? "Sending…"
+                    : sendCooldownSeconds > 0
+                      ? `Wait ${formatCooldown(sendCooldownSeconds)}`
+                      : "Continue"}
+                </button>
+              </div>
             </form>
           ) : (
             <form
               onSubmit={handleVerifyOTP}
-              className="w-full flex flex-col items-center"
+              className="mt-6 flex w-full flex-col items-center"
             >
-              <label
-                htmlFor="otp"
-                className="self-start text-gray-800 mb-1 font-bold"
-                style={{ fontFamily: "Inter, sans-serif", fontSize: 13 }}
-              >
-                Enter OTP Code
-              </label>
               <input
                 id="otp"
                 type="text"
                 placeholder="123456"
-                className="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white text-gray-900 placeholder-gray-400 tracking-widest text-center text-lg"
+                className="h-13 w-full rounded-full border border-[#F0F2F6] bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 required
@@ -252,10 +403,14 @@ export default function LoginPage() {
               />
               <button
                 type="submit"
-                className={`w-full font-medium py-2 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-violet-300 border border-gray-300 transition mb-2 ${otp.length >= 4 && !loading ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+                className={`mt-3 h-11 w-full rounded-full text-sm font-semibold transition-colors ${
+                  otp.length >= 4 && !loading
+                    ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
+                    : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
+                }`}
                 disabled={!otp || loading}
               >
-                {loading ? "Verifying..." : "Verify & Login"}
+                {loading ? "Verifying…" : "Verify & log in"}
               </button>
               <button
                 type="button"
@@ -263,33 +418,31 @@ export default function LoginPage() {
                   setStep("email");
                   setError("");
                 }}
-                className="text-sm text-gray-500 hover:text-gray-800 mt-2"
+                className="mt-3 text-sm text-[#9A9CA2] hover:text-[#606266]"
               >
                 Change email
               </button>
             </form>
           )}
 
-          {/* Terms and Privacy */}
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Continue to accept{" "}
+          <p className="mt-6 text-center text-xs leading-relaxed text-[#9A9CA2]">
+            By continuing, you agree to our{" "}
             <a
               href="https://thesetter.app/legal-pages/terms-and-conditions"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-violet-700"
+              className="underline hover:text-[#606266]"
             >
-              terms & conditions
-            </a>
-            <br />
+              Terms of Service
+            </a>{" "}
             and{" "}
             <a
               href="https://thesetter.app/legal-pages/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-violet-700"
+              className="underline hover:text-[#606266]"
             >
-              privacy policy
+              Privacy Policy
             </a>
             .
           </p>
