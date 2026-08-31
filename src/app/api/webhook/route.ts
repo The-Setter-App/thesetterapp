@@ -6,6 +6,7 @@ import {
 } from "@/lib/blockedUsernamesRepository";
 import { decryptData } from "@/lib/crypto";
 import { fetchAllConversations, fetchUserProfile } from "@/lib/graphApi";
+import { extractLeadSourceFromWebhookMessage } from "@/lib/inbox/leadSource";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   findConversationById,
@@ -395,6 +396,10 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
       text?: string;
       attachments?: unknown[];
       is_echo?: boolean;
+      reply_to?: { story?: { url?: string; id?: string } };
+      referral?: {
+        ads_context_data?: { ad_title?: string; photo_url?: string };
+      };
     };
     const messageId = msg.mid;
     const messageText = msg.text;
@@ -519,6 +524,13 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
         const incrementUnread = !fromMe && !isEcho;
         // For outgoing messages, clear "waiting for reply" count for this conversation.
         const clearUnread = fromMe || isEcho;
+        // Referral/reply_to signals only ever describe the lead's own message to us.
+        const leadSource = incrementUnread
+          ? extractLeadSourceFromWebhookMessage(
+              msg,
+              new Date(timestamp).toISOString(),
+            )
+          : null;
 
         await updateConversationMetadata(
           conversationId,
@@ -528,6 +540,7 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
           incrementUnread,
           clearUnread,
           new Date(timestamp).toISOString(),
+          leadSource,
         );
         webhookDebug(
           `[Webhook] Updated metadata for conversation ${conversationId}`,

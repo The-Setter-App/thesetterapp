@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { StatusIcon } from "@/components/icons/StatusIcon";
+import LeadSourceBadge from "@/components/inbox/details/LeadSourceBadge";
 import { AppImage } from "@/components/ui/AppImage";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
@@ -370,6 +371,8 @@ export default function DetailsPanelHeader({
           </button>
         </div>
       </div>
+
+      <LeadSourceBadge leadSource={user.leadSource} />
 
       <div className="mt-3 flex w-full space-x-3">
         <div className="flex flex-1 items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">

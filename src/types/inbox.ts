@@ -97,6 +97,17 @@ export interface User {
   detailsUpdatedAtByField?: ConversationDetailsUpdatedAtByField;
   dashboardMessageStats?: DashboardMessageStats;
   lastInboundAt?: string;
+  leadSource?: LeadSource;
+}
+
+export type LeadSourceType = "story_reply" | "story_mention" | "ad_referral";
+
+export interface LeadSource {
+  type: LeadSourceType;
+  storyUrl?: string;
+  adTitle?: string;
+  adPhotoUrl?: string;
+  capturedAt: string;
 }
 
 export interface PaymentDetails {

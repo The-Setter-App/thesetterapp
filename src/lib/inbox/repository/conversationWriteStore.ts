@@ -9,7 +9,7 @@ import {
   getInboxSupabase,
 } from "@/lib/inbox/repository/core";
 import type { DashboardMessageStats } from "@/types/dashboard";
-import type { User } from "@/types/inbox";
+import type { LeadSource, User } from "@/types/inbox";
 
 async function getExistingConversationPayload(
   conversationId: string,
@@ -120,6 +120,7 @@ export async function updateConversationMetadata(
   incrementUnread: boolean,
   clearUnread = false,
   eventTimestampIso?: string,
+  leadSource?: LeadSource | null,
 ): Promise<void> {
   const supabase = getInboxSupabase();
   const existing = await getExistingConversationPayload(
@@ -157,6 +158,8 @@ export async function updateConversationMetadata(
     lastInboundAt: incrementUnread
       ? eventTimestampIso || new Date().toISOString()
       : existing.lastInboundAt,
+    // First-touch attribution only - don't overwrite once a source is known.
+    leadSource: existing.leadSource ?? leadSource ?? undefined,
   };
 
   await supabase
