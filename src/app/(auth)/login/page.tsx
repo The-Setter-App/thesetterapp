@@ -2,77 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  LuBot,
-  LuCalendarCheck2,
-  LuDollarSign,
-  LuInbox,
-  LuTrendingUp,
-  LuUsers,
-} from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
-interface SlideCard {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  caption: string;
-}
-
-interface Slide {
-  headline: string;
-  sub: string;
-  cards: [SlideCard, SlideCard];
-}
-
-const SLIDES: Slide[] = [
-  {
-    headline: "Never lose a lead in the DMs again",
-    sub: "One inbox for every Instagram conversation, organized by stage so your team always knows who to message next.",
-    cards: [
-      {
-        icon: LuInbox,
-        title: "Unified Inbox",
-        caption: "Every account, one view",
-      },
-      {
-        icon: LuUsers,
-        title: "Team Roles",
-        caption: "Setters, closers, owners",
-      },
-    ],
-  },
-  {
-    headline: "An AI copilot for every reply",
-    sub: "Setter AI reads the conversation and helps you write the next message, so replies go out faster instead of generic.",
-    cards: [
-      { icon: LuBot, title: "Setter AI", caption: "Draft replies instantly" },
-      {
-        icon: LuCalendarCheck2,
-        title: "Booked Calls",
-        caption: "Attributed to the setter",
-      },
-    ],
-  },
-  {
-    headline: "See exactly what's driving revenue",
-    sub: "A live funnel from first message to closed deal, so you know what's working and what isn't.",
-    cards: [
-      {
-        icon: LuTrendingUp,
-        title: "Revenue Funnel",
-        caption: "New lead to Won",
-      },
-      {
-        icon: LuDollarSign,
-        title: "Live Dashboard",
-        caption: "Real numbers, not guesses",
-      },
-    ],
-  },
+const TESTIMONIAL_POSITIONS = [
+  "left-[0%] top-[4%] -rotate-6",
+  "right-[0%] top-[10%] rotate-3",
+  "left-[2%] bottom-[6%] rotate-2",
+  "right-[2%] bottom-[2%] -rotate-4",
 ];
-
-const SLIDE_INTERVAL_MS = 5000;
 
 function CloudBackground() {
   return (
@@ -84,59 +22,31 @@ function CloudBackground() {
 }
 
 function BrandPanel() {
-  const [activeSlide, setActiveSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % SLIDES.length);
-    }, SLIDE_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, []);
-
   return (
-    <div className="relative z-10 hidden flex-1 flex-col items-center justify-center lg:flex">
-      <div className="flex w-full max-w-md flex-col items-center px-8">
-        <div className="relative mb-8 h-40 w-full">
-          {SLIDES[activeSlide].cards.map((card, i) => (
-            <div
-              key={card.title}
-              className={`drift-card absolute w-44 rounded-2xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur-sm ${
-                i === 0 ? "left-0 top-0 -rotate-3" : "right-0 top-16 rotate-3"
-              }`}
-            >
-              <card.icon className="mb-3 h-6 w-6 text-[#8771FF]" />
-              <div className="text-sm font-bold text-[#101011]">
-                {card.title}
-              </div>
-              <div className="mt-0.5 text-xs text-[#606266]">
-                {card.caption}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div key={activeSlide} className="fade-in-up text-center">
-          <h2 className="text-2xl font-extrabold leading-tight text-balance text-[#101011]">
-            {SLIDES[activeSlide].headline}
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-[#3f3d47]">
-            {SLIDES[activeSlide].sub}
-          </p>
-        </div>
-
-        <div className="mt-8 flex items-center gap-1.5">
-          {SLIDES.map((slide, i) => (
-            <button
-              key={slide.headline}
-              type="button"
-              onClick={() => setActiveSlide(i)}
-              aria-label={`Show slide ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === activeSlide ? "w-6 bg-[#8771FF]" : "w-1.5 bg-white/70"
-              }`}
+    <div className="relative z-10 hidden flex-1 items-center justify-center self-stretch lg:flex">
+      <div className="pointer-events-none absolute inset-0">
+        {TESTIMONIAL_POSITIONS.map((position, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static, never reorders
+          <div key={i} className={`drift-card absolute w-60 ${position}`}>
+            <AppImage
+              src="/images/testimonial.png"
+              alt=""
+              width={900}
+              height={342}
+              className="w-full rounded-2xl border border-white/70 shadow-lg"
             />
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative max-w-md px-8 text-center">
+        <h2 className="text-3xl font-extrabold leading-tight text-balance text-[#101011]">
+          Join teams turning followers into customers
+        </h2>
+        <p className="mt-4 text-base leading-relaxed text-[#3f3d47]">
+          A clearer inbox, a more accountable team, and a complete view from
+          first DM to revenue.
+        </p>
       </div>
     </div>
   );
@@ -434,15 +344,13 @@ export default function LoginPage() {
           0%, 100% { transform: translate(0, 0); }
           50% { transform: translate(12px, -16px); }
         }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .drift-card { animation: drift 6s ease-in-out infinite; }
-        .drift-card:nth-child(2) { animation-delay: 1.2s; }
-        .fade-in-up { animation: fade-in-up 0.5s ease-out; }
+        .drift-card { animation: drift 7s ease-in-out infinite; }
+        .drift-card:nth-child(1) { animation-delay: 0s; }
+        .drift-card:nth-child(2) { animation-delay: 1.6s; }
+        .drift-card:nth-child(3) { animation-delay: 3.2s; }
+        .drift-card:nth-child(4) { animation-delay: 4.8s; }
         @media (prefers-reduced-motion: reduce) {
-          .drift-card, .fade-in-up { animation: none; }
+          .drift-card { animation: none; }
         }
       `}</style>
     </div>
