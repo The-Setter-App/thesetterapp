@@ -83,7 +83,7 @@ function NoConnectedAccountsState({ displayName }: { displayName: string }) {
 }
 
 const MetricCard = ({ value, label }: MetricCardProps) => (
-  <div className="flex h-full w-full flex-col gap-2 rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+  <div className="flex h-full w-full flex-col gap-4 rounded-2xl border border-[#F0F2F6] bg-white px-5 py-6 shadow-sm">
     <div className="text-sm text-[#8A8D98]">{label}</div>
     <div className="text-[28px] font-semibold leading-none text-[#101011]">
       {value}
@@ -233,8 +233,8 @@ export default function Dashboard({
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
             {/* Metrics Grid */}
-            <div className="mt-6 rounded-2xl bg-[#F6F6F6] p-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="mt-6 rounded-2xl bg-[#F6F6F6] p-1.5">
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <MetricCard value={totalRevenue} label="Total revenue" />
                 <MetricCard value={avgReplyTime} label="Avg reply time" />
                 <MetricCard value={revenuePerCall} label="Revenue per call" />
