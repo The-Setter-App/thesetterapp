@@ -131,7 +131,7 @@ export default function InboxLayout({
         markChatReady,
       }}
     >
-      <div className="relative flex h-screen overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
+      <div className="relative flex h-full overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
           <button
