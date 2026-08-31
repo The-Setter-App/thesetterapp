@@ -344,7 +344,12 @@ export default function LoginPage() {
           0%, 100% { transform: translate(0, 0); }
           50% { transform: translate(12px, -16px); }
         }
-        .drift-card { animation: drift 7s ease-in-out infinite; }
+        .drift-card {
+          animation: drift 7s ease-in-out infinite;
+          will-change: transform;
+          transform: translateZ(0);
+          backface-visibility: hidden;
+        }
         .drift-card:nth-child(1) { animation-delay: 0s; }
         .drift-card:nth-child(2) { animation-delay: 1.6s; }
         .drift-card:nth-child(3) { animation-delay: 3.2s; }
