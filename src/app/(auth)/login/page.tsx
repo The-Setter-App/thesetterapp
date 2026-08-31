@@ -306,7 +306,7 @@ export default function LoginPage() {
 
       <div className="relative z-10 flex w-full items-center justify-center p-4 lg:flex-1 lg:p-10">
         <div
-          className="glass-panel flex w-full max-w-2xl flex-col items-center rounded-[40px] px-10 py-14 sm:px-16"
+          className="glass-panel flex min-h-[640px] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-20 sm:px-20"
           style={{
             background: "rgba(255, 255, 255, 0.55)",
             backdropFilter: "blur(28px) saturate(160%)",
@@ -316,18 +316,18 @@ export default function LoginPage() {
               "0 8px 32px rgba(76, 55, 158, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
           }}
         >
-          <div className="flex w-full max-w-sm flex-col items-center">
+          <div className="flex w-full max-w-md flex-col items-center">
             <AppImage
               src="/images/setter-header.png"
               alt="Setter"
-              className="mb-10 h-auto w-24"
+              className="mb-12 h-auto w-32"
               loadingMode="eager"
             />
 
-            <h1 className="text-center text-2xl font-bold text-[#101011]">
+            <h1 className="text-center text-3xl font-bold text-[#101011]">
               {step === "email" ? "Let's get started" : "Check your inbox"}
             </h1>
-            <p className="mt-2 text-center text-sm text-[#3f3d47]">
+            <p className="mt-3 text-center text-base text-[#3f3d47]">
               {step === "email"
                 ? "Enter your email to access your Setter account, whether you're new or returning."
                 : `We sent a code to ${email}. Enter it below to verify.`}
@@ -342,14 +342,14 @@ export default function LoginPage() {
             {step === "email" ? (
               <form
                 onSubmit={handleSendOTP}
-                className="mt-6 flex w-full flex-col items-center"
+                className="mt-8 flex w-full flex-col items-center"
               >
-                <div className="flex h-13 w-full items-center rounded-full border border-white/70 bg-white pl-5 pr-1.5 shadow-sm focus-within:border-[#8771FF]">
+                <div className="flex h-16 w-full items-center rounded-full border border-white/70 bg-white pl-6 pr-2 shadow-sm focus-within:border-[#8771FF]">
                   <input
                     id="email"
                     type="email"
                     placeholder="you@company.com"
-                    className="h-11 flex-1 border-none bg-transparent text-sm text-[#101011] outline-none placeholder:text-[#9A9CA2]"
+                    className="h-11 flex-1 border-none bg-transparent text-base text-[#101011] outline-none placeholder:text-[#9A9CA2]"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -357,7 +357,7 @@ export default function LoginPage() {
                   />
                   <button
                     type="submit"
-                    className={`h-10 shrink-0 rounded-full px-5 text-sm font-semibold transition-colors ${
+                    className={`h-12 shrink-0 rounded-full px-6 text-base font-semibold transition-colors ${
                       email && !loading
                         ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
                         : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
@@ -375,13 +375,13 @@ export default function LoginPage() {
             ) : (
               <form
                 onSubmit={handleVerifyOTP}
-                className="mt-6 flex w-full flex-col items-center"
+                className="mt-8 flex w-full flex-col items-center"
               >
                 <input
                   id="otp"
                   type="text"
                   placeholder="123456"
-                  className="h-13 w-full rounded-full border border-white/70 bg-white px-5 text-center text-lg tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
+                  className="h-16 w-full rounded-full border border-white/70 bg-white px-5 text-center text-xl tracking-[0.3em] text-[#101011] shadow-sm outline-none placeholder:tracking-normal placeholder:text-[#9A9CA2] focus:border-[#8771FF]"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   required
@@ -390,7 +390,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="submit"
-                  className={`mt-3 h-11 w-full rounded-full text-sm font-semibold transition-colors ${
+                  className={`mt-4 h-12 w-full rounded-full text-base font-semibold transition-colors ${
                     otp.length >= 4 && !loading
                       ? "bg-[#8771FF] text-white hover:bg-[#6d5ed6]"
                       : "cursor-not-allowed bg-[#F0F2F6] text-[#9A9CA2]"
@@ -412,7 +412,7 @@ export default function LoginPage() {
               </form>
             )}
 
-            <p className="mt-6 text-center text-xs leading-relaxed text-[#4b4959]">
+            <p className="mt-8 text-center text-sm leading-relaxed text-[#4b4959]">
               By continuing, you agree to our{" "}
               <a
                 href="https://thesetter.app/legal-pages/terms-and-conditions"
