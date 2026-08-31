@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import type { StatusType, User } from "@/types/inbox";
 import type { SidebarTab } from "./SidebarTabs";
 
@@ -82,7 +83,8 @@ export default function useSidebarFilters(
         const matchesTab =
           activeTab === "all" ||
           (activeTab === "priority" && Boolean(user.isPriority)) ||
-          (activeTab === "unread" && (user.unread ?? 0) > 0);
+          (activeTab === "unread" && (user.unread ?? 0) > 0) ||
+          (activeTab === "cooling" && isLeadCooling(user));
         const matchesStatus =
           selectedStatuses.length === 0 ||
           selectedStatuses.includes(user.status);

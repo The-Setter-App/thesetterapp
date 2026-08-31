@@ -3,6 +3,7 @@
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { AppImage } from "@/components/ui/AppImage";
 import type { AiTagCatalogEntry } from "@/lib/inbox/clientAiTagsCatalog";
+import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
@@ -110,6 +111,7 @@ export default function ConversationList({
           ? buildStatusPillStyle(statusMeta.colorHex)
           : undefined;
         const windowState = getMessagingWindowState(u.lastInboundAt);
+        const cooling = isLeadCooling(u);
 
         return (
           <div
@@ -172,9 +174,9 @@ export default function ConversationList({
                 <div className="text-xs text-[#606266] truncate">
                   {u.lastMessage}
                 </div>
-                {u.aiTagIds && u.aiTagIds.length > 0 && (
+                {((u.aiTagIds && u.aiTagIds.length > 0) || cooling) && (
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {u.aiTagIds.map((tagId) => {
+                    {u.aiTagIds?.map((tagId) => {
                       const tag = aiTagLookup[tagId];
                       if (!tag) return null;
                       return (
@@ -190,6 +192,14 @@ export default function ConversationList({
                         </span>
                       );
                     })}
+                    {cooling && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-sky-600"
+                        title="No reply from this lead in 3+ days"
+                      >
+                        Cooling
+                      </span>
+                    )}
                   </div>
                 )}
                 {u.accountLabel && (

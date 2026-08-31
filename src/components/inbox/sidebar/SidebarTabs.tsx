@@ -1,8 +1,9 @@
+import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import type { User } from "@/types/inbox";
 
-export type SidebarTab = "all" | "priority" | "unread";
+export type SidebarTab = "all" | "priority" | "unread" | "cooling";
 
-const SIDEBAR_TABS: SidebarTab[] = ["all", "priority", "unread"];
+const SIDEBAR_TABS: SidebarTab[] = ["all", "priority", "unread", "cooling"];
 
 interface SidebarTabsProps {
   activeTab: SidebarTab;
@@ -13,6 +14,7 @@ interface SidebarTabsProps {
 function getTabCount(tab: SidebarTab, users: User[]): number {
   if (tab === "all") return users.length;
   if (tab === "priority") return users.filter((u) => u.isPriority).length;
+  if (tab === "cooling") return users.filter((u) => isLeadCooling(u)).length;
   return users.filter((u) => (u.unread ?? 0) > 0).length;
 }
 
