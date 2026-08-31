@@ -233,7 +233,7 @@ export default function Dashboard({
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
             {/* Metrics Grid */}
-            <div className="mt-6 rounded-2xl bg-[#F0F2F6] p-4">
+            <div className="mt-6 rounded-2xl bg-[#F6F6F6] p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <MetricCard value={totalRevenue} label="Total revenue" />
                 <MetricCard value={avgReplyTime} label="Avg reply time" />
