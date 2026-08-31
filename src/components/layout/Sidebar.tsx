@@ -10,10 +10,10 @@ import {
   LuInbox,
   LuLogOut,
   LuSettings,
-  LuUsers,
 } from "react-icons/lu";
 import { logout } from "@/app/actions/auth";
 import { DashboardFrameIcon } from "@/components/icons/DashboardFrameIcon";
+import { LeadsIcon } from "@/components/icons/LeadsIcon";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 import { getCurrentCalendarPath } from "@/lib/calendarRoute";
@@ -44,7 +44,7 @@ const NavItem = ({ href, activePrefix, icon: Icon, alt }: NavConfig) => {
         }`}
       >
         <Icon
-          className={`h-[22px] w-[22px] transition-colors duration-200 ${
+          className={`h-[19px] w-[19px] transition-colors duration-200 ${
             isActive
               ? "text-[#101011]"
               : "text-[#9A9CA2] group-hover:text-[#606266]"
@@ -67,7 +67,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
   owner: [
     { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
-    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    { href: "/leads", icon: LeadsIcon, alt: "Leads" },
     {
       href: getCurrentCalendarPath(),
       activePrefix: "/calendar",
@@ -80,7 +80,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
   setter: [
     { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
-    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    { href: "/leads", icon: LeadsIcon, alt: "Leads" },
     {
       href: getCurrentCalendarPath(),
       activePrefix: "/calendar",
@@ -93,7 +93,7 @@ const NAV_ITEMS_BY_ROLE: Record<UserRole, NavConfig[]> = {
   closer: [
     { href: "/dashboard", icon: DashboardFrameIcon, alt: "Dashboard" },
     { href: "/inbox", icon: LuInbox, alt: "Inbox" },
-    { href: "/leads", icon: LuUsers, alt: "Leads" },
+    { href: "/leads", icon: LeadsIcon, alt: "Leads" },
     {
       href: getCurrentCalendarPath(),
       activePrefix: "/calendar",
