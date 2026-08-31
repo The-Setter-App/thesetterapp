@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { LuChevronLeft, LuMailCheck } from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
@@ -57,7 +58,7 @@ function BrandPanel() {
         <h2 className="text-4xl font-black leading-tight text-balance text-[#101011]">
           Join teams turning followers into customers
         </h2>
-        <p className="mt-4 text-base leading-relaxed text-[#3f3d47]">
+        <p className="mt-4 text-base font-bold text-[#606266]">
           A clearer inbox, a more accountable team, and a complete view from
           first DM to revenue.
         </p>
@@ -119,8 +120,7 @@ export default function LoginPage() {
     return `${mins}m ${secs}s`;
   };
 
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendOtp = async () => {
     if (sendCooldownSeconds > 0) {
       setError(
         `Please wait ${formatCooldown(sendCooldownSeconds)} before retrying.`,
@@ -159,6 +159,11 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendOTP = (e: React.FormEvent) => {
+    e.preventDefault();
+    void sendOtp();
   };
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -219,7 +224,7 @@ export default function LoginPage() {
 
       <div className="relative z-10 flex w-full items-center justify-center p-4 lg:flex-1 lg:p-10">
         <div
-          className="glass-panel flex min-h-[clamp(560px,78dvh,1000px)] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-16 sm:px-20"
+          className="glass-panel relative flex min-h-[clamp(560px,78dvh,1000px)] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-16 sm:px-20"
           style={{
             background: "rgba(255, 255, 255, 0.3)",
             backdropFilter: "blur(28px) saturate(160%)",
@@ -229,16 +234,37 @@ export default function LoginPage() {
               "0 8px 32px rgba(76, 55, 158, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
           }}
         >
+          {step === "otp" && (
+            <button
+              type="button"
+              onClick={() => {
+                setStep("email");
+                setOtp("");
+                setError("");
+              }}
+              aria-label="Back"
+              className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/80 text-[#101011] shadow-sm transition-colors hover:bg-white"
+            >
+              <LuChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+
           <div className="flex w-full max-w-md flex-col items-center">
-            <AppImage
-              src="/images/setter-header.png"
-              alt="Setter"
-              className="mb-12 h-auto w-32"
-              loadingMode="eager"
-            />
+            {step === "email" ? (
+              <AppImage
+                src="/images/setter-header.png"
+                alt="Setter"
+                className="mb-12 h-auto w-32"
+                loadingMode="eager"
+              />
+            ) : (
+              <span className="mb-8 flex h-16 w-16 items-center justify-center rounded-full bg-[#8771FF]/15 text-[#8771FF]">
+                <LuMailCheck className="h-8 w-8" />
+              </span>
+            )}
 
             <h1 className="text-center text-4xl font-black text-[#101011]">
-              {step === "email" ? "Let's get started" : "Check your inbox"}
+              {step === "email" ? "Let's get started" : "Check your email"}
             </h1>
             <p className="mt-3 text-center text-base font-bold text-[#606266]">
               {step === "email"
@@ -278,7 +304,7 @@ export default function LoginPage() {
                     disabled={!email || loading || sendCooldownSeconds > 0}
                   >
                     {loading
-                      ? "Sending…"
+                      ? "Checking…"
                       : sendCooldownSeconds > 0
                         ? `Wait ${formatCooldown(sendCooldownSeconds)}`
                         : "Continue"}
@@ -312,16 +338,19 @@ export default function LoginPage() {
                 >
                   {loading ? "Verifying…" : "Verify & log in"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("email");
-                    setError("");
-                  }}
-                  className="mt-3 text-sm text-[#3f3d47] hover:text-[#101011]"
-                >
-                  Change email
-                </button>
+                <p className="mt-4 text-sm text-[#3f3d47]">
+                  Didn&apos;t receive it?{" "}
+                  <button
+                    type="button"
+                    onClick={() => void sendOtp()}
+                    disabled={loading || sendCooldownSeconds > 0}
+                    className="font-semibold text-[#101011] underline disabled:cursor-not-allowed disabled:text-[#9A9CA2] disabled:no-underline"
+                  >
+                    {sendCooldownSeconds > 0
+                      ? `Resend in ${formatCooldown(sendCooldownSeconds)}`
+                      : "Resend code"}
+                  </button>
+                </p>
               </form>
             )}
 
