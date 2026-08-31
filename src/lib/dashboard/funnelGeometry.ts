@@ -16,8 +16,6 @@ const ZERO_HALF_THICKNESS = 1.25;
 const NON_ZERO_MIN_HALF_THICKNESS = 2.2;
 const MAX_HALF_THICKNESS = 27.5;
 const CURVE_CONTROL_FACTOR = 0.42;
-const TAIL_FLARE_MIN_HALF_THICKNESS = MAX_HALF_THICKNESS * 0.42;
-const TAIL_FLARE_NECK_MULTIPLIER = 2.2;
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) return min;
@@ -152,31 +150,10 @@ function buildSegmentsFromBoundaries(
   return segments;
 }
 
-/**
- * The funnel is meant to read as "narrows through the middle, then flares
- * back out for the final stage" regardless of whether the final stage's
- * real count happens to be the smallest of all (it usually is - fewer deals
- * are Won than were ever New). Without this, a heavily-narrowing real
- * dataset draws out to a pinched, flat line instead of a trapezoid tail.
- */
-function applyTailFlare(halfThicknesses: number[], ratios: number[]): void {
-  const hasData = ratios.some((ratio) => ratio > 0);
-  if (!hasData) return;
-
-  const neck = halfThicknesses[STAGE_COUNT - 1];
-  const flareTarget = Math.max(
-    neck * TAIL_FLARE_NECK_MULTIPLIER,
-    TAIL_FLARE_MIN_HALF_THICKNESS,
-  );
-
-  halfThicknesses[STAGE_COUNT] = Math.min(flareTarget, MAX_HALF_THICKNESS);
-}
-
 export function buildFunnelGeometry(stageValues: number[]): FunnelGeometry {
   const ratios = normalizeStages(stageValues);
   const boundaryRatios = getBoundaryRatios(ratios);
   const halfThicknesses = getBoundaryHalfThicknesses(boundaryRatios);
-  applyTailFlare(halfThicknesses, ratios);
 
   return {
     pathD: buildCombinedPathFromBoundaries(halfThicknesses),
