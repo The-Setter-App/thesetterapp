@@ -6,18 +6,18 @@ import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
 const TESTIMONIALS = [
-  { src: "/images/testimonial.png", position: "left-[6%] top-[22%] -rotate-6" },
+  { src: "/images/testimonial.png", position: "left-[6%] top-[10%] -rotate-6" },
   {
     src: "/images/testimonial-2.png",
-    position: "right-[8%] top-[28%] rotate-3",
+    position: "right-[8%] top-[16%] rotate-3",
   },
   {
     src: "/images/testimonial-3.png",
-    position: "left-[10%] bottom-[26%] rotate-2",
+    position: "left-[10%] bottom-[14%] rotate-2",
   },
   {
     src: "/images/testimonial-4.png",
-    position: "right-[6%] bottom-[20%] -rotate-4",
+    position: "right-[6%] bottom-[10%] -rotate-4",
   },
 ];
 
@@ -51,7 +51,7 @@ function BrandPanel() {
       </div>
 
       <div className="relative max-w-md px-8 text-center">
-        <h2 className="text-3xl font-extrabold leading-tight text-balance text-[#101011]">
+        <h2 className="text-4xl font-black leading-tight text-balance text-[#101011]">
           Join teams turning followers into customers
         </h2>
         <p className="mt-4 text-base leading-relaxed text-[#3f3d47]">
@@ -234,7 +234,7 @@ export default function LoginPage() {
               loadingMode="eager"
             />
 
-            <h1 className="text-center text-3xl font-extrabold text-[#101011]">
+            <h1 className="text-center text-4xl font-black text-[#101011]">
               {step === "email" ? "Let's get started" : "Check your inbox"}
             </h1>
             <p className="mt-3 text-center text-base font-bold text-[#606266]">
