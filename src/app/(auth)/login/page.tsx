@@ -6,18 +6,21 @@ import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
 const TESTIMONIALS = [
-  { src: "/images/testimonial.png", position: "left-[6%] top-[7%] -rotate-12" },
+  {
+    src: "/images/testimonial.png",
+    position: "left-[4%] top-[24%] -rotate-12",
+  },
   {
     src: "/images/testimonial-2.png",
-    position: "right-[8%] top-[13%] rotate-9",
+    position: "right-[6%] top-[25%] rotate-9",
   },
   {
     src: "/images/testimonial-3.png",
-    position: "left-[9%] bottom-[11%] -rotate-8",
+    position: "left-[7%] bottom-[24%] -rotate-8",
   },
   {
     src: "/images/testimonial-4.png",
-    position: "right-[6%] bottom-[6%] rotate-6",
+    position: "right-[4%] bottom-[22%] rotate-6",
   },
 ];
 
@@ -37,7 +40,7 @@ function BrandPanel() {
         {TESTIMONIALS.map((testimonial) => (
           <div
             key={testimonial.src}
-            className={`drift-card absolute hidden w-56 xl:block 2xl:w-72 ${testimonial.position}`}
+            className={`drift-card absolute hidden w-60 xl:block 2xl:w-80 ${testimonial.position}`}
           >
             <AppImage
               src={testimonial.src}
