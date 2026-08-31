@@ -9,19 +9,19 @@ import { resetCache } from "@/lib/cache";
 const TESTIMONIALS = [
   {
     src: "/images/testimonial.png",
-    position: "left-[4%] top-[24%] -rotate-12",
+    position: "left-[4%] top-[24%] rotate-[-10deg]",
   },
   {
     src: "/images/testimonial-2.png",
-    position: "right-[6%] top-[25%] rotate-9",
+    position: "right-[6%] top-[25%] rotate-[5deg]",
   },
   {
     src: "/images/testimonial-3.png",
-    position: "left-[7%] bottom-[24%] -rotate-8",
+    position: "left-[7%] bottom-[24%] rotate-[-6deg]",
   },
   {
     src: "/images/testimonial-4.png",
-    position: "right-[4%] bottom-[22%] rotate-6",
+    position: "right-[4%] bottom-[22%] rotate-[8deg]",
   },
 ];
 
