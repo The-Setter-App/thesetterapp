@@ -7,7 +7,9 @@ import { normalizeStatusColorHex } from "@/lib/status/config";
 import {
   MAX_TAG_DESCRIPTION_LENGTH,
   MAX_TAG_NAME_LENGTH,
+  STATUS_ROLE_OPTIONS,
 } from "@/lib/tags/config";
+import type { StatusRole } from "@/types/tags";
 import { DEFAULT_TAG_COLOR_HEX } from "./constants";
 import type { TagsSettingsCreateFormState } from "./types";
 import { formatColorInput } from "./utils";
@@ -126,6 +128,36 @@ export default function TagsSettingsCreateForm({
         >
           Add Status
         </Button>
+      </div>
+
+      <div className="mt-3 max-w-xs">
+        <label
+          htmlFor="tag-role"
+          className="mb-1 block text-xs font-medium text-[#606266]"
+        >
+          Special role (optional)
+        </label>
+        <select
+          id="tag-role"
+          value={createForm.tagRole ?? ""}
+          onChange={(event) =>
+            createForm.onTagRoleChange(
+              (event.target.value || null) as StatusRole | null,
+            )
+          }
+          className="h-10 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors hover:bg-[#F8F7FF]"
+        >
+          <option value="">None</option>
+          {STATUS_ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-[#9B9DA5]">
+          Only one status can hold a role at a time — assigning it here moves it
+          off whichever status has it now.
+        </p>
       </div>
 
       <p className="mt-3 text-xs text-[#606266]">

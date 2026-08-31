@@ -108,7 +108,7 @@ export default function ConversationList({
           ? buildStatusPillStyle(statusMeta.colorHex)
           : undefined;
         const windowState = getMessagingWindowState(u.lastInboundAt);
-        const cooling = isLeadCooling(u);
+        const cooling = isLeadCooling(u, statusLookup);
 
         return (
           <div

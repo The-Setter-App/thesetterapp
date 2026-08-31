@@ -103,10 +103,11 @@ export interface WorkspaceTagRowDb {
   normalized_name: string;
   name: string;
   description: string;
-  source: "Custom";
+  source: "Default" | "Custom";
   color_hex: string;
   icon_pack: "lu" | "fa6";
   icon_name: string;
+  role: string | null;
   created_by_email: string;
   created_by_label: string;
   created_at: string;

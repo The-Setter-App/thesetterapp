@@ -33,6 +33,7 @@ import {
   updateUserAvatar,
 } from "@/lib/inboxRepository";
 import { getRelativeTime, mapConversationToUser } from "@/lib/mappers";
+import { findWorkspaceTagByRole } from "@/lib/tagsRepository";
 import { getUserByInstagramId } from "@/lib/userRepository";
 import type { Message, SSEAttachment, SSEEvent } from "@/types/inbox";
 
@@ -358,16 +359,20 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     );
     try {
       const accessToken = decryptData(creds.accessToken);
-      const rawConvs = await fetchAllConversations(creds.pageId, accessToken, {
-        pageLimit: 50,
-        maxPages: 20,
-        graphVersion: creds.graphVersion,
-      });
+      const [rawConvs, newStatusTag] = await Promise.all([
+        fetchAllConversations(creds.pageId, accessToken, {
+          pageLimit: 50,
+          maxPages: 20,
+          graphVersion: creds.graphVersion,
+        }),
+        findWorkspaceTagByRole(ownerEmail, "new"),
+      ]);
       const users = rawConvs.data.map((c) =>
         mapConversationToUser(c, instagramUserId, {
           accountId: creds.accountId,
           ownerPageId: creds.pageId,
           accountLabel: creds.instagramUsername || creds.pageName,
+          initialStatusName: newStatusTag?.name,
         }),
       );
       await saveConversationsToDb(users, ownerEmail);

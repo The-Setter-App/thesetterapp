@@ -10,8 +10,10 @@ import {
 import {
   MAX_TAG_DESCRIPTION_LENGTH,
   MAX_TAG_NAME_LENGTH,
+  STATUS_ROLE_LABELS,
+  STATUS_ROLE_OPTIONS,
 } from "@/lib/tags/config";
-import type { TagRow } from "@/types/tags";
+import type { StatusRole, TagRow } from "@/types/tags";
 import { DEFAULT_TAG_COLOR_HEX } from "./constants";
 import TagsSettingsSourceBadge from "./TagsSettingsSourceBadge";
 import type { TagsSettingsEditFormState } from "./types";
@@ -22,10 +24,7 @@ interface TagsTableRowProps {
   editForm: TagsSettingsEditFormState;
 }
 
-export default function TagsTableRow({
-  tagRow,
-  editForm,
-}: TagsTableRowProps) {
+export default function TagsTableRow({ tagRow, editForm }: TagsTableRowProps) {
   const isEditing = editForm.activeTagId === tagRow.id;
 
   return (
@@ -75,6 +74,32 @@ export default function TagsTableRow({
           <TagsSettingsSourceBadge source={tagRow.source} />
         </div>
       </td>
+      <td className="px-4 py-3 align-middle">
+        {isEditing ? (
+          <select
+            value={editForm.tagRole ?? ""}
+            onChange={(event) =>
+              editForm.onTagRoleChange(
+                (event.target.value || null) as StatusRole | null,
+              )
+            }
+            className="h-10 w-full min-w-[140px] rounded-xl border border-[#F0F2F6] bg-white px-2 text-xs text-[#101011] outline-none transition-colors hover:bg-[#F8F7FF]"
+          >
+            <option value="">None</option>
+            {STATUS_ROLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : tagRow.role ? (
+          <span className="inline-flex items-center rounded-full bg-[#F3F0FF] px-2 py-1 text-[10px] font-semibold text-[#6d5ed6]">
+            {STATUS_ROLE_LABELS[tagRow.role]}
+          </span>
+        ) : (
+          <span className="text-xs text-[#9A9CA2]">—</span>
+        )}
+      </td>
       <td className="max-w-[320px] px-4 py-3 text-sm text-[#606266]">
         {isEditing ? (
           <input
@@ -123,9 +148,7 @@ export default function TagsTableRow({
         <p className="mt-0.5 text-xs text-[#606266]">{tagRow.createdAt}</p>
       </td>
       <td className="px-4 py-3">
-        {tagRow.source === "Default" ? (
-          <span className="text-xs text-[#9A9CA2]">System</span>
-        ) : isEditing ? (
+        {isEditing ? (
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -150,10 +173,20 @@ export default function TagsTableRow({
           <TagRowActionsMenu
             onEdit={() => editForm.begin(tagRow)}
             onDelete={() => editForm.remove(tagRow.id)}
-            disableEdit={Boolean(editForm.deletingTagId) || editForm.isSubmitting}
-            disableDelete={Boolean(editForm.deletingTagId) || editForm.isSubmitting}
+            disableEdit={
+              Boolean(editForm.deletingTagId) || editForm.isSubmitting
+            }
+            disableDelete={
+              Boolean(tagRow.role) ||
+              Boolean(editForm.deletingTagId) ||
+              editForm.isSubmitting
+            }
             deleteLabel={
-              editForm.deletingTagId === tagRow.id ? "Deleting..." : "Delete"
+              editForm.deletingTagId === tagRow.id
+                ? "Deleting..."
+                : tagRow.role
+                  ? "Delete (role in use)"
+                  : "Delete"
             }
           />
         )}

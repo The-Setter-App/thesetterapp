@@ -16,6 +16,7 @@ import {
   mapConversationToUser,
   mapGraphMessageToAppMessage,
 } from "@/lib/mappers";
+import { findWorkspaceTagByRole } from "@/lib/tagsRepository";
 import { getConnectedInstagramAccounts } from "@/lib/userRepository";
 import type { InstagramAccountConnection } from "@/types/auth";
 import type { User } from "@/types/inbox";
@@ -270,6 +271,11 @@ export async function syncWorkspaceConversationsFromGraph(
     return [];
   }
 
+  const newStatusTag = await findWorkspaceTagByRole(
+    normalizedOwnerEmail,
+    "new",
+  );
+
   const syncedUsers: User[] = [];
   for (const account of accounts) {
     try {
@@ -289,6 +295,7 @@ export async function syncWorkspaceConversationsFromGraph(
           accountId: account.accountId,
           ownerPageId: account.pageId,
           accountLabel: account.instagramUsername || account.pageName,
+          initialStatusName: newStatusTag?.name,
         }),
       );
 

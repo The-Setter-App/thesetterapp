@@ -1,7 +1,5 @@
 "use client";
 
-import { PRESET_TAG_ROWS } from "@/lib/tags/config";
-
 interface SummaryMetricProps {
   title: string;
   value: number;
@@ -22,11 +20,13 @@ function SummaryMetric({ title, value, subtitle }: SummaryMetricProps) {
 
 interface TagsSettingsSummaryMetricsProps {
   totalTags: number;
+  defaultTagsCount: number;
   customTagsCount: number;
 }
 
 export default function TagsSettingsSummaryMetrics({
   totalTags,
+  defaultTagsCount,
   customTagsCount,
 }: TagsSettingsSummaryMetricsProps) {
   return (
@@ -38,8 +38,8 @@ export default function TagsSettingsSummaryMetrics({
       />
       <SummaryMetric
         title="Default"
-        value={PRESET_TAG_ROWS.length}
-        subtitle="Built-in statuses"
+        value={defaultTagsCount}
+        subtitle="Built-in statuses — fully editable"
       />
       <SummaryMetric
         title="Custom"

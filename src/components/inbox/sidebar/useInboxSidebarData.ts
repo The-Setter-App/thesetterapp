@@ -45,6 +45,7 @@ export default function useInboxSidebarData({
 
   const { handleConversationAction } = useInboxSidebarActions({
     users,
+    statusCatalog,
     applyUserStatusUpdate,
     applyUserPriorityUpdate,
   });

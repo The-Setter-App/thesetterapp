@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import type { StatusType, User } from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
 import type { SidebarTab } from "./SidebarTabs";
 
 const INBOX_FILTER_STATUSES_KEY = "inbox_filter_statuses";
@@ -26,6 +27,7 @@ interface UseSidebarFiltersResult {
 
 export default function useSidebarFilters(
   users: User[],
+  statusLookup: Record<string, TagRow>,
 ): UseSidebarFiltersResult {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<SidebarTab>("all");
@@ -84,7 +86,7 @@ export default function useSidebarFilters(
           activeTab === "all" ||
           (activeTab === "priority" && Boolean(user.isPriority)) ||
           (activeTab === "unread" && (user.unread ?? 0) > 0) ||
-          (activeTab === "cooling" && isLeadCooling(user));
+          (activeTab === "cooling" && isLeadCooling(user, statusLookup));
         const matchesStatus =
           selectedStatuses.length === 0 ||
           selectedStatuses.includes(user.status);
@@ -117,6 +119,7 @@ export default function useSidebarFilters(
       selectedAccountIds,
       selectedAssigneeEmails,
       selectedStatuses,
+      statusLookup,
       users,
     ],
   );

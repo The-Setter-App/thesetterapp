@@ -56,7 +56,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     accountOptions,
     assigneeOptions,
     hasActiveFilters,
-  } = useSidebarFilters(users);
+  } = useSidebarFilters(users, statusLookup);
 
   return (
     <aside
@@ -78,6 +78,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         <SidebarTabs
           activeTab={activeTab}
           users={users}
+          statusLookup={statusLookup}
           onTabChange={setActiveTab}
         />
       )}

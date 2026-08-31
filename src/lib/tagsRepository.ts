@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
+  DEFAULT_STATUS_ROLES,
+  DEFAULT_STATUS_TAGS,
   isTagIconPack,
   normalizeStatusColorHex,
   normalizeStatusKey,
@@ -7,13 +9,22 @@ import {
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { WorkspaceTagRowDb } from "@/lib/supabase/types";
 import {
-  hasDuplicateTagName,
   MAX_TAG_DESCRIPTION_LENGTH,
   MAX_TAG_NAME_LENGTH,
   normalizeTagText,
-  PRESET_TAG_ROWS,
 } from "@/lib/tags/config";
-import type { TagIconPack, TagRow } from "@/types/tags";
+import type { StatusRole, TagIconPack, TagRow } from "@/types/tags";
+
+const VALID_STATUS_ROLES = new Set<StatusRole>([
+  "new",
+  "in_contact",
+  "qualified",
+  "booked",
+  "won",
+  "unqualified",
+  "no_show",
+  "retarget",
+]);
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -37,17 +48,24 @@ function isIconNameValid(iconName: string): boolean {
   return /^[A-Za-z][A-Za-z0-9]+$/.test(iconName.trim());
 }
 
+function isValidRole(value: unknown): value is StatusRole {
+  return (
+    typeof value === "string" && VALID_STATUS_ROLES.has(value as StatusRole)
+  );
+}
+
 function mapTagRow(row: WorkspaceTagRowDb): TagRow {
   return {
     id: row.id,
     name: row.name,
     description: row.description,
-    source: "Custom",
+    source: row.source,
     colorHex: row.color_hex,
     iconPack: row.icon_pack,
     iconName: row.icon_name,
     createdBy: row.created_by_label,
     createdAt: formatTimestamp(new Date(row.created_at)),
+    role: isValidRole(row.role) ? row.role : null,
   };
 }
 
@@ -121,14 +139,6 @@ function validateTagPayload(input: {
     );
   }
 
-  if (hasDuplicateTagName(normalizedName, PRESET_TAG_ROWS)) {
-    throw new WorkspaceTagRepositoryError(
-      "reserved_name",
-      "Status name already exists in default statuses.",
-      409,
-    );
-  }
-
   return {
     normalizedName,
     normalizedDescription,
@@ -137,36 +147,134 @@ function validateTagPayload(input: {
   };
 }
 
-export async function listWorkspaceCustomTags(
-  workspaceOwnerEmail: string,
-): Promise<TagRow[]> {
-  const normalizedWorkspaceOwnerEmail = normalizeEmail(workspaceOwnerEmail);
+/**
+ * Seeds the 8 default status tags for a workspace the first time its tags
+ * are read, so a brand-new workspace gets the same starting point the old
+ * hardcoded presets used to provide - except now they're real, editable,
+ * deletable rows from the start. No-op (and race-safe via ON CONFLICT) once
+ * a workspace already has any status tags, seeded or custom.
+ */
+async function ensureWorkspaceStatusTagsSeeded(
+  normalizedOwnerEmail: string,
+): Promise<void> {
   const supabase = getSupabaseServerClient();
-
-  const { data, error } = await supabase
+  const { count } = await supabase
     .from("workspace_status_tags")
-    .select(
-      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,created_by_email,created_by_label,created_at,updated_at",
-    )
-    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
-    .order("created_at", { ascending: false });
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_owner_email", normalizedOwnerEmail);
 
-  if (error) {
-    throw new WorkspaceTagRepositoryError(
-      "list_failed",
-      "Failed to load custom status tags.",
-      500,
-    );
+  if (count) return;
+
+  const now = new Date().toISOString();
+  const rows = DEFAULT_STATUS_TAGS.map((tag) => ({
+    id: randomUUID(),
+    workspace_owner_email: normalizedOwnerEmail,
+    normalized_name: normalizeStatusKey(tag.name),
+    name: tag.name,
+    description: tag.description,
+    source: "Default" as const,
+    color_hex: tag.colorHex,
+    icon_pack: tag.iconPack,
+    icon_name: tag.iconName,
+    role: DEFAULT_STATUS_ROLES[tag.name] ?? null,
+    created_by_email: normalizedOwnerEmail,
+    created_by_label: "System",
+    created_at: now,
+    updated_at: now,
+  }));
+
+  await supabase.from("workspace_status_tags").upsert(rows, {
+    onConflict: "workspace_owner_email,normalized_name",
+    ignoreDuplicates: true,
+  });
+}
+
+/** Clears `role` from whichever tag currently holds it, so assigning it elsewhere never conflicts. */
+async function clearExistingRoleHolder(
+  normalizedOwnerEmail: string,
+  role: StatusRole,
+  exceptTagId?: string,
+): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("workspace_status_tags")
+    .update({ role: null, updated_at: new Date().toISOString() })
+    .eq("workspace_owner_email", normalizedOwnerEmail)
+    .eq("role", role);
+
+  if (exceptTagId) {
+    query = query.neq("id", exceptTagId);
   }
 
-  return ((data ?? []) as WorkspaceTagRowDb[]).map(mapTagRow);
+  await query;
+}
+
+/**
+ * Updates every conversation currently on `oldName` to `newName`, both the
+ * status column and the mirrored payload.status field. Renaming a tag
+ * without this would silently orphan every conversation using it - they'd
+ * keep the old status string with no matching tag row, losing color/icon
+ * and falling out of anything that reads status by name.
+ */
+async function cascadeStatusRename(
+  normalizedOwnerEmail: string,
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  if (oldName === newName) return;
+
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("inbox_conversations")
+    .select("id,payload")
+    .eq("owner_email", normalizedOwnerEmail)
+    .eq("status", oldName)
+    .limit(2000);
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    payload: Record<string, unknown>;
+  }>;
+  if (rows.length === 0) return;
+
+  await Promise.all(
+    rows.map((row) =>
+      supabase
+        .from("inbox_conversations")
+        .update({
+          status: newName,
+          payload: { ...row.payload, status: newName },
+        })
+        .eq("owner_email", normalizedOwnerEmail)
+        .eq("id", row.id),
+    ),
+  );
 }
 
 export async function listWorkspaceAssignableTags(
   workspaceOwnerEmail: string,
 ): Promise<TagRow[]> {
-  const customTags = await listWorkspaceCustomTags(workspaceOwnerEmail);
-  return [...PRESET_TAG_ROWS, ...customTags];
+  const normalizedWorkspaceOwnerEmail = normalizeEmail(workspaceOwnerEmail);
+  await ensureWorkspaceStatusTagsSeeded(normalizedWorkspaceOwnerEmail);
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("workspace_status_tags")
+    .select(
+      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,role,created_by_email,created_by_label,created_at,updated_at",
+    )
+    .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new WorkspaceTagRepositoryError(
+      "list_failed",
+      "Failed to load status tags.",
+      500,
+    );
+  }
+
+  return ((data ?? []) as WorkspaceTagRowDb[]).map(mapTagRow);
 }
 
 export async function listWorkspaceStatusNames(
@@ -176,6 +284,15 @@ export async function listWorkspaceStatusNames(
   return tags.map((tag) => tag.name);
 }
 
+/** The tag currently holding a given role for a workspace, if any. */
+export async function findWorkspaceTagByRole(
+  workspaceOwnerEmail: string,
+  role: StatusRole,
+): Promise<TagRow | null> {
+  const tags = await listWorkspaceAssignableTags(workspaceOwnerEmail);
+  return tags.find((tag) => tag.role === role) ?? null;
+}
+
 export async function createWorkspaceCustomTag(input: {
   workspaceOwnerEmail: string;
   name: string;
@@ -183,6 +300,7 @@ export async function createWorkspaceCustomTag(input: {
   colorHex: string;
   iconPack: TagIconPack;
   iconName: string;
+  role?: StatusRole | null;
   createdByEmail: string;
   createdByLabel?: string;
 }): Promise<TagRow> {
@@ -204,6 +322,24 @@ export async function createWorkspaceCustomTag(input: {
     iconName: input.iconName,
   });
 
+  if (
+    input.role !== undefined &&
+    input.role !== null &&
+    !isValidRole(input.role)
+  ) {
+    throw new WorkspaceTagRepositoryError(
+      "invalid_role",
+      "Invalid status role.",
+      400,
+    );
+  }
+
+  await ensureWorkspaceStatusTagsSeeded(normalizedWorkspaceOwnerEmail);
+
+  if (input.role) {
+    await clearExistingRoleHolder(normalizedWorkspaceOwnerEmail, input.role);
+  }
+
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
@@ -217,6 +353,7 @@ export async function createWorkspaceCustomTag(input: {
     color_hex: normalizedColorHex,
     icon_pack: input.iconPack,
     icon_name: normalizedIconName,
+    role: input.role ?? null,
     created_by_email: normalizedCreatedByEmail,
     created_by_label: normalizedCreatedByLabel || normalizedCreatedByEmail,
     created_at: now,
@@ -227,7 +364,7 @@ export async function createWorkspaceCustomTag(input: {
     .from("workspace_status_tags")
     .insert(insertPayload)
     .select(
-      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,created_by_email,created_by_label,created_at,updated_at",
+      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,role,created_by_email,created_by_label,created_at,updated_at",
     )
     .single();
 
@@ -257,6 +394,7 @@ export async function updateWorkspaceCustomTag(input: {
   colorHex: string;
   iconPack: TagIconPack;
   iconName: string;
+  role?: StatusRole | null;
 }): Promise<TagRow> {
   const normalizedWorkspaceOwnerEmail = normalizeEmail(
     input.workspaceOwnerEmail,
@@ -283,10 +421,22 @@ export async function updateWorkspaceCustomTag(input: {
     iconName: input.iconName,
   });
 
+  if (
+    input.role !== undefined &&
+    input.role !== null &&
+    !isValidRole(input.role)
+  ) {
+    throw new WorkspaceTagRepositoryError(
+      "invalid_role",
+      "Invalid status role.",
+      400,
+    );
+  }
+
   const supabase = getSupabaseServerClient();
   const { data: existingTag } = await supabase
     .from("workspace_status_tags")
-    .select("id")
+    .select("id,name")
     .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
     .eq("id", normalizedTagId)
     .maybeSingle();
@@ -299,6 +449,14 @@ export async function updateWorkspaceCustomTag(input: {
     );
   }
 
+  if (input.role) {
+    await clearExistingRoleHolder(
+      normalizedWorkspaceOwnerEmail,
+      input.role,
+      normalizedTagId,
+    );
+  }
+
   const { data, error } = await supabase
     .from("workspace_status_tags")
     .update({
@@ -308,12 +466,13 @@ export async function updateWorkspaceCustomTag(input: {
       color_hex: normalizedColorHex,
       icon_pack: input.iconPack,
       icon_name: normalizedIconName,
+      role: input.role ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
     .eq("id", normalizedTagId)
     .select(
-      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,created_by_email,created_by_label,created_at,updated_at",
+      "id,workspace_owner_email,normalized_name,name,description,source,color_hex,icon_pack,icon_name,role,created_by_email,created_by_label,created_at,updated_at",
     )
     .single();
 
@@ -331,6 +490,13 @@ export async function updateWorkspaceCustomTag(input: {
       500,
     );
   }
+
+  const existingName = (existingTag as { name: string }).name;
+  await cascadeStatusRename(
+    normalizedWorkspaceOwnerEmail,
+    existingName,
+    normalizedName,
+  );
 
   return mapTagRow(data as WorkspaceTagRowDb);
 }
@@ -355,7 +521,7 @@ export async function deleteWorkspaceCustomTag(input: {
 
   const { data: existing } = await supabase
     .from("workspace_status_tags")
-    .select("id,name")
+    .select("id,name,role")
     .eq("workspace_owner_email", normalizedWorkspaceOwnerEmail)
     .eq("id", normalizedTagId)
     .maybeSingle();
@@ -365,6 +531,14 @@ export async function deleteWorkspaceCustomTag(input: {
       "tag_not_found",
       "Status tag not found.",
       404,
+    );
+  }
+
+  if (existing.role) {
+    throw new WorkspaceTagRepositoryError(
+      "role_in_use",
+      "This status is required by the app (dashboard, cooling alerts, or stats) and can't be deleted. Assign its role to another status first, then it'll be deletable.",
+      409,
     );
   }
 

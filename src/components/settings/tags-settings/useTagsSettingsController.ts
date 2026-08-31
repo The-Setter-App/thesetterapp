@@ -12,9 +12,8 @@ import {
   MAX_TAG_DESCRIPTION_LENGTH,
   MAX_TAG_NAME_LENGTH,
   normalizeTagText,
-  PRESET_TAG_ROWS,
 } from "@/lib/tags/config";
-import type { TagIconPack, TagRow } from "@/types/tags";
+import type { StatusRole, TagIconPack, TagRow } from "@/types/tags";
 import {
   DEFAULT_TAG_COLOR_HEX,
   DEFAULT_TAG_ICON_NAME,
@@ -34,12 +33,9 @@ export function useTagsSettingsController({
   currentUser,
   initialTags,
 }: TagsSettingsContentProps): UseTagsSettingsControllerResult {
-  const initialCustomTags = useMemo(
-    () => initialTags.filter((tag) => tag.source === "Custom"),
-    [initialTags],
-  );
-
-  const [customTags, setCustomTags] = useState<TagRow[]>(initialCustomTags);
+  // Every tag - default and custom - now lives in the DB and is edited the
+  // same way, so this holds the full workspace list, not just custom ones.
+  const [allTags, setAllTags] = useState<TagRow[]>(initialTags);
   const [tagName, setTagName] = useState("");
   const [tagDescription, setTagDescription] = useState("");
   const [tagColorHex, setTagColorHex] = useState(DEFAULT_TAG_COLOR_HEX);
@@ -47,6 +43,7 @@ export function useTagsSettingsController({
     DEFAULT_TAG_ICON_PACK,
   );
   const [tagIconName, setTagIconName] = useState(DEFAULT_TAG_ICON_NAME);
+  const [tagRole, setTagRole] = useState<StatusRole | null>(null);
   const [iconPickerContext, setIconPickerContext] =
     useState<IconPickerContext | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -55,28 +52,26 @@ export function useTagsSettingsController({
   const [activeEditTagId, setActiveEditTagId] = useState<string | null>(null);
   const [editTagName, setEditTagName] = useState("");
   const [editTagDescription, setEditTagDescription] = useState("");
-  const [editTagColorHex, setEditTagColorHex] =
-    useState(DEFAULT_TAG_COLOR_HEX);
+  const [editTagColorHex, setEditTagColorHex] = useState(DEFAULT_TAG_COLOR_HEX);
   const [editTagIconPack, setEditTagIconPack] = useState<TagIconPack>(
     DEFAULT_TAG_ICON_PACK,
   );
-  const [editTagIconName, setEditTagIconName] =
-    useState(DEFAULT_TAG_ICON_NAME);
+  const [editTagIconName, setEditTagIconName] = useState(DEFAULT_TAG_ICON_NAME);
+  const [editTagRole, setEditTagRole] = useState<StatusRole | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
-  const allTags = useMemo(
-    () => [...PRESET_TAG_ROWS, ...customTags],
-    [customTags],
+  const customTags = useMemo(
+    () => allTags.filter((tag) => tag.source === "Custom"),
+    [allTags],
   );
   const normalizedTagName = normalizeTagText(tagName);
   const normalizedTagDescription = normalizeTagText(tagDescription);
   const canAddTag = normalizedTagName.length > 0 && !isCreating && !isUpdating;
 
-  async function syncStatusCatalogCache(nextCustomTags: TagRow[]) {
-    const nextAssignableStatuses = [...PRESET_TAG_ROWS, ...nextCustomTags];
-    await setCachedInboxTags(nextAssignableStatuses);
-    broadcastInboxStatusCatalogChanged(nextAssignableStatuses);
+  async function syncStatusCatalogCache(nextAllTags: TagRow[]) {
+    await setCachedInboxTags(nextAllTags);
+    broadcastInboxStatusCatalogChanged(nextAllTags);
   }
 
   function resetEditState() {
@@ -86,10 +81,10 @@ export function useTagsSettingsController({
     setEditTagColorHex(DEFAULT_TAG_COLOR_HEX);
     setEditTagIconPack(DEFAULT_TAG_ICON_PACK);
     setEditTagIconName(DEFAULT_TAG_ICON_NAME);
+    setEditTagRole(null);
   }
 
   function beginEditTag(tag: TagRow) {
-    if (tag.source !== "Custom") return;
     setErrorMessage("");
     setSuccessMessage("");
     setActiveEditTagId(tag.id);
@@ -98,6 +93,7 @@ export function useTagsSettingsController({
     setEditTagColorHex(tag.colorHex);
     setEditTagIconPack(tag.iconPack);
     setEditTagIconName(tag.iconName);
+    setEditTagRole(tag.role ?? null);
   }
 
   async function handleAddCustomTag(event: FormEvent<HTMLFormElement>) {
@@ -151,6 +147,7 @@ export function useTagsSettingsController({
           colorHex: normalizedColor,
           iconPack: tagIconPack,
           iconName: tagIconName,
+          role: tagRole,
         }),
       });
       const payload = (await response.json()) as UpsertTagResponse;
@@ -158,19 +155,26 @@ export function useTagsSettingsController({
         throw new Error(payload.error || "Failed to create status tag.");
       }
 
-      const nextCustomTags = [payload.tag, ...customTags];
-      setCustomTags(nextCustomTags);
+      // A newly-assigned role clears it from whichever tag held it before.
+      const nextAllTags = [
+        payload.tag,
+        ...allTags.map((tag) =>
+          tagRole && tag.role === tagRole ? { ...tag, role: null } : tag,
+        ),
+      ];
+      setAllTags(nextAllTags);
       setTagName("");
       setTagDescription("");
       setTagColorHex(DEFAULT_TAG_COLOR_HEX);
       setTagIconPack(DEFAULT_TAG_ICON_PACK);
       setTagIconName(DEFAULT_TAG_ICON_NAME);
+      setTagRole(null);
       setSuccessMessage(
         `"${payload.tag.name}" was saved by ${
           currentUser.displayName || currentUser.email
         }.`,
       );
-      await syncStatusCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextAllTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to create status tag.",
@@ -237,6 +241,7 @@ export function useTagsSettingsController({
             colorHex: normalizedEditColor,
             iconPack: editTagIconPack,
             iconName: editTagIconName,
+            role: editTagRole,
           }),
         },
       );
@@ -246,13 +251,18 @@ export function useTagsSettingsController({
       }
 
       const updatedTag = payload.tag;
-      const nextCustomTags = customTags.map((row) =>
-        row.id === activeEditTagId ? updatedTag : row,
-      );
-      setCustomTags(nextCustomTags);
+      const nextAllTags = allTags.map((row) => {
+        if (row.id === activeEditTagId) return updatedTag;
+        // A role moved to this tag clears it from whoever held it before.
+        if (editTagRole && row.role === editTagRole) {
+          return { ...row, role: null };
+        }
+        return row;
+      });
+      setAllTags(nextAllTags);
       setSuccessMessage(`"${updatedTag.name}" was updated.`);
       resetEditState();
-      await syncStatusCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextAllTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to update status tag.",
@@ -263,7 +273,7 @@ export function useTagsSettingsController({
   }
 
   async function handleDeleteTag(tagId: string) {
-    const target = customTags.find((tag) => tag.id === tagId);
+    const target = allTags.find((tag) => tag.id === tagId);
     if (!target) return;
 
     const confirmed = window.confirm(`Delete "${target.name}"?`);
@@ -284,13 +294,13 @@ export function useTagsSettingsController({
         throw new Error(payload.error || "Failed to delete status tag.");
       }
 
-      const nextCustomTags = customTags.filter((tag) => tag.id !== tagId);
-      setCustomTags(nextCustomTags);
+      const nextAllTags = allTags.filter((tag) => tag.id !== tagId);
+      setAllTags(nextAllTags);
       if (activeEditTagId === tagId) {
         resetEditState();
       }
       setSuccessMessage(`"${target.name}" was deleted.`);
-      await syncStatusCatalogCache(nextCustomTags);
+      await syncStatusCatalogCache(nextAllTags);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to delete status tag.",
@@ -324,12 +334,14 @@ export function useTagsSettingsController({
       tagColorHex,
       tagIconPack,
       tagIconName,
+      tagRole,
       canSubmit: canAddTag,
       isSubmitting: isCreating,
       onSubmit: handleAddCustomTag,
       onTagNameChange: setTagName,
       onTagDescriptionChange: setTagDescription,
       onTagColorHexChange: setTagColorHex,
+      onTagRoleChange: setTagRole,
       openIconPicker: () => setIconPickerContext("create"),
     },
     editForm: {
@@ -339,11 +351,13 @@ export function useTagsSettingsController({
       tagColorHex: editTagColorHex,
       tagIconPack: editTagIconPack,
       tagIconName: editTagIconName,
+      tagRole: editTagRole,
       isSubmitting: isUpdating,
       deletingTagId,
       onTagNameChange: setEditTagName,
       onTagDescriptionChange: setEditTagDescription,
       onTagColorHexChange: setEditTagColorHex,
+      onTagRoleChange: setEditTagRole,
       openIconPicker: () => setIconPickerContext("edit"),
       begin: beginEditTag,
       cancel: resetEditState,

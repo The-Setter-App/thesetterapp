@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { TagIconPack, TagRow } from "@/types/tags";
+import type { StatusRole, TagIconPack, TagRow } from "@/types/tags";
 
 export interface TagsSettingsCurrentUser {
   email: string;
@@ -39,12 +39,14 @@ export interface TagsSettingsCreateFormState {
   tagColorHex: string;
   tagIconPack: TagIconPack;
   tagIconName: string;
+  tagRole: StatusRole | null;
   canSubmit: boolean;
   isSubmitting: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onTagNameChange: (value: string) => void;
   onTagDescriptionChange: (value: string) => void;
   onTagColorHexChange: (value: string) => void;
+  onTagRoleChange: (value: StatusRole | null) => void;
   openIconPicker: () => void;
 }
 
@@ -55,11 +57,13 @@ export interface TagsSettingsEditFormState {
   tagColorHex: string;
   tagIconPack: TagIconPack;
   tagIconName: string;
+  tagRole: StatusRole | null;
   isSubmitting: boolean;
   deletingTagId: string | null;
   onTagNameChange: (value: string) => void;
   onTagDescriptionChange: (value: string) => void;
   onTagColorHexChange: (value: string) => void;
+  onTagRoleChange: (value: StatusRole | null) => void;
   openIconPicker: () => void;
   begin: (tag: TagRow) => void;
   cancel: () => void;

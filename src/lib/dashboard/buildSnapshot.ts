@@ -3,6 +3,7 @@ import type {
   DashboardSnapshot,
 } from "@/types/dashboard";
 import type { User } from "@/types/inbox";
+import type { StatusRole } from "@/types/tags";
 
 interface ConversationSummary {
   newLead: number;
@@ -31,7 +32,10 @@ function parseRevenueAmount(rawAmount: string | undefined): number | null {
   return numeric;
 }
 
-function summarizeConversations(users: User[]): ConversationSummary {
+function summarizeConversations(
+  users: User[],
+  roleByStatusName: Record<string, StatusRole | null | undefined>,
+): ConversationSummary {
   let newLead = 0;
   let inContact = 0;
   let qualified = 0;
@@ -44,29 +48,32 @@ function summarizeConversations(users: User[]): ConversationSummary {
   let revenueConversations = 0;
 
   for (const user of users) {
-    switch (user.status) {
-      case "New Lead":
+    // Bucketed by role, not the literal status string, so renaming a
+    // status (e.g. "Won" -> "Closed Deal") doesn't silently drop it out of
+    // the funnel - only reassigning the role elsewhere does that.
+    switch (roleByStatusName[user.status]) {
+      case "new":
         newLead += 1;
         break;
-      case "In-Contact":
+      case "in_contact":
         inContact += 1;
         break;
-      case "Qualified":
+      case "qualified":
         qualified += 1;
         conversionCount += 1;
         break;
-      case "Booked":
+      case "booked":
         booked += 1;
         conversionCount += 1;
         break;
-      case "Won":
+      case "won":
         won += 1;
         conversionCount += 1;
         break;
-      case "Unqualified":
+      case "unqualified":
         unqualified += 1;
         break;
-      case "No-Show":
+      case "no_show":
         noShow += 1;
         break;
       default:
@@ -154,13 +161,14 @@ export function buildDashboardSnapshot(
   users: User[],
   messageStatsByConversationId: Map<string, DashboardMessageStats>,
   hasConnectedAccounts: boolean,
+  roleByStatusName: Record<string, StatusRole | null | undefined> = {},
 ): DashboardSnapshot {
   const snapshot = createEmptyDashboardSnapshot(hasConnectedAccounts);
   if (users.length === 0) {
     return snapshot;
   }
 
-  const conversationSummary = summarizeConversations(users);
+  const conversationSummary = summarizeConversations(users, roleByStatusName);
   const messageSummary = summarizeMessages(users, messageStatsByConversationId);
 
   const conversationRate = Math.round(

@@ -7,7 +7,7 @@ import {
   WorkspaceTagRepositoryError,
 } from "@/lib/tagsRepository";
 import { requireWorkspaceContext } from "@/lib/workspace";
-import type { TagIconPack } from "@/types/tags";
+import type { StatusRole, TagIconPack } from "@/types/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,24 @@ interface UpdateTagBody {
   colorHex?: unknown;
   iconPack?: unknown;
   iconName?: unknown;
+  role?: unknown;
+}
+
+const VALID_ROLES = new Set<StatusRole>([
+  "new",
+  "in_contact",
+  "qualified",
+  "booked",
+  "won",
+  "unqualified",
+  "no_show",
+  "retarget",
+]);
+
+function parseRole(value: unknown): StatusRole | null {
+  return typeof value === "string" && VALID_ROLES.has(value as StatusRole)
+    ? (value as StatusRole)
+    : null;
 }
 
 interface RouteParams {
@@ -58,6 +76,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       colorHex,
       iconPack: iconPack as TagIconPack,
       iconName,
+      role: parseRole(body?.role),
     });
 
     return NextResponse.json(

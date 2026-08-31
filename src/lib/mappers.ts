@@ -35,7 +35,12 @@ export function getRelativeTime(dateString: string): string {
 export function mapConversationToUser(
   raw: RawGraphConversation,
   userId: string,
-  context?: { accountId?: string; ownerPageId?: string; accountLabel?: string },
+  context?: {
+    accountId?: string;
+    ownerPageId?: string;
+    accountLabel?: string;
+    initialStatusName?: string;
+  },
 ): User {
   // Find the participant who is NOT your Instagram user (i.e., the other person)
   const recipient = raw.participants.data.find((p) => p.id !== userId);
@@ -52,8 +57,10 @@ export function mapConversationToUser(
     `user_${recipient?.id.slice(-6)}`;
   const displayName = username.startsWith("@") ? username : `@${username}`;
 
-  // Default status - in a real app, this would come from your CRM/database
-  const status: StatusType = "New Lead";
+  // Whichever status currently holds the "new" role for this workspace -
+  // callers resolve this from the workspace's own tags, falling back to
+  // "New Lead" only if none is configured (shouldn't happen once seeded).
+  const status: StatusType = context?.initialStatusName || "New Lead";
 
   return {
     id: raw.id,

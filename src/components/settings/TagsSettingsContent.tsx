@@ -31,6 +31,7 @@ export default function TagsSettingsContent(props: TagsSettingsContentProps) {
       >
         <TagsSettingsSummaryMetrics
           totalTags={allTags.length}
+          defaultTagsCount={allTags.length - customTags.length}
           customTagsCount={customTags.length}
         />
 

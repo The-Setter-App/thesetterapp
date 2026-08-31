@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
+import type { StatusRole } from "@/types/tags";
 
 export class CommentAutomationRepositoryError extends Error {
   status: number;
@@ -520,26 +522,35 @@ export interface VariantConversionStats {
   booked: number;
 }
 
-const QUALIFIED_OR_LATER_STATUSES = new Set(["Qualified", "Booked", "Won"]);
-const BOOKED_STATUSES = new Set(["Booked", "Won"]);
+const QUALIFIED_OR_LATER_ROLES = new Set<StatusRole>([
+  "qualified",
+  "booked",
+  "won",
+]);
+const BOOKED_OR_LATER_ROLES = new Set<StatusRole>(["booked", "won"]);
 
 /**
  * Reply/qualify/book rate per variant for an automation, computed from the
- * conversations it produced. Qualify/book are current-status snapshots
- * (a lead that moved past Qualified and back wouldn't show as qualified
- * here) rather than a full history read - a reasonable approximation given
- * the volumes this settings page needs to render at.
+ * conversations it produced. Bucketed by each conversation's current
+ * status's role, not the literal name, so renaming "Won" doesn't silently
+ * zero out a variant's reported conversions. Qualify/book are current-
+ * status snapshots (a lead that moved past Qualified and back wouldn't
+ * show as qualified here) rather than a full history read - a reasonable
+ * approximation given the volumes this settings page needs to render at.
  */
 export async function getAutomationConversionStats(
   ownerEmail: string,
   automationId: string,
 ): Promise<VariantConversionStats[]> {
-  const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("inbox_conversations")
-    .select("payload")
-    .eq("owner_email", normalizeEmail(ownerEmail))
-    .filter("payload->>commentAutomationId", "eq", automationId);
+  const [tags, { data }] = await Promise.all([
+    listWorkspaceAssignableTags(ownerEmail),
+    getSupabaseServerClient()
+      .from("inbox_conversations")
+      .select("payload")
+      .eq("owner_email", normalizeEmail(ownerEmail))
+      .filter("payload->>commentAutomationId", "eq", automationId),
+  ]);
+  const roleByStatusName = new Map(tags.map((tag) => [tag.name, tag.role]));
 
   const rows = (data ?? []) as Array<{
     payload: {
@@ -561,13 +572,14 @@ export async function getAutomationConversionStats(
     };
     stats.sent += 1;
     if (row.payload.lastInboundAt) stats.replied += 1;
-    if (
-      row.payload.status &&
-      QUALIFIED_OR_LATER_STATUSES.has(row.payload.status)
-    ) {
+
+    const role = row.payload.status
+      ? roleByStatusName.get(row.payload.status)
+      : null;
+    if (role && QUALIFIED_OR_LATER_ROLES.has(role)) {
       stats.qualified += 1;
     }
-    if (row.payload.status && BOOKED_STATUSES.has(row.payload.status)) {
+    if (role && BOOKED_OR_LATER_ROLES.has(role)) {
       stats.booked += 1;
     }
     byVariant.set(variantId, stats);

@@ -1,5 +1,5 @@
 import type { StatusType } from "@/types/status";
-import type { TagIconPack, TagRow } from "@/types/tags";
+import type { StatusRole, TagIconPack, TagRow } from "@/types/tags";
 
 export const MAX_STATUS_NAME_LENGTH = 32;
 export const MAX_STATUS_DESCRIPTION_LENGTH = 120;
@@ -102,6 +102,21 @@ export const DEFAULT_STATUS_TAGS: TagRow[] = [
 export const STATUS_OPTIONS: StatusType[] = DEFAULT_STATUS_TAGS.map(
   (tag) => tag.name,
 );
+
+// Used only to seed a brand-new workspace's status tags on first use - once
+// seeded, a workspace's tags (including these 8) live entirely in
+// workspace_status_tags and are fully editable/deletable. Kept alongside
+// DEFAULT_STATUS_TAGS so both stay in sync from one source of truth.
+export const DEFAULT_STATUS_ROLES: Record<string, StatusRole> = {
+  "New Lead": "new",
+  "In-Contact": "in_contact",
+  Qualified: "qualified",
+  Unqualified: "unqualified",
+  Retarget: "retarget",
+  Won: "won",
+  "No-Show": "no_show",
+  Booked: "booked",
+};
 
 const DEFAULT_STATUS_BADGE_CLASS_MAP: Record<string, string> = {
   Won: "bg-green-600 text-white",

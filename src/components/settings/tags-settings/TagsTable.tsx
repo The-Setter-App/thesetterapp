@@ -30,7 +30,10 @@ export default function TagsTable({ allTags, editForm }: TagsTableProps) {
                 Source
               </th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
-                Description
+                Role
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
+                Description (AI criteria)
               </th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#606266]">
                 Color

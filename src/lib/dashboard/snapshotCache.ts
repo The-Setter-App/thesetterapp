@@ -9,6 +9,7 @@ import {
 } from "@/lib/dashboard/cacheInvalidation";
 import { getDashboardMessageStatsMapFromConversationPayload } from "@/lib/dashboard/messageMetrics";
 import { getConversationsFromDb } from "@/lib/inboxRepository";
+import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
 import { getConnectedInstagramAccounts } from "@/lib/userRepository";
 import type { DashboardSnapshot } from "@/types/dashboard";
 
@@ -32,7 +33,17 @@ const getCachedDashboardSnapshotInternal = unstable_cache(
     const messageStats =
       getDashboardMessageStatsMapFromConversationPayload(conversations);
 
-    return buildDashboardSnapshot(conversations, messageStats, true);
+    const tags = await listWorkspaceAssignableTags(normalizedOwnerEmail);
+    const roleByStatusName = Object.fromEntries(
+      tags.map((tag) => [tag.name, tag.role]),
+    );
+
+    return buildDashboardSnapshot(
+      conversations,
+      messageStats,
+      true,
+      roleByStatusName,
+    );
   },
   [DASHBOARD_SNAPSHOT_CACHE_TAG],
   {

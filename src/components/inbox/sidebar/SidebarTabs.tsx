@@ -1,5 +1,6 @@
 import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import type { User } from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
 
 export type SidebarTab = "all" | "priority" | "unread" | "cooling";
 
@@ -8,19 +9,27 @@ const SIDEBAR_TABS: SidebarTab[] = ["all", "priority", "unread", "cooling"];
 interface SidebarTabsProps {
   activeTab: SidebarTab;
   users: User[];
+  statusLookup: Record<string, TagRow>;
   onTabChange: (tab: SidebarTab) => void;
 }
 
-function getTabCount(tab: SidebarTab, users: User[]): number {
+function getTabCount(
+  tab: SidebarTab,
+  users: User[],
+  statusLookup: Record<string, TagRow>,
+): number {
   if (tab === "all") return users.length;
   if (tab === "priority") return users.filter((u) => u.isPriority).length;
-  if (tab === "cooling") return users.filter((u) => isLeadCooling(u)).length;
+  if (tab === "cooling") {
+    return users.filter((u) => isLeadCooling(u, statusLookup)).length;
+  }
   return users.filter((u) => (u.unread ?? 0) > 0).length;
 }
 
 export default function SidebarTabs({
   activeTab,
   users,
+  statusLookup,
   onTabChange,
 }: SidebarTabsProps) {
   return (
@@ -33,7 +42,7 @@ export default function SidebarTabs({
             className={`flex-1 rounded-full py-1.5 capitalize transition-colors ${activeTab === tab ? "bg-[#8771FF] text-white" : "text-[#606266] hover:bg-[#F8F7FF]"}`}
             onClick={() => onTabChange(tab)}
           >
-            {tab} [{getTabCount(tab, users)}]
+            {tab} [{getTabCount(tab, users, statusLookup)}]
           </button>
         ))}
       </div>

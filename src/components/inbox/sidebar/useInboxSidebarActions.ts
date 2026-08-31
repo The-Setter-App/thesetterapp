@@ -8,10 +8,12 @@ import {
   syncConversationStatusToClientCache,
 } from "@/lib/status/clientSync";
 import type { StatusType, User } from "@/types/inbox";
+import type { TagRow } from "@/types/tags";
 import type { ConversationAction } from "./types";
 
 interface UseInboxSidebarActionsOptions {
   users: User[];
+  statusCatalog: TagRow[];
   applyUserStatusUpdate: (
     userId: string,
     status: StatusType,
@@ -29,6 +31,7 @@ interface UseInboxSidebarActionsResult {
 
 export default function useInboxSidebarActions({
   users,
+  statusCatalog,
   applyUserStatusUpdate,
   applyUserPriorityUpdate,
 }: UseInboxSidebarActionsOptions): UseInboxSidebarActionsResult {
@@ -39,7 +42,12 @@ export default function useInboxSidebarActions({
       }
 
       if (action === "qualified") {
-        const nextStatus: StatusType = "Qualified";
+        // Whichever status currently holds the "qualified" role - falls
+        // back to the literal name only if a workspace somehow has none
+        // (shouldn't happen once seeded, but never crash the quick action).
+        const nextStatus: StatusType =
+          statusCatalog.find((tag) => tag.role === "qualified")?.name ??
+          "Qualified";
         const previousStatus = users.find((user) => user.id === userId)?.status;
 
         applyUserStatusUpdate(userId, nextStatus);
@@ -86,7 +94,7 @@ export default function useInboxSidebarActions({
         applyUserPriorityUpdate(userId, previousPriority);
       }
     },
-    [applyUserPriorityUpdate, applyUserStatusUpdate, users],
+    [applyUserPriorityUpdate, applyUserStatusUpdate, statusCatalog, users],
   );
 
   return { handleConversationAction };
