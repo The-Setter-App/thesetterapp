@@ -96,6 +96,7 @@ export interface User {
   contactDetails?: ConversationContactDetails;
   detailsUpdatedAtByField?: ConversationDetailsUpdatedAtByField;
   dashboardMessageStats?: DashboardMessageStats;
+  lastInboundAt?: string;
 }
 
 export interface PaymentDetails {

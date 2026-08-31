@@ -2,6 +2,7 @@
 
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { AppImage } from "@/components/ui/AppImage";
+import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
@@ -105,6 +106,7 @@ export default function ConversationList({
         const statusStyle = statusMeta
           ? buildStatusPillStyle(statusMeta.colorHex)
           : undefined;
+        const windowState = getMessagingWindowState(u.lastInboundAt);
 
         return (
           <div
@@ -149,6 +151,20 @@ export default function ConversationList({
                   <span className="text-[10px] text-[#9A9CA2] ml-2 whitespace-nowrap">
                     {u.time}
                   </span>
+                  {windowState && windowState.status !== "ok" && (
+                    <span
+                      className={`ml-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+                        windowState.status === "closed"
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                      }`}
+                      title={
+                        windowState.status === "closed"
+                          ? "Messaging window closed"
+                          : "Messaging window closes soon"
+                      }
+                    />
+                  )}
                 </div>
                 <div className="text-xs text-[#606266] truncate">
                   {u.lastMessage}

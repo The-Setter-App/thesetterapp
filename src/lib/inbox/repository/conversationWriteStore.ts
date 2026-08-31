@@ -154,6 +154,9 @@ export async function updateConversationMetadata(
     updatedAt: eventTimestampIso || new Date().toISOString(),
     unread: nextUnread,
     needsReply: nextNeedsReply,
+    lastInboundAt: incrementUnread
+      ? eventTimestampIso || new Date().toISOString()
+      : existing.lastInboundAt,
   };
 
   await supabase

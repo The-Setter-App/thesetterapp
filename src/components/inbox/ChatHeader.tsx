@@ -1,6 +1,7 @@
 "use client";
 
 import { LuEyeOff } from "react-icons/lu";
+import MessagingWindowCountdown from "@/components/inbox/MessagingWindowCountdown";
 import { AppImage } from "@/components/ui/AppImage";
 import type { User } from "@/types/inbox";
 
@@ -55,7 +56,8 @@ export default function ChatHeader({
           <div className="text-xs text-gray-400">{user?.name || ""}</div>
         </div>
       </div>
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
+        <MessagingWindowCountdown lastInboundAt={user?.lastInboundAt} />
         <button
           type="button"
           onClick={onToggleVisible}
