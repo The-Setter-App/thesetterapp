@@ -50,7 +50,7 @@ function BrandPanel() {
         ))}
       </div>
 
-      <div className="relative max-w-md px-8 text-center">
+      <div className="relative max-w-xl px-8 text-center">
         <h2 className="text-4xl font-black leading-tight text-balance text-[#101011]">
           Join teams turning followers into customers
         </h2>
