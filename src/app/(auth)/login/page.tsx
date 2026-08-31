@@ -295,7 +295,7 @@ export default function LoginPage() {
 
       <div className="relative z-10 flex w-full items-center justify-center p-4 lg:flex-1 lg:p-10">
         <div
-          className="glass-panel flex min-h-[640px] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-20 sm:px-20"
+          className="glass-panel flex min-h-[clamp(560px,78dvh,1000px)] w-full max-w-4xl flex-col items-center justify-center rounded-[40px] px-12 py-16 sm:px-20"
           style={{
             background: "rgba(255, 255, 255, 0.55)",
             backdropFilter: "blur(28px) saturate(160%)",
