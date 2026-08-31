@@ -1,9 +1,14 @@
 import crypto from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  extractUsernameFromUser,
+  getBlockedUsernameSet,
+} from "@/lib/blockedUsernamesRepository";
 import { decryptData } from "@/lib/crypto";
 import { fetchAllConversations, fetchUserProfile } from "@/lib/graphApi";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
+  findConversationById,
   findConversationIdByParticipantAndAccount,
   findConversationIdByParticipantUnique,
   reconcileOutgoingAudioEchoWithLocalFallback,
@@ -373,6 +378,16 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
     }
   }
 
+  if (
+    conversationId &&
+    (await isConversationUsernameBlocked(conversationId, ownerEmail))
+  ) {
+    webhookDebug(
+      `[Webhook] Ignoring event for blocked username on conversation ${conversationId}`,
+    );
+    return;
+  }
+
   // Handle message
   if (event.message) {
     const msg = event.message as {
@@ -587,6 +602,22 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
   if (event.delivery) {
     webhookDebug("[Webhook] Message delivery event");
   }
+}
+
+/**
+ * Checks whether a conversation's IG username is on the workspace's block list.
+ * Used to silently ignore webhook events for accounts the workspace has excluded.
+ */
+async function isConversationUsernameBlocked(
+  conversationId: string,
+  ownerEmail: string,
+): Promise<boolean> {
+  const [conversation, blockedUsernames] = await Promise.all([
+    findConversationById(conversationId, ownerEmail),
+    getBlockedUsernameSet(ownerEmail),
+  ]);
+  if (!conversation || blockedUsernames.size === 0) return false;
+  return blockedUsernames.has(extractUsernameFromUser(conversation));
 }
 
 /**

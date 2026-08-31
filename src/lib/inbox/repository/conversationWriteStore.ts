@@ -1,3 +1,7 @@
+import {
+  extractUsernameFromUser,
+  getBlockedUsernameSet,
+} from "@/lib/blockedUsernamesRepository";
 import { revalidateDashboardSnapshotCache } from "@/lib/dashboard/cacheInvalidation";
 import { buildConversationSetPayload } from "@/lib/inbox/repository/conversationShared";
 import {
@@ -60,6 +64,16 @@ export async function saveConversationsToDb(
 ): Promise<void> {
   if (conversations.length === 0) return;
 
+  const blockedUsernames = await getBlockedUsernameSet(ownerEmail);
+  const allowedConversations = blockedUsernames.size
+    ? conversations.filter(
+        (conversation) =>
+          !blockedUsernames.has(extractUsernameFromUser(conversation)),
+      )
+    : conversations;
+
+  if (allowedConversations.length === 0) return;
+
   const rows: Array<{
     owner_email: string;
     id: string;
@@ -70,7 +84,7 @@ export async function saveConversationsToDb(
     updated_at: string;
   }> = [];
 
-  for (const conversation of conversations) {
+  for (const conversation of allowedConversations) {
     const existing = await getExistingConversationPayload(
       conversation.id,
       ownerEmail,

@@ -1,4 +1,8 @@
 import {
+  extractUsernameFromUser,
+  getBlockedUsernameSet,
+} from "@/lib/blockedUsernamesRepository";
+import {
   CONVERSATIONS_COLLECTION,
   getInboxSupabase,
 } from "@/lib/inbox/repository/core";
@@ -35,7 +39,13 @@ export async function getConversationsFromDb(
     return [];
   }
 
-  return (data as ConversationRow[]).map(mapConversation);
+  const users = (data as ConversationRow[]).map(mapConversation);
+  const blockedUsernames = await getBlockedUsernameSet(ownerEmail);
+  if (blockedUsernames.size === 0) return users;
+
+  return users.filter(
+    (user) => !blockedUsernames.has(extractUsernameFromUser(user)),
+  );
 }
 
 export async function findConversationByRecipientId(
