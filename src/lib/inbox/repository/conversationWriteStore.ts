@@ -174,6 +174,32 @@ export async function updateConversationMetadata(
   revalidateDashboardSnapshotCache();
 }
 
+export async function setConversationAiTags(
+  conversationId: string,
+  ownerEmail: string,
+  aiTagIds: string[],
+  classifiedAt: string,
+): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
+  if (!existing) return;
+
+  const nextPayload: User = {
+    ...existing,
+    aiTagIds,
+    aiTagsClassifiedAt: classifiedAt,
+  };
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
+}
+
 export async function updateUserStatus(
   conversationId: string,
   ownerEmail: string,

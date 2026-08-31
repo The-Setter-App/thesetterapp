@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
-import { type NextRequest, NextResponse } from "next/server";
+import { after, type NextRequest, NextResponse } from "next/server";
 import {
   extractUsernameFromUser,
   getBlockedUsernameSet,
 } from "@/lib/blockedUsernamesRepository";
 import { decryptData } from "@/lib/crypto";
 import { fetchAllConversations, fetchUserProfile } from "@/lib/graphApi";
+import { maybeClassifyConversationAiTags } from "@/lib/inbox/aiTagClassificationJob";
 import { extractLeadSourceFromWebhookMessage } from "@/lib/inbox/leadSource";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
@@ -545,6 +546,15 @@ async function handleMessagingEvent(event: Record<string, unknown>) {
         webhookDebug(
           `[Webhook] Updated metadata for conversation ${conversationId}`,
         );
+
+        // Run AI tag classification after the response is sent - Meta
+        // expects a fast ack, and a non-streaming LLM call can take a
+        // couple of seconds.
+        if (incrementUnread) {
+          after(() =>
+            maybeClassifyConversationAiTags(conversationId, ownerEmail),
+          );
+        }
 
         // Fetch and update profile picture for incoming messages
         if (!fromMe && !isEcho) {

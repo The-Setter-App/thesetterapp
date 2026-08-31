@@ -98,6 +98,8 @@ export interface User {
   dashboardMessageStats?: DashboardMessageStats;
   lastInboundAt?: string;
   leadSource?: LeadSource;
+  aiTagIds?: string[];
+  aiTagsClassifiedAt?: string;
 }
 
 export type LeadSourceType = "story_reply" | "story_mention" | "ad_referral";

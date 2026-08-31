@@ -28,6 +28,10 @@ export function canAccessBlockedUsersSettings(role: UserRole): boolean {
   return role !== "viewer";
 }
 
+export function canAccessAiTagsSettings(role: UserRole): boolean {
+  return role !== "viewer";
+}
+
 export function getDefaultSettingsRoute(role: UserRole): string {
   if (role === "owner") return "/settings/profile";
   if (role === "setter" || role === "closer") return "/settings/team";

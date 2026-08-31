@@ -2,6 +2,7 @@
 
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { AppImage } from "@/components/ui/AppImage";
+import type { AiTagCatalogEntry } from "@/lib/inbox/clientAiTagsCatalog";
 import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
@@ -16,6 +17,7 @@ interface ConversationListProps {
     action: "qualified" | "priority" | "unpriority" | "delete",
   ) => void;
   statusLookup: Record<string, TagRow>;
+  aiTagLookup: Record<string, AiTagCatalogEntry>;
 }
 
 const VerifiedIcon = () => (
@@ -96,6 +98,7 @@ export default function ConversationList({
   onSelectUser,
   onAction,
   statusLookup,
+  aiTagLookup,
 }: ConversationListProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
@@ -169,6 +172,26 @@ export default function ConversationList({
                 <div className="text-xs text-[#606266] truncate">
                   {u.lastMessage}
                 </div>
+                {u.aiTagIds && u.aiTagIds.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {u.aiTagIds.map((tagId) => {
+                      const tag = aiTagLookup[tagId];
+                      if (!tag) return null;
+                      return (
+                        <span
+                          key={tagId}
+                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none"
+                          style={{
+                            backgroundColor: `${tag.colorHex}1A`,
+                            color: tag.colorHex,
+                          }}
+                        >
+                          {tag.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 {u.accountLabel && (
                   <div className="mt-1 text-[10px] text-[#606266] truncate">
                     Account: {u.accountLabel}

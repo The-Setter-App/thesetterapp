@@ -15,6 +15,7 @@ export {
 export {
   saveConversationsToDb,
   saveConversationToDb,
+  setConversationAiTags,
   updateConversationDashboardStats,
   updateConversationMetadata,
   updateConversationPriority,
