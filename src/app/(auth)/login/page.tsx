@@ -5,11 +5,20 @@ import { useEffect, useState } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import { resetCache } from "@/lib/cache";
 
-const TESTIMONIAL_POSITIONS = [
-  "left-[6%] top-[22%] -rotate-6",
-  "right-[8%] top-[28%] rotate-3",
-  "left-[10%] bottom-[26%] rotate-2",
-  "right-[6%] bottom-[20%] -rotate-4",
+const TESTIMONIALS = [
+  { src: "/images/testimonial.png", position: "left-[6%] top-[22%] -rotate-6" },
+  {
+    src: "/images/testimonial-2.png",
+    position: "right-[8%] top-[28%] rotate-3",
+  },
+  {
+    src: "/images/testimonial-3.png",
+    position: "left-[10%] bottom-[26%] rotate-2",
+  },
+  {
+    src: "/images/testimonial-4.png",
+    position: "right-[6%] bottom-[20%] -rotate-4",
+  },
 ];
 
 function CloudBackground() {
@@ -25,11 +34,13 @@ function BrandPanel() {
   return (
     <div className="relative z-10 hidden flex-1 items-center justify-center self-stretch lg:flex">
       <div className="pointer-events-none absolute inset-0">
-        {TESTIMONIAL_POSITIONS.map((position, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static, never reorders
-          <div key={i} className={`drift-card absolute w-80 ${position}`}>
+        {TESTIMONIALS.map((testimonial) => (
+          <div
+            key={testimonial.src}
+            className={`drift-card absolute w-80 ${testimonial.position}`}
+          >
             <AppImage
-              src="/images/testimonial.png"
+              src={testimonial.src}
               alt=""
               width={900}
               height={342}
