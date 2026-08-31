@@ -83,9 +83,9 @@ function NoConnectedAccountsState({ displayName }: { displayName: string }) {
 }
 
 const MetricCard = ({ value, label }: MetricCardProps) => (
-  <div className="flex h-full w-full flex-col gap-2 rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+  <div className="flex h-full w-full flex-col gap-2 rounded-2xl border border-[#F0F2F6] bg-[#F9FAFB] p-5 shadow-sm">
     <div className="text-sm text-[#8A8D98]">{label}</div>
-    <div className="text-[28px] font-bold leading-none text-[#101011]">
+    <div className="text-[28px] font-semibold leading-none text-[#101011]">
       {value}
     </div>
   </div>
