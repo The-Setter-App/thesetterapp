@@ -77,19 +77,9 @@ const SLIDE_INTERVAL_MS = 5000;
 function CloudBackground() {
   return (
     <div
-      className="pointer-events-none absolute inset-0"
-      style={{
-        background:
-          "radial-gradient(140% 110% at 20% 0%, #F3F0FF 0%, #DACEFF 30%, #B49CFF 60%, #8771FF 85%, #6d5ed6 100%)",
-      }}
-    >
-      <div className="drift-blob absolute -left-16 top-10 h-72 w-72 rounded-full bg-white/40 blur-3xl" />
-      <div className="drift-blob-slow absolute left-1/3 top-1/4 h-64 w-64 rounded-full bg-white/25 blur-3xl" />
-      <div className="drift-blob-slow absolute right-[22%] top-10 h-56 w-56 rounded-full bg-white/30 blur-3xl" />
-      <div className="drift-blob absolute right-0 top-1/3 h-96 w-96 rounded-full bg-[#5235EF]/25 blur-3xl" />
-      <div className="drift-blob-slow absolute bottom-0 left-1/4 h-80 w-80 rounded-full bg-white/25 blur-3xl" />
-      <div className="drift-blob absolute -right-10 bottom-0 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
-    </div>
+      className="pointer-events-none absolute inset-0 bg-cover bg-center"
+      style={{ backgroundImage: "url('/images/login-clouds.jpg')" }}
+    />
   );
 }
 
@@ -450,21 +440,15 @@ export default function LoginPage() {
           0%, 100% { transform: translate(0, 0); }
           50% { transform: translate(12px, -16px); }
         }
-        @keyframes drift-slow {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(-16px, 12px); }
-        }
         @keyframes fade-in-up {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .drift-blob { animation: drift 9s ease-in-out infinite; }
-        .drift-blob-slow { animation: drift-slow 13s ease-in-out infinite; }
         .drift-card { animation: drift 6s ease-in-out infinite; }
         .drift-card:nth-child(2) { animation-delay: 1.2s; }
         .fade-in-up { animation: fade-in-up 0.5s ease-out; }
         @media (prefers-reduced-motion: reduce) {
-          .drift-blob, .drift-blob-slow, .drift-card, .fade-in-up { animation: none; }
+          .drift-card, .fade-in-up { animation: none; }
         }
       `}</style>
     </div>
