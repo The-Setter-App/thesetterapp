@@ -96,17 +96,6 @@ function BrandPanel() {
   return (
     <div className="relative z-10 hidden flex-1 flex-col items-center justify-center lg:flex">
       <div className="flex w-full max-w-md flex-col items-center px-8">
-        <div className="mb-10 flex items-center gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-sm">
-          {SLIDES[activeSlide].cards.map((card) => (
-            <span
-              key={card.title}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#8771FF] shadow-sm"
-            >
-              <card.icon className="h-4 w-4" />
-            </span>
-          ))}
-        </div>
-
         <div className="relative mb-8 h-40 w-full">
           {SLIDES[activeSlide].cards.map((card, i) => (
             <div
