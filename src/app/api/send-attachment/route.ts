@@ -5,6 +5,7 @@ import {
 } from "@/lib/attachmentValidation";
 import { decryptData } from "@/lib/crypto";
 import { sendAttachmentMessage } from "@/lib/graphApi";
+import { assignConversationOnFirstReply } from "@/lib/inbox/repository/conversationWriteStore";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   findConversationById,
@@ -18,7 +19,7 @@ import { AccessError, requireInboxWorkspaceContext } from "@/lib/workspace";
 
 export async function POST(request: NextRequest) {
   try {
-    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
+    const { workspaceOwnerEmail, user } = await requireInboxWorkspaceContext();
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -88,6 +89,13 @@ export async function POST(request: NextRequest) {
       {
         tag: "HUMAN_AGENT",
       },
+    );
+
+    await assignConversationOnFirstReply(
+      conversation.id,
+      workspaceOwnerEmail,
+      user.email,
+      user.displayName || user.email,
     );
 
     if (attachmentType === "audio") {

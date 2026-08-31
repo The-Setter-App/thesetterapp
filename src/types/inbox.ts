@@ -100,6 +100,8 @@ export interface User {
   leadSource?: LeadSource;
   aiTagIds?: string[];
   aiTagsClassifiedAt?: string;
+  assignedToEmail?: string;
+  assignedToLabel?: string;
 }
 
 export type LeadSourceType = "story_reply" | "story_mention" | "ad_referral";

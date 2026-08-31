@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { Inter } from "next/font/google";
 import { useMemo, useState } from "react";
-import { LuChevronDown, LuUserRound, LuUsers } from "react-icons/lu";
+import { LuUserRound } from "react-icons/lu";
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import { buildStatusPillStyle, toStatusColorRgba } from "@/lib/status/config";
 import type { StatusType } from "@/types/inbox";
@@ -141,6 +141,9 @@ export default function FilterModal({
   accountOptions,
   selectedAccountIds,
   setSelectedAccountIds,
+  assigneeOptions,
+  selectedAssigneeEmails,
+  setSelectedAssigneeEmails,
 }: {
   show: boolean;
   onClose: () => void;
@@ -150,6 +153,9 @@ export default function FilterModal({
   accountOptions: Array<{ id: string; label: string }>;
   selectedAccountIds: string[];
   setSelectedAccountIds: React.Dispatch<React.SetStateAction<string[]>>;
+  assigneeOptions: Array<{ email: string; label: string }>;
+  selectedAssigneeEmails: string[];
+  setSelectedAssigneeEmails: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   if (!show) return null;
   return (
@@ -183,12 +189,43 @@ export default function FilterModal({
             <p className="px-1 text-[14px] font-medium text-[#2B2B2C]">
               Assigned to
             </p>
-            <div className="flex h-[32px] w-full cursor-pointer items-center justify-between rounded-md border border-[#F0F2F6] bg-white px-2">
-              <span className="flex items-center gap-2 text-[12px] text-[#2B2B2C]">
-                <LuUsers className="h-4 w-4 text-[#606266]" />
-                All team members
-              </span>
-              <LuChevronDown className="h-4 w-4 text-gray-400" />
+            <div className="max-h-[140px] space-y-1 overflow-y-auto rounded-md border border-[#F0F2F6] bg-white px-2 py-2">
+              {assigneeOptions.length === 0 && (
+                <span className="flex items-center gap-2 px-1 py-1 text-[12px] text-[#9CA3AF]">
+                  <LuUserRound className="h-4 w-4" />
+                  No conversations assigned yet
+                </span>
+              )}
+              {assigneeOptions.map((assignee) => {
+                const checked = selectedAssigneeEmails.includes(assignee.email);
+                return (
+                  <button
+                    key={assignee.email}
+                    type="button"
+                    onClick={() =>
+                      setSelectedAssigneeEmails((prev) =>
+                        prev.includes(assignee.email)
+                          ? prev.filter((email) => email !== assignee.email)
+                          : [...prev, assignee.email],
+                      )
+                    }
+                    className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-[12px] text-[#2B2B2C] hover:bg-[#F8F8FA]"
+                  >
+                    <div
+                      className={`flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border ${
+                        checked
+                          ? "border-[#8771FF] bg-[#8771FF]"
+                          : "border-[#F0F2F6] bg-white"
+                      }`}
+                    >
+                      {checked && (
+                        <div className="mb-0.5 h-1 w-1.5 -rotate-45 border-b-2 border-l-2 border-white" />
+                      )}
+                    </div>
+                    <span className="truncate">{assignee.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -243,6 +280,7 @@ export default function FilterModal({
             onClick={() => {
               setSelectedStatuses([]);
               setSelectedAccountIds([]);
+              setSelectedAssigneeEmails([]);
               onClose();
             }}
             className="rounded-lg px-3 py-1 text-[12px] font-medium text-[#8771FF] transition-colors hover:bg-slate-50"

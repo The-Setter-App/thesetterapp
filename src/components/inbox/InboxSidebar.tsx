@@ -51,8 +51,11 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
     setSelectedStatuses,
     selectedAccountIds,
     setSelectedAccountIds,
+    selectedAssigneeEmails,
+    setSelectedAssigneeEmails,
     filteredUsers,
     accountOptions,
+    assigneeOptions,
     hasActiveFilters,
   } = useSidebarFilters(users);
 
@@ -108,6 +111,9 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
         accountOptions={accountOptions}
         selectedAccountIds={selectedAccountIds}
         setSelectedAccountIds={setSelectedAccountIds}
+        assigneeOptions={assigneeOptions}
+        selectedAssigneeEmails={selectedAssigneeEmails}
+        setSelectedAssigneeEmails={setSelectedAssigneeEmails}
       />
     </aside>
   );

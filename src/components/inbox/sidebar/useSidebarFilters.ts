@@ -4,6 +4,7 @@ import type { SidebarTab } from "./SidebarTabs";
 
 const INBOX_FILTER_STATUSES_KEY = "inbox_filter_statuses";
 const INBOX_FILTER_ACCOUNTS_KEY = "inbox_filter_accounts";
+const INBOX_FILTER_ASSIGNEES_KEY = "inbox_filter_assignees";
 
 interface UseSidebarFiltersResult {
   search: string;
@@ -14,8 +15,11 @@ interface UseSidebarFiltersResult {
   setSelectedStatuses: React.Dispatch<React.SetStateAction<StatusType[]>>;
   selectedAccountIds: string[];
   setSelectedAccountIds: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedAssigneeEmails: string[];
+  setSelectedAssigneeEmails: React.Dispatch<React.SetStateAction<string[]>>;
   filteredUsers: User[];
   accountOptions: Array<{ id: string; label: string }>;
+  assigneeOptions: Array<{ email: string; label: string }>;
   hasActiveFilters: boolean;
 }
 
@@ -26,6 +30,9 @@ export default function useSidebarFilters(
   const [activeTab, setActiveTab] = useState<SidebarTab>("all");
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedAssigneeEmails, setSelectedAssigneeEmails] = useState<
+    string[]
+  >([]);
 
   useEffect(() => {
     const saved = localStorage.getItem(INBOX_FILTER_STATUSES_KEY);
@@ -55,6 +62,20 @@ export default function useSidebarFilters(
     );
   }, [selectedAccountIds]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem(INBOX_FILTER_ASSIGNEES_KEY);
+    if (saved) {
+      setSelectedAssigneeEmails(JSON.parse(saved) as string[]);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      INBOX_FILTER_ASSIGNEES_KEY,
+      JSON.stringify(selectedAssigneeEmails),
+    );
+  }, [selectedAssigneeEmails]);
+
   const filteredUsers = useMemo(
     () =>
       users.filter((user) => {
@@ -70,14 +91,32 @@ export default function useSidebarFilters(
           (user.accountId
             ? selectedAccountIds.includes(user.accountId)
             : false);
+        const matchesAssignee =
+          selectedAssigneeEmails.length === 0 ||
+          (user.assignedToEmail
+            ? selectedAssigneeEmails.includes(user.assignedToEmail)
+            : false);
         const query = search.toLowerCase();
         const matchesSearch =
           user.name.toLowerCase().includes(query) ||
           user.lastMessage?.toLowerCase().includes(query);
 
-        return matchesTab && matchesStatus && matchesAccount && matchesSearch;
+        return (
+          matchesTab &&
+          matchesStatus &&
+          matchesAccount &&
+          matchesAssignee &&
+          matchesSearch
+        );
       }),
-    [activeTab, search, selectedAccountIds, selectedStatuses, users],
+    [
+      activeTab,
+      search,
+      selectedAccountIds,
+      selectedAssigneeEmails,
+      selectedStatuses,
+      users,
+    ],
   );
 
   const accountOptions = useMemo(
@@ -103,10 +142,31 @@ export default function useSidebarFilters(
     [users],
   );
 
+  const assigneeOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          users
+            .filter((user): user is User & { assignedToEmail: string } =>
+              Boolean(user.assignedToEmail),
+            )
+            .map((user) => [
+              user.assignedToEmail,
+              {
+                email: user.assignedToEmail,
+                label: user.assignedToLabel || user.assignedToEmail,
+              },
+            ]),
+        ).values(),
+      ),
+    [users],
+  );
+
   const hasActiveFilters =
     Boolean(search) ||
     selectedStatuses.length > 0 ||
     selectedAccountIds.length > 0 ||
+    selectedAssigneeEmails.length > 0 ||
     activeTab !== "all";
 
   return {
@@ -118,8 +178,11 @@ export default function useSidebarFilters(
     setSelectedStatuses,
     selectedAccountIds,
     setSelectedAccountIds,
+    selectedAssigneeEmails,
+    setSelectedAssigneeEmails,
     filteredUsers,
     accountOptions,
+    assigneeOptions,
     hasActiveFilters,
   };
 }

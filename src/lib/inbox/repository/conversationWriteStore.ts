@@ -200,6 +200,36 @@ export async function setConversationAiTags(
     .eq("id", conversationId);
 }
 
+/**
+ * Auto-assigns a conversation to whoever sends its first reply.
+ * First-touch only - never reassigns once someone is already set.
+ */
+export async function assignConversationOnFirstReply(
+  conversationId: string,
+  ownerEmail: string,
+  assigneeEmail: string,
+  assigneeLabel: string,
+): Promise<void> {
+  const supabase = getInboxSupabase();
+  const existing = await getExistingConversationPayload(
+    conversationId,
+    ownerEmail,
+  );
+  if (!existing || existing.assignedToEmail) return;
+
+  const nextPayload: User = {
+    ...existing,
+    assignedToEmail: assigneeEmail,
+    assignedToLabel: assigneeLabel,
+  };
+
+  await supabase
+    .from(CONVERSATIONS_COLLECTION)
+    .update({ payload: nextPayload })
+    .eq("owner_email", ownerEmail)
+    .eq("id", conversationId);
+}
+
 export async function updateUserStatus(
   conversationId: string,
   ownerEmail: string,

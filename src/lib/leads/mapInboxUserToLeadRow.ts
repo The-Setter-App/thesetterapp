@@ -68,7 +68,7 @@ export function mapInboxUserToLeadRow(user: User): LeadRow {
         : undefined,
     status: user.status,
     cash: toCashLabel(user.paymentDetails?.amount),
-    assignedTo: "N/A",
+    assignedTo: user.assignedToLabel || "N/A",
     assignedRole: "",
     account: user.accountLabel || user.ownerInstagramUserId || "N/A",
     interacted: toRelativeInteracted(user.updatedAt, user.time),

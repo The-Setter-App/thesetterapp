@@ -374,33 +374,24 @@ export default function DetailsPanelHeader({
 
       <LeadSourceBadge leadSource={user.leadSource} />
 
-      <div className="mt-3 flex w-full space-x-3">
-        <div className="flex flex-1 items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-          <div className="ml-1 flex flex-col">
-            <div className="mb-0.5 text-[10px] text-gray-400">Setter</div>
-            <div className="flex items-center">
-              <AppImage
-                src="https://randomuser.me/api/portraits/men/8.jpg"
-                className="mr-2 h-6 w-6 rounded-full"
-                alt="Setter"
-                loadingMode="lazy"
-              />
-              <div className="truncate text-xs font-bold">Caleb Bruiners</div>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-1 items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-          <div className="ml-1 flex flex-col">
-            <div className="mb-0.5 text-[10px] text-gray-400">Closer</div>
-            <div className="flex items-center">
-              <AppImage
-                src="https://randomuser.me/api/portraits/men/9.jpg"
-                className="mr-2 h-6 w-6 rounded-full"
-                alt="Closer"
-                loadingMode="lazy"
-              />
-              <div className="truncate text-xs font-bold">Andrew James</div>
-            </div>
+      <div className="mt-3 flex w-full items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div className="ml-1 flex flex-col">
+          <div className="mb-0.5 text-[10px] text-gray-400">Assigned to</div>
+          <div className="flex items-center">
+            {user.assignedToLabel ? (
+              <>
+                <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#8771FF]/15 text-[10px] font-bold text-[#8771FF]">
+                  {user.assignedToLabel.charAt(0).toUpperCase()}
+                </span>
+                <div className="truncate text-xs font-bold">
+                  {user.assignedToLabel}
+                </div>
+              </>
+            ) : (
+              <div className="truncate text-xs text-gray-400">
+                Unassigned — auto-assigns to whoever replies first
+              </div>
+            )}
           </div>
         </div>
       </div>

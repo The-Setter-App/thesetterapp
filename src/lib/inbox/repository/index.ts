@@ -13,6 +13,7 @@ export {
   getConversationsFromDb,
 } from "@/lib/inbox/repository/conversationReadStore";
 export {
+  assignConversationOnFirstReply,
   saveConversationsToDb,
   saveConversationToDb,
   setConversationAiTags,

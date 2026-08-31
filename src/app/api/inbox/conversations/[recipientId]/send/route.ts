@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { decryptData } from "@/lib/crypto";
 import { sendMessage } from "@/lib/graphApi";
+import { assignConversationOnFirstReply } from "@/lib/inbox/repository/conversationWriteStore";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import { findConversationById } from "@/lib/inboxRepository";
 import { getInstagramAccountById } from "@/lib/userRepository";
@@ -11,7 +12,7 @@ export async function POST(
   context: { params: Promise<{ recipientId: string }> },
 ) {
   try {
-    const { workspaceOwnerEmail } = await requireInboxWorkspaceContext();
+    const { workspaceOwnerEmail, user } = await requireInboxWorkspaceContext();
 
     const { recipientId: conversationId } = await context.params;
     const body = (await request.json()) as {
@@ -59,6 +60,13 @@ export async function POST(
     );
 
     if (sendResult.messageId) {
+      await assignConversationOnFirstReply(
+        conversationId,
+        workspaceOwnerEmail,
+        user.email,
+        user.displayName || user.email,
+      );
+
       emitWorkspaceSseEvent(workspaceOwnerEmail, {
         type: "message_echo",
         timestamp: new Date().toISOString(),
