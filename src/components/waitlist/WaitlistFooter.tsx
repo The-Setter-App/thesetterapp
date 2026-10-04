@@ -11,9 +11,10 @@ const LEGAL_LINKS = [
 
 export default function WaitlistFooter() {
   return (
-    <footer className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-1 px-4 py-4 text-sm text-[#606266] md:flex-row md:px-6 lg:px-8">
+    // One compact row on phones, kept clear of the home indicator.
+    <footer className="mx-auto flex w-full max-w-6xl items-center justify-center gap-2 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-[0.8125rem] text-[#606266] md:justify-between md:px-6 md:py-4 md:text-sm lg:px-8">
       <p>© Setter</p>
-      <nav aria-label="Legal" className="flex items-center gap-2">
+      <nav aria-label="Legal" className="flex items-center md:gap-2">
         {LEGAL_LINKS.map((link) => (
           <a
             key={link.href}

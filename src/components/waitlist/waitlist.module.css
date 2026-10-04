@@ -12,12 +12,22 @@
     system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* A soft glow behind the headline that is fully white by the top and bottom
+     edges, so the page meets the browser chrome without a seam. */
   background: radial-gradient(
-    120% 55% at 50% 0%,
+    120% 46% at 50% 36%,
     #f3f0ff 0%,
-    #f8f7ff 38%,
-    #ffffff 72%
+    #f8f7ff 40%,
+    #ffffff 76%
   );
+}
+
+/* Mobile Safari tints its status bar and toolbar from the body background and
+   shows it wherever the page is shorter than the screen. Matching it to the
+   page makes the browser chrome and the page read as one surface. */
+html:has(.page),
+body:has(.page) {
+  background-color: #ffffff;
 }
 
 /* Entrance: each block arrives as a surface coming into focus rather than a

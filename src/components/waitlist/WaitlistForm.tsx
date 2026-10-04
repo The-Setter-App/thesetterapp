@@ -36,7 +36,7 @@ export default function WaitlistForm() {
       ) : (
         <form onSubmit={handleSubmit} noValidate className="w-full">
           <div
-            className={`flex flex-col gap-3 transition-colors duration-150 sm:flex-row sm:items-center sm:gap-2 sm:rounded-full sm:border sm:bg-white sm:p-1.5 sm:pl-6 sm:shadow-sm ${
+            className={`flex flex-col gap-2.5 transition-colors duration-150 sm:flex-row sm:items-center sm:gap-2 sm:rounded-full sm:border sm:bg-white sm:p-1.5 sm:pl-6 sm:shadow-sm ${
               hasError
                 ? "sm:border-red-300"
                 : "sm:border-[#F0F2F6] sm:focus-within:border-[#8771FF]"
@@ -59,7 +59,7 @@ export default function WaitlistForm() {
               aria-invalid={hasError}
               aria-describedby={hasError ? ERROR_ID : NOTE_ID}
               onChange={hasError ? clearError : undefined}
-              className={`h-12 w-full min-w-0 rounded-full border bg-white px-5 text-base text-[#101011] shadow-sm outline-none transition-colors duration-150 placeholder:text-[#9A9CA2] disabled:opacity-60 sm:h-11 sm:flex-1 sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none ${
+              className={`h-[3.25rem] w-full min-w-0 rounded-full border bg-white px-5 text-[1.0625rem] text-[#101011] shadow-sm sm:text-base outline-none transition-colors duration-150 placeholder:text-[#9A9CA2] disabled:opacity-60 sm:h-11 sm:flex-1 sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none ${
                 hasError
                   ? "border-red-300"
                   : "border-[#F0F2F6] focus:border-[#8771FF]"
@@ -68,7 +68,7 @@ export default function WaitlistForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-12 w-full shrink-0 rounded-full bg-[#8771FF] px-6 text-base font-medium text-white transition-[transform,background-color,opacity] duration-100 ease-out active:scale-[0.97] disabled:opacity-70 sm:h-11 sm:w-auto sm:min-w-[10rem] [@media(hover:hover)]:hover:bg-[#6d5ed6]"
+              className="h-[3.25rem] w-full shrink-0 rounded-full bg-[#8771FF] px-6 text-[1.0625rem] font-semibold text-white sm:text-base sm:font-medium transition-[transform,background-color,opacity] duration-100 ease-out active:scale-[0.97] disabled:opacity-70 sm:h-11 sm:w-auto sm:min-w-[10rem] [@media(hover:hover)]:hover:bg-[#6d5ed6]"
             >
               {isSubmitting ? "Joining…" : "Join the waitlist"}
             </button>
@@ -95,7 +95,10 @@ export default function WaitlistForm() {
               {errorMessage}
             </p>
           ) : (
-            <p id={NOTE_ID} className="mt-3 text-sm text-[#606266]">
+            <p
+              id={NOTE_ID}
+              className="mt-3 text-[0.8125rem] text-[#606266] sm:text-sm"
+            >
               No spam. One email when your spot opens.
             </p>
           )}

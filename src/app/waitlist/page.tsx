@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import WaitlistFooter from "@/components/waitlist/WaitlistFooter";
 import WaitlistForm from "@/components/waitlist/WaitlistForm";
 import WaitlistHeader from "@/components/waitlist/WaitlistHeader";
@@ -16,6 +16,11 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     type: "website",
   },
+};
+
+// Matches the page surface so browsers that tint their toolbar use white.
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
 };
 
 export default function WaitlistPage() {
