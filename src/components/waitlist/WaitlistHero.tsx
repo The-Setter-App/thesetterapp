@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import styles from "./waitlist.module.css";
+import styles from "@/components/ui/brandSurface.module.css";
 
 interface WaitlistHeroProps {
   // The signup form, passed in so the hero itself stays a static server

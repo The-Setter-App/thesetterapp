@@ -1,10 +1,11 @@
 /*
- * Motion and surface rules for the waitlist page. Nothing here is driven by a
- * gesture, so plain CSS animations are enough; they only touch opacity,
- * transform and filter so they stay on the compositor.
+ * Surface and motion rules shared by the public pages (waitlist, sign in).
+ * Nothing here is driven by a gesture, so plain CSS animations are enough;
+ * they only touch opacity, transform and filter so they stay on the
+ * compositor.
  */
 
-.page {
+.surface {
   /* System font first: on Apple devices this is SF with its own optical
      sizing and tracking tables; elsewhere it falls back to the app's Inter. */
   font-family:
@@ -12,22 +13,27 @@
     system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  /* A soft glow behind the headline that is fully white by the top and bottom
-     edges, so the page meets the browser chrome without a seam. */
-  background: radial-gradient(
-    120% 46% at 50% 36%,
-    #f3f0ff 0%,
-    #f8f7ff 40%,
-    #ffffff 76%
-  );
+  background-color: #ffffff;
 }
 
 /* Mobile Safari tints its status bar and toolbar from the body background and
    shows it wherever the page is shorter than the screen. Matching it to the
    page makes the browser chrome and the page read as one surface. */
-html:has(.page),
-body:has(.page) {
+html:has(.surface),
+body:has(.surface) {
   background-color: #ffffff;
+}
+
+/* A soft glow behind the main content that is fully white by the top and
+   bottom edges, so it meets the browser chrome without a seam. Set
+   --glow-width below 65% to make it fade out before the side edges too. */
+.glow {
+  background-image: radial-gradient(
+    var(--glow-width, 120%) 46% at 50% 36%,
+    #f3f0ff 0%,
+    #f8f7ff 40%,
+    #ffffff 76%
+  );
 }
 
 /* Entrance: each block arrives as a surface coming into focus rather than a
@@ -106,7 +112,7 @@ body:has(.page) {
 }
 
 @media (prefers-contrast: more) {
-  .page {
-    background: #ffffff;
+  .glow {
+    background-image: none;
   }
 }

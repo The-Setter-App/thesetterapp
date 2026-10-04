@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppImage } from "@/components/ui/AppImage";
-import styles from "./waitlist.module.css";
+import styles from "@/components/ui/brandSurface.module.css";
 
 export default function WaitlistHeader() {
   return (

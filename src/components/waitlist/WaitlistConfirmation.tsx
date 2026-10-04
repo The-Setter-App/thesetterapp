@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import styles from "./waitlist.module.css";
+import styles from "@/components/ui/brandSurface.module.css";
 
 interface WaitlistConfirmationProps {
   email: string;

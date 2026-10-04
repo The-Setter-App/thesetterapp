@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import EmailPillField from "@/components/ui/EmailPillField";
 import { useWaitlistSignup } from "./useWaitlistSignup";
 import WaitlistConfirmation from "./WaitlistConfirmation";
 
@@ -35,44 +36,21 @@ export default function WaitlistForm() {
         <WaitlistConfirmation email={joinedEmail} />
       ) : (
         <form onSubmit={handleSubmit} noValidate className="w-full">
-          <div
-            className={`flex flex-col gap-2.5 transition-colors duration-150 sm:flex-row sm:items-center sm:gap-2 sm:rounded-full sm:border sm:bg-white sm:p-1.5 sm:pl-6 sm:shadow-sm ${
-              hasError
-                ? "sm:border-red-300"
-                : "sm:border-[#F0F2F6] sm:focus-within:border-[#8771FF]"
-            }`}
-          >
-            <label htmlFor="waitlist-email" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="waitlist-email"
-              name="email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              enterKeyHint="send"
-              placeholder="you@company.com"
-              disabled={isSubmitting}
-              aria-invalid={hasError}
-              aria-describedby={hasError ? ERROR_ID : NOTE_ID}
-              onChange={hasError ? clearError : undefined}
-              className={`h-[3.25rem] w-full min-w-0 rounded-full border bg-white px-5 text-[1.0625rem] text-[#101011] shadow-sm sm:text-base outline-none transition-colors duration-150 placeholder:text-[#9A9CA2] disabled:opacity-60 sm:h-11 sm:flex-1 sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none ${
-                hasError
-                  ? "border-red-300"
-                  : "border-[#F0F2F6] focus:border-[#8771FF]"
-              }`}
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="h-[3.25rem] w-full shrink-0 rounded-full bg-[#8771FF] px-6 text-[1.0625rem] font-semibold text-white sm:text-base sm:font-medium transition-[transform,background-color,opacity] duration-100 ease-out active:scale-[0.97] disabled:opacity-70 sm:h-11 sm:w-auto sm:min-w-[10rem] [@media(hover:hover)]:hover:bg-[#6d5ed6]"
-            >
-              {isSubmitting ? "Joining…" : "Join the waitlist"}
-            </button>
-          </div>
+          <EmailPillField
+            id="waitlist-email"
+            label="Email address"
+            buttonLabel={isSubmitting ? "Joining…" : "Join the waitlist"}
+            buttonDisabled={isSubmitting}
+            hasError={hasError}
+            inputProps={{
+              name: "email",
+              enterKeyHint: "send",
+              disabled: isSubmitting,
+              "aria-invalid": hasError,
+              "aria-describedby": hasError ? ERROR_ID : NOTE_ID,
+              onChange: hasError ? clearError : undefined,
+            }}
+          />
 
           {/* Hidden from people and assistive tech; only bots fill it in. */}
           <div aria-hidden="true" className="hidden">
