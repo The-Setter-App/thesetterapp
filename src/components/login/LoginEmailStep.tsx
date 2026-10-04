@@ -1,8 +1,8 @@
 import type { FormEvent } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import EmailPillField from "@/components/ui/EmailPillField";
+import SetterScoop from "@/components/ui/SetterScoop";
 import { formatCooldown } from "./formatCooldown";
-import LoginScoop from "./LoginScoop";
 
 const ERROR_ID = "login-email-error";
 
@@ -59,7 +59,7 @@ export default function LoginEmailStep({
         <div className="relative">
           {/* Offset so the scoop's base lines up with the field's top edge
               and only its drips hang over the field. */}
-          <LoginScoop className="pointer-events-none absolute -top-[2.3rem] left-6 z-10 h-auto w-[5.25rem]" />
+          <SetterScoop className="pointer-events-none absolute -top-[2.3rem] left-6 z-10 h-auto w-[5.25rem]" />
           <EmailPillField
             id="email"
             label="Email address"

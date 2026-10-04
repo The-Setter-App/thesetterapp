@@ -1,13 +1,13 @@
-import styles from "./login.module.css";
+import styles from "./brandSurface.module.css";
 
-interface LoginScoopProps {
+interface SetterScoopProps {
   className?: string;
 }
 
 // The logo's half circle as a scoop of ice cream with a face. It is drawn so
 // that y=50 is the surface it sits on: everything below that line is the
 // melted edge and drips that hang over whatever it is placed on.
-export default function LoginScoop({ className }: LoginScoopProps) {
+export default function SetterScoop({ className }: SetterScoopProps) {
   return (
     <svg
       viewBox="0 8 96 64"

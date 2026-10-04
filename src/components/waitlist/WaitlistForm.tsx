@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import EmailPillField from "@/components/ui/EmailPillField";
+import SetterScoop from "@/components/ui/SetterScoop";
 import { useWaitlistSignup } from "./useWaitlistSignup";
 import WaitlistConfirmation from "./WaitlistConfirmation";
 
@@ -36,21 +37,26 @@ export default function WaitlistForm() {
         <WaitlistConfirmation email={joinedEmail} />
       ) : (
         <form onSubmit={handleSubmit} noValidate className="w-full">
-          <EmailPillField
-            id="waitlist-email"
-            label="Email address"
-            buttonLabel={isSubmitting ? "Joining…" : "Join the waitlist"}
-            buttonDisabled={isSubmitting}
-            hasError={hasError}
-            inputProps={{
-              name: "email",
-              enterKeyHint: "send",
-              disabled: isSubmitting,
-              "aria-invalid": hasError,
-              "aria-describedby": hasError ? ERROR_ID : NOTE_ID,
-              onChange: hasError ? clearError : undefined,
-            }}
-          />
+          <div className="relative">
+            {/* Offset so the scoop's base lines up with the field's top edge
+                and only its drips hang over the field. */}
+            <SetterScoop className="pointer-events-none absolute -top-[2.3rem] left-6 z-10 h-auto w-[5.25rem]" />
+            <EmailPillField
+              id="waitlist-email"
+              label="Email address"
+              buttonLabel={isSubmitting ? "Joining…" : "Join the waitlist"}
+              buttonDisabled={isSubmitting}
+              hasError={hasError}
+              inputProps={{
+                name: "email",
+                enterKeyHint: "send",
+                disabled: isSubmitting,
+                "aria-invalid": hasError,
+                "aria-describedby": hasError ? ERROR_ID : NOTE_ID,
+                onChange: hasError ? clearError : undefined,
+              }}
+            />
+          </div>
 
           {/* Hidden from people and assistive tech; only bots fill it in. */}
           <div aria-hidden="true" className="hidden">

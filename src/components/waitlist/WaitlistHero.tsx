@@ -32,8 +32,10 @@ export default function WaitlistHero({ children }: WaitlistHeroProps) {
           Setter is the Instagram inbox built for sales teams. Join the waitlist
           and we'll email you when your spot opens.
         </p>
+        {/* The extra space above the form is for the scoop that sits on the
+            email field. */}
         <div
-          className={`${styles.materialize} ${styles.order4} mt-7 w-full max-w-md md:mt-10`}
+          className={`${styles.materialize} ${styles.order4} mt-14 w-full max-w-md md:mt-16`}
         >
           {children}
         </div>

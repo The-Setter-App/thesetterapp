@@ -35,27 +35,8 @@
   }
 }
 
-/* The scoop blinks now and then. The eyes scale around their own centre. */
-.blink {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: blink 5.5s ease-in-out infinite;
-}
-
-@keyframes blink {
-  0%,
-  93%,
-  100% {
-    transform: scaleY(1);
-  }
-  96% {
-    transform: scaleY(0.1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .driftCard,
-  .blink {
+  .driftCard {
     animation: none;
   }
 }
