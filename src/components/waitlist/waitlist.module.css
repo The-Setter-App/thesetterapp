@@ -1,0 +1,102 @@
+/*
+ * Motion and surface rules for the waitlist page. Nothing here is driven by a
+ * gesture, so plain CSS animations are enough; they only touch opacity,
+ * transform and filter so they stay on the compositor.
+ */
+
+.page {
+  /* System font first: on Apple devices this is SF with its own optical
+     sizing and tracking tables; elsewhere it falls back to the app's Inter. */
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  background: radial-gradient(
+    120% 55% at 50% 0%,
+    #f3f0ff 0%,
+    #f8f7ff 38%,
+    #ffffff 72%
+  );
+}
+
+/* Entrance: each block arrives as a surface coming into focus rather than a
+   plain fade. `backwards` holds the start frame during the stagger delay and
+   then releases every property, so no filter or transform is left behind. */
+.materialize {
+  animation: materialize 720ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(var(--order, 0) * 70ms);
+}
+
+.order1 {
+  --order: 1;
+}
+
+.order2 {
+  --order: 2;
+}
+
+.order3 {
+  --order: 3;
+}
+
+.order4 {
+  --order: 4;
+}
+
+/* Confirmation replaces the form in place, so it scales up from the centre of
+   the slot the form occupied. */
+.confirm {
+  transform-origin: center top;
+  animation: confirm 480ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+
+@keyframes materialize {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes confirm {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion keeps the feedback but drops the travel, scale and blur. */
+@media (prefers-reduced-motion: reduce) {
+  .materialize,
+  .confirm {
+    animation: fade 200ms ease backwards;
+    animation-delay: 0ms;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .page {
+    background: #ffffff;
+  }
+}

@@ -2,6 +2,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/auth";
 import { buildContentSecurityPolicy } from "@/lib/security/csp";
+import {
+  getAppOrigin,
+  isMarketingHost,
+  MARKETING_HOME_PATH,
+} from "@/lib/waitlist/marketingHost";
 
 // 1. Specify protected and public routes
 const protectedRoutes = [
@@ -33,6 +38,25 @@ export async function proxy(request: NextRequest) {
     path.startsWith(route),
   );
   const isPublicRoute = publicRoutes.includes(path);
+
+  // The marketing domain shows the waitlist at its root and hands every app
+  // route to the app domain, where sessions and OAuth callbacks live.
+  if (isMarketingHost(request.headers.get("host"))) {
+    if (path === "/") {
+      return applyContentSecurityPolicy(
+        NextResponse.rewrite(new URL(MARKETING_HOME_PATH, request.url)),
+      );
+    }
+
+    const appOrigin = getAppOrigin();
+    if (appOrigin && (isProtectedRoute || path === "/login")) {
+      return applyContentSecurityPolicy(
+        NextResponse.redirect(
+          new URL(`${path}${request.nextUrl.search}`, appOrigin),
+        ),
+      );
+    }
+  }
 
   // 3. Decrypt the session from the cookie
   const cookie = request.cookies.get("session")?.value;
