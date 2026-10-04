@@ -38,11 +38,11 @@ export default function LoginEmailStep({
   return (
     <>
       <AppImage
-        src="/images/setter-wordmark.png"
+        src="/brand/setter-logo.svg"
         alt="Setter"
-        width={640}
-        height={130}
-        className="h-auto w-28"
+        width={302}
+        height={76}
+        className="h-9 w-auto"
         loadingMode="eager"
       />
 

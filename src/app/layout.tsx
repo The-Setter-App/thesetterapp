@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     "Real-time AI coaching for every message, every lead, every deal.",
   icons: {
     icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
   },
 };
 

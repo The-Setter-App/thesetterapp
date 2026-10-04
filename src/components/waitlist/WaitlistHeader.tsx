@@ -8,11 +8,11 @@ export default function WaitlistHeader() {
       className={`${styles.materialize} mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6 md:py-4 lg:px-8`}
     >
       <AppImage
-        src="/images/setter-wordmark.png"
+        src="/brand/setter-logo.svg"
         alt="Setter"
-        width={640}
-        height={130}
-        className="h-auto w-24 md:w-28"
+        width={302}
+        height={76}
+        className="h-7 w-auto md:h-8"
         loadingMode="eager"
       />
       <Link

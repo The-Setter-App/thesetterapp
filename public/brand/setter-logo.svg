@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 6 302 76" role="img" aria-label="Setter">
+  <g transform="translate(-15.4 5.35) scale(0.7)">
+    <path d="M32 48A28 28 0 0 1 88 48Z" fill="#8771FF" stroke="#8771FF" stroke-width="4" stroke-linejoin="round"/>
+    <rect x="22" y="58" width="76" height="9" rx="4.5" fill="#8771FF"/>
+    <rect x="34" y="74" width="52" height="9" rx="4.5" fill="#A999FF"/>
+    <rect x="46" y="90" width="28" height="9" rx="4.5" fill="#C9BFFF"/>
+  </g>
+  <g transform="translate(71 0)" fill="none" stroke="#101011" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 39.5A10 7.75 0 0 0 14.5 34.5A10 7.75 0 0 0 4.5 42.25A10 7.75 0 0 0 14.5 50A10 7.75 0 0 1 24.5 57.75A10 7.75 0 0 1 14.5 65.5A10 7.75 0 0 1 5 60.5"/>
+    <path d="M40.5 50H71.5A15.5 15.5 0 1 0 67.9 60"/>
+    <path d="M96.5 16V56.5A9 9 0 0 0 105.5 65.5H110.5"/>
+    <path d="M133.5 16V56.5A9 9 0 0 0 142.5 65.5H147.5"/>
+    <path d="M87.5 34.5H145.5"/>
+    <path d="M162.5 50H193.5A15.5 15.5 0 1 0 189.9 60"/>
+    <path d="M210.5 34.5V65.5M210.5 49A14.5 14.5 0 0 1 225 34.5"/>
+  </g>
+</svg>
