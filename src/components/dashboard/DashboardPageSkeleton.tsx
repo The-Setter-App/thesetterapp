@@ -1,70 +1,82 @@
-"use client";
+import surface from "@/components/ui/brandSurface.module.css";
 
-import PageHeaderSkeleton from "@/components/layout/PageHeaderSkeleton";
+const STAT_TILE_IDS = ["reply-time", "revenue-call", "rate", "reply-rate"];
+const PIPELINE_ROW_WIDTHS = ["100%", "78%", "56%", "38%", "22%"];
+const OFF_FUNNEL_ROW_IDS = ["unqualified", "no-show", "deposit"];
+const PAYMENT_TILE_IDS = ["upcoming", "recent"];
 
-const DASHBOARD_STAT_CARD_IDS = [
-  "dashboard-stat-1",
-  "dashboard-stat-2",
-  "dashboard-stat-3",
-  "dashboard-stat-4",
-  "dashboard-stat-5",
-] as const;
-const DASHBOARD_PANEL_IDS = [
-  "dashboard-panel-1",
-  "dashboard-panel-2",
-  "dashboard-panel-3",
-  "dashboard-panel-4",
-  "dashboard-panel-5",
-] as const;
+const PULSE = "animate-pulse rounded-full bg-[#F0F2F6]";
+const TILE =
+  "rounded-3xl border border-[#F0F2F6] bg-white p-5 shadow-sm md:p-7";
 
+// Mirrors the dashboard's layout so the page does not jump when data arrives.
 export default function DashboardPageSkeleton() {
   return (
-    <div className="flex h-full min-h-screen w-full flex-col overflow-hidden bg-white text-[#101011]">
-      <PageHeaderSkeleton
-        titleWidthClass="w-48"
-        descriptionWidthClass="w-40"
-        actions={
-          <>
-            <div className="h-11 w-11 animate-pulse rounded-full bg-[#F4F5F8]" />
-            <div className="h-11 w-full animate-pulse rounded-xl bg-[#F4F5F8] sm:w-[260px]" />
-          </>
-        }
-      />
+    <div
+      aria-busy="true"
+      className={`${surface.surface} ${surface.glow} h-full w-full overflow-hidden`}
+    >
+      <div className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-6 md:px-6 md:pb-14 md:pt-10 lg:px-8">
+        <span className="sr-only">Loading dashboard</span>
+        <div className={`h-7 w-24 ${PULSE}`} />
+        <div className="mt-3 h-10 w-64 max-w-full animate-pulse rounded-2xl bg-[#ECE9FF]" />
+        <div className={`mt-3 h-5 w-56 max-w-full ${PULSE}`} />
 
-      <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {DASHBOARD_STAT_CARD_IDS.map((cardId) => (
-            <div
-              key={cardId}
-              className="rounded-2xl border border-[#F0F2F6] bg-[rgba(135,113,255,0.10)] p-4 shadow-sm md:p-5"
-            >
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 animate-pulse rounded-full bg-[rgba(82,53,239,0.18)]" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-6 w-24 animate-pulse rounded bg-white/80" />
-                  <div className="h-4 w-20 animate-pulse rounded bg-white/70" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="relative overflow-hidden rounded-2xl border border-[rgba(135,113,255,0.2)] bg-white">
-          <div className="pointer-events-none absolute inset-0 hidden lg:block">
-            <div className="h-full w-full bg-[linear-gradient(180deg,rgba(135,113,255,0.05)_0%,rgba(135,113,255,0.16)_100%)] [clip-path:polygon(0_22%,100%_10%,100%_72%,0_86%)]" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
-            {DASHBOARD_PANEL_IDS.map((panelId, index, array) => (
+        <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div className="min-h-[15rem] animate-pulse rounded-3xl bg-[#DCD5FF] md:min-h-[17rem] lg:col-span-7" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5">
+            {STAT_TILE_IDS.map((id) => (
               <div
-                key={panelId}
-                className={`relative z-10 space-y-3 p-4 md:p-5 lg:h-[357px] lg:p-6 ${index !== array.length - 1 ? "border-b border-[rgba(135,113,255,0.2)] md:border-b-0 md:border-r" : ""}`}
+                key={id}
+                className="rounded-3xl border border-[#F0F2F6] bg-white p-5 shadow-sm"
               >
-                <div className="h-4 w-24 animate-pulse rounded bg-[#F4F5F8]" />
-                <div className="h-8 w-20 animate-pulse rounded bg-[#ECE9FF]" />
-                <div className="hidden h-[220px] rounded-2xl bg-transparent lg:block" />
+                <div className={`h-8 w-28 ${PULSE}`} />
+                <div className="mt-5 h-7 w-24 animate-pulse rounded-xl bg-[#ECE9FF]" />
+                <div className={`mt-3 h-3.5 w-36 max-w-full ${PULSE}`} />
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div className={`${TILE} lg:col-span-8`}>
+            <div className="h-6 w-28 animate-pulse rounded-xl bg-[#ECE9FF]" />
+            <div className={`mt-2 h-4 w-52 max-w-full ${PULSE}`} />
+            <div className="mt-6 space-y-3">
+              {PIPELINE_ROW_WIDTHS.map((width) => (
+                <div
+                  key={width}
+                  className="flex h-9 items-center justify-center rounded-full bg-[#F8F7FF] md:h-10"
+                >
+                  <div
+                    className="h-full animate-pulse rounded-full bg-[#ECE9FF]"
+                    style={{ width }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={`${TILE} lg:col-span-4`}>
+            <div className="h-6 w-40 animate-pulse rounded-xl bg-[#ECE9FF]" />
+            <div className={`mt-2 h-4 w-44 max-w-full ${PULSE}`} />
+            <div className="mt-6 space-y-5">
+              {OFF_FUNNEL_ROW_IDS.map((id) => (
+                <div key={id} className="flex items-center justify-between">
+                  <div className={`h-4 w-28 ${PULSE}`} />
+                  <div className={`h-5 w-10 ${PULSE}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {PAYMENT_TILE_IDS.map((id) => (
+            <div
+              key={id}
+              className="h-40 animate-pulse rounded-3xl bg-[#F8F7FF]"
+            />
+          ))}
         </div>
       </div>
     </div>

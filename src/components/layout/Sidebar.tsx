@@ -127,7 +127,23 @@ const Sidebar = ({
 
   return (
     <div className="fixed left-0 top-0 z-50 flex h-screen w-[76px] flex-col items-center bg-[#F0F2F6] py-5">
-      {/* Logo / profile badge - sits above the nav group, own spacing */}
+      {/* Brand mark; links back to the dashboard */}
+      <Link
+        href="/dashboard"
+        aria-label="Setter dashboard"
+        className="mb-3 flex h-11 w-11 items-center justify-center focus:outline-none"
+      >
+        <AppImage
+          src="/brand/setter-mark.svg"
+          alt=""
+          width={120}
+          height={120}
+          className="h-10 w-10"
+          loadingMode="eager"
+        />
+      </Link>
+
+      {/* Profile badge - sits above the nav group, own spacing */}
       <div className="mb-5">
         <div className="w-9 h-9 rounded-full overflow-hidden border border-white relative">
           <AppImage
