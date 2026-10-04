@@ -1,4 +1,5 @@
 import LoginTestimonialCards from "./LoginTestimonialCards";
+import LoginTileDrips from "./LoginTileDrips";
 
 // Desktop-only companion to the sign-in form: one tinted tile carrying the
 // pitch and the testimonials. Phones get the form on its own.
@@ -6,6 +7,7 @@ export default function LoginBrandPanel() {
   return (
     <aside className="hidden lg:flex lg:flex-1 lg:p-4">
       <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-[2rem] bg-[#F8F7FF]">
+        <LoginTileDrips />
         <LoginTestimonialCards />
 
         <div className="relative max-w-xl px-8 text-center">

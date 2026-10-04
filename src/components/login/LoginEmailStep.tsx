@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import EmailPillField from "@/components/ui/EmailPillField";
 import { formatCooldown } from "./formatCooldown";
+import LoginScoop from "./LoginScoop";
 
 const ERROR_ID = "login-email-error";
 
@@ -53,23 +54,29 @@ export default function LoginEmailStep({
         Enter your email to sign in or create your account.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 w-full">
-        <EmailPillField
-          id="email"
-          label="Email address"
-          buttonLabel={getButtonLabel(loading, sendCooldownSeconds)}
-          buttonDisabled={!email || loading || sendCooldownSeconds > 0}
-          hasError={hasError}
-          inputProps={{
-            value: email,
-            required: true,
-            disabled: loading,
-            enterKeyHint: "next",
-            "aria-invalid": hasError,
-            "aria-describedby": hasError ? ERROR_ID : undefined,
-            onChange: (event) => onEmailChange(event.target.value),
-          }}
-        />
+      {/* Extra space above the form is for the scoop that sits on the field. */}
+      <form onSubmit={handleSubmit} className="mt-14 w-full">
+        <div className="relative">
+          {/* Offset so the scoop's base lines up with the field's top edge
+              and only its drips hang over the field. */}
+          <LoginScoop className="pointer-events-none absolute -top-[2.3rem] left-6 z-10 h-auto w-[5.25rem]" />
+          <EmailPillField
+            id="email"
+            label="Email address"
+            buttonLabel={getButtonLabel(loading, sendCooldownSeconds)}
+            buttonDisabled={!email || loading || sendCooldownSeconds > 0}
+            hasError={hasError}
+            inputProps={{
+              value: email,
+              required: true,
+              disabled: loading,
+              enterKeyHint: "next",
+              "aria-invalid": hasError,
+              "aria-describedby": hasError ? ERROR_ID : undefined,
+              onChange: (event) => onEmailChange(event.target.value),
+            }}
+          />
+        </div>
 
         {hasError && (
           <p
