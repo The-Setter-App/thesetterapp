@@ -1,3 +1,5 @@
+import { LEGAL_ROUTES } from "@/lib/legal/routes";
+
 const LINK_CLASS =
   "underline underline-offset-2 transition-colors duration-150 active:text-[#101011] [@media(hover:hover)]:hover:text-[#101011]";
 
@@ -7,7 +9,7 @@ export default function LoginLegal() {
       <p className="text-balance">
         By continuing, you agree to our{" "}
         <a
-          href="https://thesetter.app/legal-pages/terms-and-conditions"
+          href={LEGAL_ROUTES.terms}
           target="_blank"
           rel="noopener noreferrer"
           className={LINK_CLASS}
@@ -16,7 +18,7 @@ export default function LoginLegal() {
         </a>{" "}
         and{" "}
         <a
-          href="https://thesetter.app/legal-pages/privacy-policy"
+          href={LEGAL_ROUTES.privacy}
           target="_blank"
           rel="noopener noreferrer"
           className={LINK_CLASS}

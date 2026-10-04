@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import SiteFooter from "@/components/site/SiteFooter";
+import SiteHeader from "@/components/site/SiteHeader";
 import styles from "@/components/ui/brandSurface.module.css";
-import WaitlistFooter from "@/components/waitlist/WaitlistFooter";
 import WaitlistForm from "@/components/waitlist/WaitlistForm";
-import WaitlistHeader from "@/components/waitlist/WaitlistHeader";
 import WaitlistHero from "@/components/waitlist/WaitlistHero";
 
 const DESCRIPTION =
@@ -28,11 +28,11 @@ export default function WaitlistPage() {
     <main
       className={`${styles.surface} ${styles.glow} flex min-h-dvh flex-col`}
     >
-      <WaitlistHeader />
+      <SiteHeader />
       <WaitlistHero>
         <WaitlistForm />
       </WaitlistHero>
-      <WaitlistFooter />
+      <SiteFooter />
     </main>
   );
 }
