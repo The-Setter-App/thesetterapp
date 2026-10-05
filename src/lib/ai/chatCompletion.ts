@@ -19,8 +19,28 @@ export interface JsonChatCompletionOptions {
 // The AI provider is not set up on this deployment.
 export class AiConfigurationError extends Error {}
 
-// The AI provider was reached but did not give a usable answer.
-export class AiUpstreamError extends Error {}
+// The AI provider did not give a usable answer.
+export class AiUpstreamError extends Error {
+  // The provider's HTTP status, or null when no response arrived at all.
+  status: number | null;
+
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.status = status;
+  }
+
+  // True when the provider turned the request away because of how this
+  // deployment is set up: a bad or unauthorised key, or a model name it no
+  // longer serves. Trying again cannot fix that; the settings have to change.
+  get isSetupProblem(): boolean {
+    return (
+      this.status === 401 ||
+      this.status === 403 ||
+      this.status === 404 ||
+      this.status === 410
+    );
+  }
+}
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -97,13 +117,14 @@ export async function requestJsonChatCompletion(
     });
   } catch (error) {
     const reason = error instanceof Error ? error.name : "unknown";
-    throw new AiUpstreamError(`AI request did not complete (${reason}).`);
+    throw new AiUpstreamError(`AI request did not complete (${reason}).`, null);
   }
 
   if (!upstream.ok) {
     const details = await upstream.text().catch(() => "");
     throw new AiUpstreamError(
       `AI request failed with ${upstream.status}: ${details.slice(0, 300)}`,
+      upstream.status,
     );
   }
 

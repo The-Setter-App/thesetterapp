@@ -128,6 +128,13 @@ export async function POST(
       console.error("[ReplySuggestionsAPI] AI is not configured.");
       return errorResponse("Suggested replies are not available yet.", 503);
     }
+    if (error instanceof AiUpstreamError && error.isSetupProblem) {
+      console.error(
+        "[ReplySuggestionsAPI] The AI provider rejected the request. Check that NVIDIA_MODEL is a model the provider still serves and that NVIDIA_API_KEY is valid.",
+        error.message,
+      );
+      return errorResponse("Suggested replies are unavailable right now.", 503);
+    }
     if (error instanceof AiUpstreamError) {
       console.error("[ReplySuggestionsAPI] AI request failed:", error.message);
       return errorResponse(
