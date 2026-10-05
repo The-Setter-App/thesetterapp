@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import DistributionSettingsContent from "@/components/settings/DistributionSettingsContent";
 import SettingsNotice from "@/components/settings/SettingsNotice";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
+import ReplyPlaybookSection from "@/components/settings/team/ReplyPlaybookSection";
 import TeamInviteForm from "@/components/settings/team/TeamInviteForm";
 import TeamMembersCard from "@/components/settings/team/TeamMembersCard";
 import TransferOwnershipForm from "@/components/settings/team/TransferOwnershipForm";
@@ -13,7 +14,12 @@ import { requireCurrentSettingsUser } from "@/lib/currentSettingsUser";
 import {
   canAccessDistributionSettings,
   canAccessTeamSettings,
+  canManageReplyPlaybook,
 } from "@/lib/permissions";
+import {
+  getReplyPlaybook,
+  MAX_REPLY_PLAYBOOK_LENGTH,
+} from "@/lib/replyPlaybookRepository";
 import {
   isRoundRobinEnabled,
   listRoundRobinMembers,
@@ -49,7 +55,9 @@ export default async function SettingsTeamPage({
   const shouldBypassCache = Boolean(success || error);
   const showDistribution = isOwner && canAccessDistributionSettings(user.role);
 
-  const [members, distribution] = await Promise.all([
+  const showPlaybook = isOwner && canManageReplyPlaybook(user.role);
+
+  const [members, distribution, playbook] = await Promise.all([
     ownerEmail
       ? shouldBypassCache
         ? getTeamMembersForOwner(ownerEmail)
@@ -61,6 +69,7 @@ export default async function SettingsTeamPage({
           listRoundRobinMembers(user.email),
         ])
       : Promise.resolve(null),
+    showPlaybook ? getReplyPlaybook(user.email) : Promise.resolve(null),
   ]);
 
   return (
@@ -101,6 +110,13 @@ export default async function SettingsTeamPage({
         <DistributionSettingsContent
           initialEnabled={distribution[0]}
           initialMembers={distribution[1]}
+        />
+      ) : null}
+
+      {playbook !== null ? (
+        <ReplyPlaybookSection
+          initialInstructions={playbook}
+          maxLength={MAX_REPLY_PLAYBOOK_LENGTH}
         />
       ) : null}
 

@@ -36,6 +36,11 @@ export function canAccessCommentAutomationsSettings(role: UserRole): boolean {
   return role === "owner";
 }
 
+// The playbook steers every suggested reply in the workspace.
+export function canManageReplyPlaybook(role: UserRole): boolean {
+  return role === "owner";
+}
+
 export function getDefaultSettingsRoute(role: UserRole): string {
   if (role === "owner") return "/settings/profile";
   if (role === "setter" || role === "closer") return "/settings/team";

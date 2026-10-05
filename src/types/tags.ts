@@ -4,7 +4,7 @@ export type TagIconPack = "lu" | "fa6";
 
 // The semantic role a status plays for features that need to recognize a
 // stage regardless of what it's currently named (dashboard funnel, lead
-// cooling exclusions, split-test conversion stats, the default status for
+// follow-up exclusions, split-test conversion stats, the default status for
 // brand-new leads). At most one tag per workspace holds a given role.
 export type StatusRole =
   | "new"

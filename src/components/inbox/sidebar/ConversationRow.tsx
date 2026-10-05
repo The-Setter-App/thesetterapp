@@ -1,6 +1,11 @@
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import LeadAvatar from "@/components/inbox/LeadAvatar";
-import { isLeadCooling } from "@/lib/inbox/leadCooling";
+import {
+  describeFollowUpTask,
+  type FollowUpTask,
+  formatFollowUpLabel,
+  getFollowUpTask,
+} from "@/lib/inbox/followUp";
 import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
 import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
@@ -16,6 +21,8 @@ interface ConversationRowProps {
   // Rows near the top load their avatar eagerly; the rest wait until needed.
   eagerAvatar: boolean;
   statusLookup: Record<string, TagRow>;
+  // The time follow-ups are measured against.
+  now: number;
   onSelect: () => void;
   onAction: (action: ConversationAction) => void;
 }
@@ -25,11 +32,25 @@ function formatUnreadBadge(unreadCount: number): string {
   return unreadCount > 9 ? "9+" : String(unreadCount);
 }
 
+// A reply that is owed reads warmer the longer it is left; a check-in stays
+// quiet until it has been several days.
+function getFollowUpChipClass(task: FollowUpTask): string {
+  if (task.kind === "awaiting_reply") {
+    return task.overdue
+      ? "bg-amber-50 text-amber-700"
+      : "bg-[#F3F0FF] text-[#8771FF]";
+  }
+  return task.overdue
+    ? "bg-sky-50 text-sky-700"
+    : "bg-[#F4F5F8] text-[#606266]";
+}
+
 export default function ConversationRow({
   user,
   isSelected,
   eagerAvatar,
   statusLookup,
+  now,
   onSelect,
   onAction,
 }: ConversationRowProps) {
@@ -41,7 +62,7 @@ export default function ConversationRow({
     ? buildStatusPillStyle(statusMeta.colorHex)
     : undefined;
   const windowState = getMessagingWindowState(user.lastInboundAt);
-  const cooling = isLeadCooling(user, statusLookup);
+  const followUp = getFollowUpTask(user, statusLookup, now);
 
   return (
     <li
@@ -108,14 +129,14 @@ export default function ConversationRow({
           >
             {user.lastMessage}
           </p>
-          {(cooling || user.accountLabel) && (
+          {(followUp || user.accountLabel) && (
             <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-              {cooling && (
+              {followUp && (
                 <span
-                  className="inline-flex h-[1.125rem] shrink-0 items-center rounded-full bg-sky-50 px-1.5 text-[10px] font-semibold leading-none text-sky-600"
-                  title="No reply from this lead in 3+ days"
+                  className={`inline-flex h-[1.125rem] shrink-0 items-center rounded-full px-1.5 text-[10px] font-semibold leading-none tabular-nums ${getFollowUpChipClass(followUp)}`}
+                  title={describeFollowUpTask(followUp)}
                 >
-                  Cooling
+                  {formatFollowUpLabel(followUp)}
                 </span>
               )}
               {user.accountLabel && (

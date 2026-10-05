@@ -1,3 +1,5 @@
+import { formatCompactDuration } from "@/lib/inbox/duration";
+
 // Setter tags every outbound reply HUMAN_AGENT (see DEFAULT_MESSAGE_TAG in
 // graphApi.ts), which extends Instagram's bare 24-hour reply window to 7
 // days for genuine human replies to a specific customer inquiry. Every
@@ -31,11 +33,5 @@ export function getMessagingWindowState(
 }
 
 export function formatMessagingWindowRemaining(remainingMs: number): string {
-  const totalMinutes = Math.max(0, Math.floor(remainingMs / 60000));
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  return formatCompactDuration(remainingMs);
 }

@@ -32,6 +32,9 @@ export const STATUS_ROLE_LABELS: Record<StatusRole, string> =
     STATUS_ROLE_OPTIONS.map((option) => [option.value, option.label]),
   ) as Record<StatusRole, string>;
 
+// Stored for a status that was saved without a description.
+export const EMPTY_TAG_DESCRIPTION = "No description added";
+
 export function normalizeTagText(value: string): string {
   return normalizeStatusText(value);
 }

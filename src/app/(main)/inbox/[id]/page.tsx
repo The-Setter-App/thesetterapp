@@ -7,6 +7,7 @@ import ChatWindow from "@/components/inbox/ChatWindow";
 import DetailsPanel from "@/components/inbox/DetailsPanel";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
 import MessageInput from "@/components/inbox/MessageInput";
+import ReplySuggestions from "@/components/inbox/suggestions/ReplySuggestions";
 import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
 import { useChat } from "@/hooks/useChat";
 
@@ -24,6 +25,7 @@ export default function ChatPage({
   const [showMobileDetails, setShowMobileDetails] = useState(false);
   const [showCalendlyModal, setShowCalendlyModal] = useState(false);
   const [rightWidth, setRightWidth] = useState(400);
+  const [composerFocusRequest, setComposerFocusRequest] = useState(0);
   const isResizingRightRef = useRef(false);
 
   const {
@@ -95,6 +97,15 @@ export default function ChatPage({
     markChatReady(epoch);
   }, [initialLoadSettled, markChatReady, epoch]);
 
+  // A chosen draft goes into the composer for the setter to edit and send.
+  const handleUseSuggestion = useCallback(
+    (text: string) => {
+      setMessageInput(text);
+      setComposerFocusRequest((request) => request + 1);
+    },
+    [setMessageInput],
+  );
+
   const handleToggleDetails = useCallback(() => {
     if (window.matchMedia("(min-width: 768px)").matches) {
       setShowVisible((visible) => !visible);
@@ -135,7 +146,15 @@ export default function ChatPage({
           statusUpdate={statusUpdate}
         />
 
+        {user ? (
+          <ReplySuggestions
+            conversationId={user.id}
+            onUseSuggestion={handleUseSuggestion}
+          />
+        ) : null}
+
         <MessageInput
+          focusRequest={composerFocusRequest}
           messageInput={messageInput}
           setMessageInput={setMessageInput}
           handleSendMessage={handleSendMessage}

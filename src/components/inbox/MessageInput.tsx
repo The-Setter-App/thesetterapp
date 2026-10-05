@@ -27,6 +27,9 @@ interface MessageInputProps {
   handleSendAudio?: (blob: Blob, duration: number) => void;
   showCalendlyButton?: boolean;
   onOpenCalendlyModal?: () => void;
+  // Changing this number puts the cursor in the message field, at the end of
+  // whatever text it holds. Used after a suggested reply is dropped in.
+  focusRequest?: number;
 }
 
 const MAX_TEXTAREA_HEIGHT_PX = 120;
@@ -55,6 +58,7 @@ export default function MessageInput({
   handleSendAudio,
   showCalendlyButton = false,
   onOpenCalendlyModal,
+  focusRequest = 0,
 }: MessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -75,6 +79,15 @@ export default function MessageInput({
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
   }, [messageInput, isRecording]);
+
+  useEffect(() => {
+    if (focusRequest === 0) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.focus();
+    const end = textarea.value.length;
+    textarea.setSelectionRange(end, end);
+  }, [focusRequest]);
 
   const handleStopAndSend = async () => {
     const result = await stopRecording();

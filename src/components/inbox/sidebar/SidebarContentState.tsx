@@ -47,11 +47,29 @@ export function SidebarLoadingState() {
 
 interface SidebarEmptyStateProps {
   hasActiveFilters: boolean;
+  // The to-do list being empty is good news, so it gets its own wording.
+  isTodoTab?: boolean;
 }
 
 export function SidebarEmptyState({
   hasActiveFilters,
+  isTodoTab = false,
 }: SidebarEmptyStateProps) {
+  if (isTodoTab) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center">
+        <div>
+          <p className="text-base font-semibold text-[#101011]">
+            You're all caught up
+          </p>
+          <p className="mt-1 text-sm text-[#606266]">
+            No lead is waiting on a reply or due a follow-up.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full items-center justify-center p-6 text-center">
       <p className="text-sm font-medium text-[#606266]">

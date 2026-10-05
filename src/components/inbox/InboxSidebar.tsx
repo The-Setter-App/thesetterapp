@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { type CSSProperties, useState } from "react";
 import ConversationList from "@/components/inbox/ConversationList";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
+import { useNow } from "@/hooks/useNow";
 import FilterModal from "./FilterModal";
 import {
   SidebarEmptyState,
@@ -17,6 +18,8 @@ import useInboxSidebarData from "./sidebar/useInboxSidebarData";
 import useSidebarFilters from "./sidebar/useSidebarFilters";
 
 const DEFAULT_WIDTH_PX = 380;
+// How often the waiting times on conversations are brought up to date.
+const FOLLOW_UP_CLOCK_INTERVAL_MS = 60_000;
 
 type SidebarWidthStyle = CSSProperties & { "--inbox-sidebar-width": string };
 
@@ -40,6 +43,7 @@ export default function InboxSidebar({
   const { epoch, markSidebarReady } = useInboxSync();
 
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const now = useNow(FOLLOW_UP_CLOCK_INTERVAL_MS);
   const {
     users,
     loading,
@@ -66,7 +70,7 @@ export default function InboxSidebar({
     accountOptions,
     assigneeOptions,
     hasActiveFilters,
-  } = useSidebarFilters(users, statusLookup);
+  } = useSidebarFilters(users, statusLookup, now);
 
   return (
     <aside
@@ -91,6 +95,7 @@ export default function InboxSidebar({
           activeTab={activeTab}
           users={users}
           statusLookup={statusLookup}
+          now={now}
           onTabChange={setActiveTab}
         />
       )}
@@ -105,11 +110,15 @@ export default function InboxSidebar({
             onSelectUser={(id) => router.push(`/inbox/${id}`)}
             onAction={handleConversationAction}
             statusLookup={statusLookup}
+            now={now}
           />
         ) : loading ? (
           <SidebarLoadingState />
         ) : (
-          <SidebarEmptyState hasActiveFilters={hasActiveFilters} />
+          <SidebarEmptyState
+            hasActiveFilters={hasActiveFilters}
+            isTodoTab={activeTab === "todo"}
+          />
         )}
       </div>
 

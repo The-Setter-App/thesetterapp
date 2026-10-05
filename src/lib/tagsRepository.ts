@@ -537,7 +537,7 @@ export async function deleteWorkspaceCustomTag(input: {
   if (existing.role) {
     throw new WorkspaceTagRepositoryError(
       "role_in_use",
-      "This status is required by the app (dashboard, cooling alerts, or stats) and can't be deleted. Assign its role to another status first, then it'll be deletable.",
+      "This status is required by the app (dashboard, follow-up reminders, or stats) and can't be deleted. Assign its role to another status first, then it'll be deletable.",
       409,
     );
   }

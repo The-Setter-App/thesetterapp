@@ -24,7 +24,8 @@ const OWNER_TABS: SettingsTab[] = [
   {
     href: "/settings/team",
     label: "Team",
-    description: "Who is in the workspace and how new leads are shared out.",
+    description:
+      "Who is in the workspace, how leads are shared out and how you reply.",
   },
   {
     href: "/settings/socials",

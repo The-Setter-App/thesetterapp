@@ -14,6 +14,8 @@ interface ConversationListProps {
   onSelectUser: (id: string) => void;
   onAction: (userId: string, action: ConversationAction) => void;
   statusLookup: Record<string, TagRow>;
+  // The time follow-ups are measured against.
+  now: number;
 }
 
 export default function ConversationList({
@@ -22,6 +24,7 @@ export default function ConversationList({
   onSelectUser,
   onAction,
   statusLookup,
+  now,
 }: ConversationListProps) {
   return (
     // Rows have 12px of their own padding, so this inset puts their content
@@ -34,6 +37,7 @@ export default function ConversationList({
           isSelected={selectedUserId === user.id}
           eagerAvatar={index < EAGER_AVATAR_COUNT}
           statusLookup={statusLookup}
+          now={now}
           onSelect={() => onSelectUser(user.id)}
           onAction={(action) => onAction(user.id, action)}
         />
