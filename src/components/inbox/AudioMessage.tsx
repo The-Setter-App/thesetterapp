@@ -159,8 +159,8 @@ export default function AudioMessage({
 
   return (
     <div
-      className={`relative isolate flex items-center px-2 py-2 gap-3 w-[226px] h-[48px] rounded-[24px] shadow-[0px_4px_4px_rgba(0,0,0,0.1)] ${
-        isOwn ? "bg-[#8771FF]" : "bg-white border border-[#F0F2F6]"
+      className={`relative isolate flex h-[48px] w-[226px] items-center gap-3 rounded-[24px] px-2 py-2 ${
+        isOwn ? "bg-[#8771FF]" : "bg-[#F4F5F8]"
       }`}
     >
       {/* biome-ignore lint/a11y/useMediaCaption: this hidden audio element powers inline voice-note playback rather than presenting standalone media controls. */}

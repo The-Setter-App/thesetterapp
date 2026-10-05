@@ -63,14 +63,11 @@ export default function StatusUpdateEvent({
   const iconChipBackground = `${statusColor}20`;
 
   return (
-    <div className="mt-7 mb-4 flex justify-center px-2">
+    <div className="mb-4 mt-6 flex justify-center px-2">
       <div className="flex max-w-[320px] flex-col items-center text-center">
         <div
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border shadow-sm"
-          style={{
-            backgroundColor: iconChipBackground,
-            borderColor: `${statusColor}4D`,
-          }}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full"
+          style={{ backgroundColor: iconChipBackground }}
         >
           <StatusIcon
             status={status}
@@ -80,10 +77,10 @@ export default function StatusUpdateEvent({
             style={{ color: statusColor }}
           />
         </div>
-        <p className="mt-2 text-[16px] font-semibold leading-tight text-[#101011]">
-          Status Update: <span className="text-[#101011]">{status}</span>
+        <p className="mt-2 text-sm font-semibold text-[#101011]">
+          Status update: {status}
         </p>
-        <p className="mt-1 text-xs font-medium text-[#9A9CA2]">
+        <p className="mt-0.5 text-[11px] font-medium text-[#9A9CA2]">
           {formatStatusUpdateTime(timestamp)}
         </p>
       </div>

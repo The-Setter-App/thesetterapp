@@ -93,8 +93,8 @@ export default function ChatPage({
 
   if (!user && !loading && initialLoadSettled) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white">
-        <p className="text-gray-500">User not found</p>
+      <div className="flex flex-1 items-center justify-center bg-white px-6">
+        <p className="text-sm font-medium text-[#606266]">User not found</p>
       </div>
     );
   }
@@ -148,7 +148,7 @@ export default function ChatPage({
               className="hidden bg-white md:flex md:flex-col"
               style={{ width: `${rightWidth}px` }}
             >
-              <div className="flex h-full items-center justify-center px-4 text-sm font-medium text-stone-500">
+              <div className="flex h-full items-center justify-center px-4 text-sm font-medium text-[#9A9CA2]">
                 Loading details...
               </div>
             </aside>

@@ -10,6 +10,9 @@ interface MessagingWindowCountdownProps {
   lastInboundAt?: string;
 }
 
+const PILL_CLASS =
+  "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold";
+
 export default function MessagingWindowCountdown({
   lastInboundAt,
 }: MessagingWindowCountdownProps) {
@@ -27,7 +30,7 @@ export default function MessagingWindowCountdown({
   if (state.status === "closed") {
     return (
       <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600"
+        className={`${PILL_CLASS} bg-red-50 text-red-700`}
         title="More than 7 days since this lead's last message — Instagram no longer allows a human-agent reply here."
       >
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -40,15 +43,13 @@ export default function MessagingWindowCountdown({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
-        isWarning
-          ? "border-amber-200 bg-amber-50 text-amber-700"
-          : "border-green-200 bg-green-50 text-green-700"
+      className={`${PILL_CLASS} ${
+        isWarning ? "bg-amber-50 text-amber-700" : "bg-[#F3F0FF] text-[#8771FF]"
       }`}
       title="Time left to reply before Instagram closes the human-agent messaging window for this lead."
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${isWarning ? "bg-amber-500" : "bg-green-500"}`}
+        className={`h-1.5 w-1.5 rounded-full ${isWarning ? "bg-amber-500" : "bg-[#8771FF]"}`}
       />
       {formatMessagingWindowRemaining(state.remainingMs)} left
     </span>

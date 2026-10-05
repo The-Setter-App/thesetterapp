@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LuCheck, LuChevronDown, LuCopy } from "react-icons/lu";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import LeadSourceBadge from "@/components/inbox/details/LeadSourceBadge";
@@ -20,24 +21,8 @@ import {
 import type { ConversationContactDetails, SSEEvent, User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
 
-const CopyIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5"
-    />
-  </svg>
-);
+const COPY_BUTTON_CLASS =
+  "inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-medium text-[#9A9CA2] outline-none transition-colors duration-100 [@media(hover:hover)]:hover:bg-[#F8F7FF] [@media(hover:hover)]:hover:text-[#606266]";
 
 interface DetailsPanelHeaderProps {
   user: User;
@@ -218,62 +203,57 @@ export default function DetailsPanelHeader({
   };
 
   return (
-    <div className="flex flex-col items-center px-6 pb-4 pt-8">
+    <div className="flex flex-col items-center px-5 pb-5 pt-8">
       <AppImage
         src={user.avatar || "/images/no_profile.jpg"}
         alt={user.name}
-        className="mb-4 h-16 w-16 rounded-full object-cover"
+        className="h-[4.5rem] w-[4.5rem] rounded-full object-cover"
         loadingMode="eager"
       />
 
-      <h3 className="text-xl font-bold text-gray-900">{displayName}</h3>
-      <p className="mb-5 text-sm text-gray-500">{user.name}</p>
+      <h3 className="mt-4 max-w-full truncate text-[1.375rem] font-semibold leading-tight tracking-[-0.02em] text-[#101011]">
+        {displayName}
+      </h3>
+      <p className="mt-0.5 max-w-full truncate text-sm text-[#9A9CA2]">
+        {user.name}
+      </p>
 
-      <div className="relative mb-4 w-full">
+      <div className="relative mt-5 w-full">
         <button
           type="button"
           onClick={() => setShowStatusDropdown(!showStatusDropdown)}
           disabled={isUpdating}
-          className="flex w-full items-center justify-center rounded-xl border border-[#F0F2F6] bg-white px-4 py-2.5 shadow-sm hover:bg-[#F8F7FF] disabled:opacity-50"
+          aria-haspopup="listbox"
+          aria-expanded={showStatusDropdown}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#F0F2F6] bg-white px-4 shadow-sm outline-none transition-[transform,background-color] duration-100 ease-out active:scale-[0.98] disabled:opacity-50 [@media(hover:hover)]:enabled:hover:bg-[#F8F7FF]"
         >
           <StatusIcon
             status={currentStatus}
             iconPack={currentStatusMeta?.iconPack}
             iconName={currentStatusMeta?.iconName}
-            className="h-5 w-5 shrink-0"
+            className="h-[1.125rem] w-[1.125rem] shrink-0"
             style={{ color: statusColor }}
           />
           <span
-            className="ml-2 text-sm font-semibold"
+            className="truncate text-sm font-semibold"
             style={{ color: statusColor }}
           >
             {currentStatus}
           </span>
-          <span className="ml-1 text-sm font-semibold text-[#101011]">
-            - {statusActionLabel}
+          <span className="shrink-0 text-sm font-medium text-[#9A9CA2]">
+            {statusActionLabel}
           </span>
-          <svg
-            className={`ml-2 h-5 w-5 text-[#9A9CA2] transition-transform ${
-              showStatusDropdown ? "rotate-90" : ""
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+          <LuChevronDown
             aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+            className={`h-4 w-4 shrink-0 text-[#9A9CA2] transition-transform duration-150 ${
+              showStatusDropdown ? "rotate-180" : ""
+            }`}
+          />
         </button>
 
         {showStatusDropdown && !isUpdating && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-            <div className="max-h-72 overflow-y-auto">
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white p-1.5 shadow-[0_12px_32px_rgba(16,16,17,0.1)]">
+            <div className="max-h-72 space-y-0.5 overflow-y-auto">
               {dropdownStatuses.map((statusRow) => {
                 const active = statusRow.name === currentStatus;
                 return (
@@ -281,22 +261,28 @@ export default function DetailsPanelHeader({
                     key={statusRow.id}
                     type="button"
                     onClick={() => handleStatusSelect(statusRow.name)}
-                    className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-base font-semibold transition-colors ${
+                    className={`flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium outline-none transition-colors duration-100 ${
                       active
-                        ? "bg-[#8771FF] text-white"
-                        : "text-[#606266] hover:bg-gray-50"
+                        ? "bg-[#F3F0FF] text-[#101011]"
+                        : "text-[#606266] [@media(hover:hover)]:hover:bg-[#F8F7FF]"
                     }`}
                   >
                     <StatusIcon
                       status={statusRow.name}
                       iconPack={statusRow.iconPack}
                       iconName={statusRow.iconName}
-                      className="h-5 w-5 shrink-0"
-                      style={{ color: active ? "#FFFFFF" : statusRow.colorHex }}
+                      className="h-[1.125rem] w-[1.125rem] shrink-0"
+                      style={{ color: statusRow.colorHex }}
                     />
-                    <span style={{ color: active ? "#FFFFFF" : undefined }}>
+                    <span className="min-w-0 flex-1 truncate">
                       {statusRow.name}
                     </span>
+                    {active && (
+                      <LuCheck
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 text-[#8771FF]"
+                      />
+                    )}
                   </button>
                 );
               })}
@@ -305,15 +291,18 @@ export default function DetailsPanelHeader({
         )}
       </div>
 
-      <div className="w-full space-y-0">
+      {/* Phone and email share one grouped field, split by a hairline. */}
+      <div className="mt-3 w-full overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white">
         <div
-          className={`group flex items-center justify-between rounded-t-xl border border-b-0 bg-white p-3 shadow-sm ${
-            phoneValid ? "border-gray-200" : "border-rose-300"
+          className={`flex h-12 items-center gap-2 border-b px-3.5 ${
+            phoneValid ? "border-[#F0F2F6]" : "border-red-300 bg-red-50"
           }`}
         >
           <input
             type="text"
-            placeholder="Phone Number"
+            placeholder="Phone number"
+            aria-label="Phone number"
+            aria-invalid={!phoneValid}
             value={contactDetails.phoneNumber}
             onChange={(e) =>
               onChangeContactDetails({
@@ -325,27 +314,31 @@ export default function DetailsPanelHeader({
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="w-full bg-transparent px-1 text-sm text-gray-700 outline-none"
+            className="h-full min-w-0 flex-1 bg-transparent text-[0.9375rem] text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.phoneNumber, "phone")}
-            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+            className={COPY_BUTTON_CLASS}
           >
-            <CopyIcon className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
-            <span className="ml-1">
-              {copiedField === "phone" ? "Copied" : "Copy"}
-            </span>
+            {copiedField === "phone" ? (
+              <LuCheck aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : (
+              <LuCopy aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
+            {copiedField === "phone" ? "Copied" : "Copy"}
           </button>
         </div>
         <div
-          className={`group flex items-center justify-between rounded-b-xl border bg-white p-3 shadow-sm ${
-            emailValid ? "border-gray-200" : "border-rose-300"
+          className={`flex h-12 items-center gap-2 px-3.5 ${
+            emailValid ? "" : "bg-red-50"
           }`}
         >
           <input
             type="email"
             placeholder="Email"
+            aria-label="Email"
+            aria-invalid={!emailValid}
             value={contactDetails.email}
             onChange={(e) =>
               onChangeContactDetails({
@@ -357,42 +350,42 @@ export default function DetailsPanelHeader({
               if (!phoneValid || !emailValid) return;
               onCommitContactDetails(contactDetails);
             }}
-            className="w-full bg-transparent px-1 text-sm text-gray-700 outline-none"
+            className="h-full min-w-0 flex-1 bg-transparent text-[0.9375rem] text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
           />
           <button
             type="button"
             onClick={() => handleCopy(contactDetails.email, "email")}
-            className="ml-2 inline-flex items-center text-[10px] text-gray-500 hover:text-gray-700"
+            className={COPY_BUTTON_CLASS}
           >
-            <CopyIcon className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
-            <span className="ml-1">
-              {copiedField === "email" ? "Copied" : "Copy"}
-            </span>
+            {copiedField === "email" ? (
+              <LuCheck aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : (
+              <LuCopy aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
+            {copiedField === "email" ? "Copied" : "Copy"}
           </button>
         </div>
       </div>
 
       <LeadSourceBadge leadSource={user.leadSource} />
 
-      <div className="mt-3 flex w-full items-center rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-        <div className="ml-1 flex flex-col">
-          <div className="mb-0.5 text-[10px] text-gray-400">Assigned to</div>
-          <div className="flex items-center">
-            {user.assignedToLabel ? (
-              <>
-                <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#8771FF]/15 text-[10px] font-bold text-[#8771FF]">
-                  {user.assignedToLabel.charAt(0).toUpperCase()}
-                </span>
-                <div className="truncate text-xs font-bold">
-                  {user.assignedToLabel}
-                </div>
-              </>
-            ) : (
-              <div className="truncate text-xs text-gray-400">
-                Unassigned — auto-assigns to whoever replies first
-              </div>
-            )}
-          </div>
+      <div className="mt-3 flex min-h-[3.25rem] w-full items-center gap-3 rounded-2xl bg-[#F8F7FF] px-3.5 py-2.5">
+        {user.assignedToLabel && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-[#8771FF]">
+            {user.assignedToLabel.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-[#9A9CA2]">Assigned to</p>
+          {user.assignedToLabel ? (
+            <p className="truncate text-[0.8125rem] font-semibold text-[#101011]">
+              {user.assignedToLabel}
+            </p>
+          ) : (
+            <p className="text-[0.8125rem] text-[#606266]">
+              Unassigned — auto-assigns to whoever replies first
+            </p>
+          )}
         </div>
       </div>
     </div>

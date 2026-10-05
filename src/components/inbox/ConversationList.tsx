@@ -1,95 +1,20 @@
 "use client";
 
-import { StatusIcon } from "@/components/icons/StatusIcon";
-import { AppImage } from "@/components/ui/AppImage";
-import { isLeadCooling } from "@/lib/inbox/leadCooling";
-import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
-import { buildStatusPillStyle } from "@/lib/status/config";
 import type { User } from "@/types/inbox";
 import type { TagRow } from "@/types/tags";
+import ConversationRow from "./sidebar/ConversationRow";
+import type { ConversationAction } from "./sidebar/ConversationRowActions";
+
+// Avatars for the rows visible without scrolling load straight away.
+const EAGER_AVATAR_COUNT = 8;
 
 interface ConversationListProps {
   users: User[];
   selectedUserId: string;
   onSelectUser: (id: string) => void;
-  onAction: (
-    userId: string,
-    action: "qualified" | "priority" | "unpriority" | "delete",
-  ) => void;
+  onAction: (userId: string, action: ConversationAction) => void;
   statusLookup: Record<string, TagRow>;
 }
-
-const VerifiedIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="w-3.5 h-3.5 text-blue-500"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      fillRule="evenodd"
-      d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
-
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      fillRule="evenodd"
-      d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
-
-const XIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2.5}
-    stroke="currentColor"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M6 18L18 6M6 6l12 12"
-    />
-  </svg>
-);
-
-const FolderMoveIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 12h5.25m0 0L15 9.75m2.25 2.25L15 14.25M3.75 6A2.25 2.25 0 016 3.75h2.625a1.5 1.5 0 011.06.44l1.125 1.125a1.5 1.5 0 001.06.44h4.125A2.25 2.25 0 0118.25 7.875v10.5a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z"
-    />
-  </svg>
-);
 
 export default function ConversationList({
   users,
@@ -99,177 +24,18 @@ export default function ConversationList({
   statusLookup,
 }: ConversationListProps) {
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none">
-      {users.map((u, index) => {
-        const unreadCount = u.unread ?? 0;
-        const showReplyBadge = unreadCount > 0 || Boolean(u.needsReply);
-        const statusMeta = statusLookup[u.status];
-        const statusStyle = statusMeta
-          ? buildStatusPillStyle(statusMeta.colorHex)
-          : undefined;
-        const windowState = getMessagingWindowState(u.lastInboundAt);
-        const cooling = isLeadCooling(u, statusLookup);
-
-        return (
-          <div
-            key={u.id}
-            className={`group flex items-center px-4 py-3 border-b border-[#F0F2F6] cursor-pointer hover:bg-[#F8F7FF] hover:z-50 relative ${
-              selectedUserId === u.id ? "bg-blue-50/50" : ""
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => onSelectUser(u.id)}
-              className="flex min-w-0 flex-1 items-center text-left"
-            >
-              <div className="relative flex-shrink-0">
-                <AppImage
-                  src={u.avatar || "/images/no_profile.jpg"}
-                  alt={u.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                  loadingMode={index < 8 ? "eager" : "lazy"}
-                />
-                {showReplyBadge && (
-                  <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#8771FF] px-1 text-[9px] font-semibold leading-none tabular-nums text-white">
-                    {unreadCount > 0
-                      ? unreadCount > 9
-                        ? "9+"
-                        : unreadCount
-                      : "!"}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 ml-3 mr-2">
-                <div className="flex items-center mb-0.5">
-                  <span className="font-bold text-sm text-[#101011] truncate">
-                    {u.name?.replace("@", "")}
-                  </span>
-                  {u.verified && (
-                    <span className="ml-1">
-                      <VerifiedIcon />
-                    </span>
-                  )}
-                  <span className="text-[10px] text-[#9A9CA2] ml-2 whitespace-nowrap">
-                    {u.time}
-                  </span>
-                  {windowState && windowState.status !== "ok" && (
-                    <span
-                      className={`ml-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                        windowState.status === "closed"
-                          ? "bg-red-500"
-                          : "bg-amber-500"
-                      }`}
-                      title={
-                        windowState.status === "closed"
-                          ? "Messaging window closed"
-                          : "Messaging window closes soon"
-                      }
-                    />
-                  )}
-                </div>
-                <div className="text-xs text-[#606266] truncate">
-                  {u.lastMessage}
-                </div>
-                {cooling && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-sky-600"
-                      title="No reply from this lead in 3+ days"
-                    >
-                      Cooling
-                    </span>
-                  </div>
-                )}
-                {u.accountLabel && (
-                  <div className="mt-1 text-[10px] text-[#606266] truncate">
-                    Account: {u.accountLabel}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-shrink-0">
-                <div
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold leading-none ${statusMeta ? "" : u.statusColor}`}
-                  style={statusStyle}
-                >
-                  <StatusIcon
-                    status={u.status}
-                    iconPack={statusMeta?.iconPack}
-                    iconName={statusMeta?.iconName}
-                    className="h-3.5 w-3.5 shrink-0 self-center"
-                  />
-                  <span className="inline-flex items-center leading-none">
-                    {u.status}
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            {/* Floating Action Icons (show on hover) */}
-            <div
-              className="absolute top-1.5 right-2 flex flex-row gap-1 bg-[#2B2640] rounded-lg px-1.5 py-1 shadow-lg border border-dashed border-blue-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-[100]"
-              style={{ minWidth: 60 }}
-            >
-              {/* Priority */}
-              <div className="group/act relative flex items-center">
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onAction(u.id, "qualified");
-                  }}
-                  tabIndex={-1}
-                >
-                  <StarIcon className="w-4 h-4 text-[#606266] group-hover/act:text-yellow-400" />
-                </button>
-                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                  Mark as qualified
-                </span>
-              </div>
-              {/* Delete */}
-              <div className="group/act relative flex items-center">
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onAction(u.id, "delete");
-                  }}
-                  tabIndex={-1}
-                >
-                  <XIcon className="w-4 h-4 text-[#606266] group-hover/act:text-red-500" />
-                </button>
-                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                  Unqualify and remove user from inbox
-                </span>
-              </div>
-              {/* Priority / Unpriority */}
-              <div className="group/act relative flex items-center">
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onAction(u.id, u.isPriority ? "unpriority" : "priority");
-                  }}
-                  tabIndex={-1}
-                >
-                  <FolderMoveIcon
-                    className={`w-4 h-4 text-[#606266] ${u.isPriority ? "group-hover/act:text-red-400" : "group-hover/act:text-yellow-400"}`}
-                  />
-                </button>
-                <span className="pointer-events-none text-[8px] text-[#B0B3BA] bg-black bg-opacity-80 rounded px-1.5 py-1 opacity-0 group-hover/act:opacity-100 transition-opacity absolute -bottom-7 right-0 whitespace-nowrap z-[200]">
-                  {u.isPriority
-                    ? "Remove from priority inbox"
-                    : "Move to priority inbox"}
-                </span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <ul className="space-y-0.5 px-2 pb-3">
+      {users.map((user, index) => (
+        <ConversationRow
+          key={user.id}
+          user={user}
+          isSelected={selectedUserId === user.id}
+          eagerAvatar={index < EAGER_AVATAR_COUNT}
+          statusLookup={statusLookup}
+          onSelect={() => onSelectUser(user.id)}
+          onAction={(action) => onAction(user.id, action)}
+        />
+      ))}
+    </ul>
   );
 }

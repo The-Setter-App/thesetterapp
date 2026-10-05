@@ -1,6 +1,5 @@
 "use client";
 
-import { Inter } from "next/font/google"; // Import Inter
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import ConversationList from "@/components/inbox/ConversationList";
@@ -16,8 +15,6 @@ import SidebarSearchBar from "./sidebar/SidebarSearchBar";
 import SidebarTabs from "./sidebar/SidebarTabs";
 import useInboxSidebarData from "./sidebar/useInboxSidebarData";
 import useSidebarFilters from "./sidebar/useSidebarFilters";
-
-const inter = Inter({ subsets: ["latin"] });
 
 interface InboxSidebarProps {
   width?: number;
@@ -60,7 +57,7 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   return (
     <aside
-      className={`${inter.className} bg-white flex flex-col flex-shrink-0 h-full antialiased`}
+      className="flex h-full flex-shrink-0 flex-col bg-white"
       style={width ? { width: `${width}px` } : undefined}
     >
       <SidebarHeader />

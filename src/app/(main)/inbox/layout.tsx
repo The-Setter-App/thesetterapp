@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import InboxSidebar from "@/components/inbox/InboxSidebar";
 import { InboxSyncProvider } from "@/components/inbox/InboxSyncContext";
+import surface from "@/components/ui/brandSurface.module.css";
 
 export default function InboxLayout({
   children,
@@ -131,7 +132,9 @@ export default function InboxLayout({
         markChatReady,
       }}
     >
-      <div className="relative flex h-full overflow-hidden bg-[#F8F7FF] font-sans text-[#101011]">
+      <div
+        className={`${surface.surface} relative flex h-full overflow-hidden text-[#101011]`}
+      >
         <div className="flex h-full w-full overflow-hidden">
           <InboxSidebar width={leftWidth} />
           <button

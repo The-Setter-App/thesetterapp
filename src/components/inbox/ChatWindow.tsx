@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { LuX } from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
-import { resolveAppMediaSrc } from "@/lib/media/remoteMediaUrl";
 import type { Message } from "@/types/inbox";
-import AudioMessage from "./AudioMessage";
-import MessageMarkdown from "./MessageMarkdown";
+import ChatMessage from "./ChatMessage";
 import StatusUpdateEvent from "./StatusUpdateEvent";
 
 interface ChatWindowProps {
@@ -180,20 +179,19 @@ export default function ChatWindow({
 
   if (loading && messages.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-white scrollbar-none">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-white px-5 py-6 scrollbar-none md:px-8">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
             className={`flex flex-col ${i % 2 === 0 ? "items-end" : "items-start"}`}
           >
             <div
-              className={`rounded-2xl p-4 max-w-[60%] animate-pulse ${i % 2 === 0 ? "bg-[#F3F0FF]" : "bg-[#F4F5F8]"}`}
-            >
-              <div
-                className={`h-4 bg-[#F0F2F6] rounded mb-2 ${i % 2 === 0 ? "w-48" : "w-32"}`}
-              ></div>
-              <div className="h-3 w-20 bg-[#F0F2F6] rounded"></div>
-            </div>
+              className={`h-10 animate-pulse rounded-[1.25rem] ${
+                i % 2 === 0
+                  ? "w-52 rounded-br-md bg-[#ECE9FF]"
+                  : "w-40 rounded-bl-md bg-[#F4F5F8]"
+              }`}
+            />
           </div>
         ))}
       </div>
@@ -209,175 +207,63 @@ export default function ChatWindow({
       className="flex-1 overflow-y-auto bg-white scrollbar-none"
       style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
     >
-      <div className="flex min-h-full flex-col px-8 py-6">
+      <div className="flex min-h-full flex-col px-5 py-6 md:px-8">
         {(loadingOlder || hasMore) && (
-          <div className="flex justify-center py-2">
+          <div className="flex justify-center pb-3">
             {hasMore ? (
               <button
                 type="button"
                 onClick={onLoadMore}
                 disabled={loadingOlder}
-                className="h-11 rounded-full bg-[#F4F5F8] px-4 text-xs font-medium text-[#101011] transition-colors hover:bg-[#F0F2F6] disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-9 rounded-full bg-[#F4F5F8] px-4 text-xs font-semibold text-[#101011] outline-none transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 [@media(hover:hover)]:enabled:hover:bg-[#F0F2F6]"
               >
                 {loadingOlder
                   ? "Loading older messages..."
                   : "Load more messages"}
               </button>
             ) : (
-              <div className="rounded-full bg-[#F4F5F8] px-3 py-1 text-xs text-[#606266]">
+              <p className="text-[11px] font-medium text-[#9A9CA2]">
                 No more messages
-              </div>
+              </p>
             )}
           </div>
         )}
 
-        <div className="mt-auto space-y-2">
+        <div className="mt-auto">
           {messages.map((msg, index) => {
             const previous = index > 0 ? messages[index - 1] : undefined;
             const showSeparator = shouldShowTimeSeparator(msg, previous);
             const separatorLabel = showSeparator
               ? formatSeparatorTime(msg)
               : "";
-            const resolvedAttachmentUrl =
-              resolveAppMediaSrc(msg.attachmentUrl) || msg.attachmentUrl;
+            // Messages from the same sender sit close together; a change of
+            // sender gets more room.
+            const startsNewGroup =
+              previous !== undefined && previous.fromMe !== msg.fromMe;
 
             return (
-              <div key={msg.id}>
+              <div
+                key={msg.id}
+                className={
+                  index === 0 ? undefined : startsNewGroup ? "pt-3" : "pt-1"
+                }
+              >
                 {showSeparator && separatorLabel && (
-                  <div className="my-3 flex justify-center">
-                    <span className="rounded-full bg-[#F4F5F8] px-3 py-1 text-[11px] font-medium text-[#606266]">
-                      {separatorLabel}
-                    </span>
-                  </div>
+                  <p className="pb-3 pt-2 text-center text-[11px] font-medium text-[#9A9CA2]">
+                    {separatorLabel}
+                  </p>
                 )}
-                <div
-                  className={`flex flex-col ${msg.fromMe ? "items-end" : "items-start"}`}
-                >
-                  <div
-                    className={`text-sm ${
-                      msg.type === "audio" || msg.type === "image"
-                        ? "bg-transparent p-0"
-                        : `max-w-[80%] rounded-[12px] ${msg.fromMe ? "bg-[#8771FF] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]" : "bg-[rgba(135,113,255,0.05)] text-[#2B2B2C] border border-[#F0F2F6] shadow-[0_2px_4px_rgba(0,0,0,0.08)]"}`
-                    } ${
-                      msg.type === "audio" || msg.type === "image"
-                        ? ""
-                        : msg.type === "video"
-                          ? "p-1"
-                          : "px-3 py-2"
-                    }`}
-                  >
-                    {msg.type === "text" && (
-                      <MessageMarkdown
-                        fromMe={msg.fromMe}
-                        text={msg.text || ""}
-                      />
-                    )}
-
-                    {msg.type === "image" && msg.attachmentUrl && (
-                      <div>
-                        <div
-                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? "" : "min-h-[220px]"}`}
-                        >
-                          {!loadedMediaByMessageId[msg.id] && (
-                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
-                          )}
-                          <AppImage
-                            src={resolvedAttachmentUrl}
-                            alt="Attachment"
-                            className={`block h-auto w-full cursor-pointer transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? "opacity-100" : "opacity-0"}`}
-                            loadingMode="lazy"
-                            onLoad={() => {
-                              markMediaLoaded(msg.id);
-                              keepBottomIfPinned();
-                            }}
-                            onClick={() =>
-                              setSelectedImage(resolvedAttachmentUrl || null)
-                            }
-                          />
-                        </div>
-                        {msg.text && (
-                          <p
-                            className={`mt-1 text-xs ${msg.fromMe ? "text-[#ECE9FF] text-right" : "text-[#606266] text-left"}`}
-                          >
-                            {msg.text}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {msg.type === "image" && !msg.attachmentUrl && (
-                      <div className="px-3 py-2 text-xs text-[#606266]">
-                        Image unavailable
-                      </div>
-                    )}
-
-                    {msg.type === "video" && msg.attachmentUrl && (
-                      <div>
-                        <div
-                          className={`relative w-[220px] sm:w-[260px] md:w-[320px] overflow-hidden rounded-xl bg-[#F4F5F8] ${loadedMediaByMessageId[msg.id] ? "" : "min-h-[220px]"}`}
-                        >
-                          {!loadedMediaByMessageId[msg.id] && (
-                            <div className="absolute inset-0 animate-pulse bg-[#F0F2F6]/70" />
-                          )}
-                          <video
-                            src={resolvedAttachmentUrl}
-                            controls
-                            muted
-                            onLoadedMetadata={() => {
-                              markMediaLoaded(msg.id);
-                              keepBottomIfPinned();
-                            }}
-                            onLoadedData={keepBottomIfPinned}
-                            className={`block h-auto w-full transition-opacity duration-300 ${loadedMediaByMessageId[msg.id] ? "opacity-100" : "opacity-0"}`}
-                          >
-                            <track kind="captions" />
-                          </video>
-                        </div>
-                        {msg.text && <p className="px-3 py-2">{msg.text}</p>}
-                      </div>
-                    )}
-
-                    {msg.type === "audio" && (
-                      <AudioMessage
-                        messageId={msg.id}
-                        src={resolvedAttachmentUrl || ""}
-                        duration={msg.duration}
-                        isOwn={msg.fromMe}
-                        onDurationResolved={onAudioDurationResolved}
-                      />
-                    )}
-
-                    {msg.type === "file" && (
-                      <div className="flex items-center space-x-2">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span>{msg.text || "File attachment"}</span>
-                      </div>
-                    )}
-                  </div>
-                  {msg.pending && !msg.clientAcked && msg.fromMe && (
-                    <div className="mt-1 mr-1 text-[10px] text-[#606266]">
-                      Sending...
-                    </div>
-                  )}
-                  {msg.status === "Read" && (
-                    <div className="text-[10px] text-[#9A9CA2] mt-1 mr-1">
-                      Read
-                    </div>
-                  )}
-                </div>
+                <ChatMessage
+                  message={msg}
+                  mediaLoaded={Boolean(loadedMediaByMessageId[msg.id])}
+                  onMediaLoaded={() => {
+                    markMediaLoaded(msg.id);
+                    keepBottomIfPinned();
+                  }}
+                  onMediaResized={keepBottomIfPinned}
+                  onOpenImage={setSelectedImage}
+                  onAudioDurationResolved={onAudioDurationResolved}
+                />
               </div>
             );
           })}
@@ -399,7 +285,7 @@ export default function ChatWindow({
       {selectedImage && (
         <button
           type="button"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/75 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101011]/80 px-4 backdrop-blur-sm"
           onClick={() => setSelectedImage(null)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -410,29 +296,15 @@ export default function ChatWindow({
         >
           <span
             aria-hidden="true"
-            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#101011] transition-colors hover:bg-white"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#101011] transition-colors [@media(hover:hover)]:hover:bg-white"
           >
-            <svg
-              className="h-6 w-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 6l12 12M18 6L6 18"
-              />
-            </svg>
+            <LuX className="h-5 w-5" />
           </span>
 
           <AppImage
             src={selectedImage}
             alt="Expanded attachment"
-            className="max-h-[85vh] w-full max-w-5xl  object-contain"
+            className="max-h-[85vh] w-full max-w-5xl object-contain"
             loadingMode="eager"
             onClick={(event) => event.stopPropagation()}
           />

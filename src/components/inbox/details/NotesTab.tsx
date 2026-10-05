@@ -10,10 +10,11 @@ export default function NotesTab({ notes, onChange }: NotesTabProps) {
   const remaining = maxChars - notes.length;
 
   return (
-    <div className="p-6">
-      <div className="border border-[#F0F2F6] rounded-xl p-4 shadow-sm bg-white h-64">
+    <div className="p-5">
+      <div className="h-64 rounded-2xl border border-[#F0F2F6] bg-white p-4 transition-colors duration-150 focus-within:border-[#8771FF]">
         <textarea
-          className="text-[#606266] font-bold text-sm w-full h-full resize-none outline-none"
+          aria-label="Notes"
+          className="h-full w-full resize-none bg-transparent text-[0.9375rem] leading-relaxed text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
           value={notes}
           maxLength={maxChars}
           placeholder="Add notes about this lead, objections, and next step."

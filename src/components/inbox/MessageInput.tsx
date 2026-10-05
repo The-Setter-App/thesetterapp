@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  LuArrowUp,
+  LuCalendarPlus,
+  LuCheck,
+  LuImage,
+  LuMic,
+  LuTrash2,
+  LuX,
+} from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import type { User } from "@/types/inbox";
@@ -18,6 +27,19 @@ interface MessageInputProps {
   handleSendAudio?: (blob: Blob, duration: number) => void;
   showCalendlyButton?: boolean;
   onOpenCalendlyModal?: () => void;
+}
+
+const MAX_TEXTAREA_HEIGHT_PX = 120;
+
+const TOOL_BUTTON_CLASS =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full outline-none transition-[transform,color,background-color] duration-100 ease-out active:scale-[0.94] disabled:opacity-50";
+const TOOL_BUTTON_IDLE_CLASS =
+  "text-[#9A9CA2] [@media(hover:hover)]:enabled:hover:bg-[#F8F7FF] [@media(hover:hover)]:enabled:hover:text-[#606266]";
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
 export default function MessageInput({
@@ -44,19 +66,15 @@ export default function MessageInput({
     cancelRecording,
   } = useAudioRecorder();
 
-  // Auto-resize logic
+  // Grow the field with its content, up to a few lines. Re-measured whenever
+  // the text changes, including when it is cleared after sending.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the text is the trigger; the measurement reads the DOM.
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
-    }
-  }, []);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+  }, [messageInput, isRecording]);
 
   const handleStopAndSend = async () => {
     const result = await stopRecording();
@@ -65,37 +83,28 @@ export default function MessageInput({
     }
   };
 
+  const canSend =
+    Boolean(user) &&
+    (messageInput.trim().length > 0 || Boolean(attachmentFile));
+
   return (
-    <div className="p-4 bg-white mx-8 mb-4 flex-shrink-0 relative">
+    <div className="relative shrink-0 bg-white px-4 pb-4 pt-2 md:px-6">
       {attachmentPreview && (
-        <div className="absolute bottom-full left-0 mb-2 p-2 bg-white border border-[#F0F2F6] rounded-lg shadow-lg z-10">
-          <div className="relative group">
+        <div className="absolute bottom-full left-4 z-10 mb-1 rounded-2xl border border-[#F0F2F6] bg-white p-2 shadow-[0_12px_32px_rgba(16,16,17,0.1)] md:left-6">
+          <div className="relative">
             <AppImage
               src={attachmentPreview}
               alt="Attachment"
-              className="h-32 w-auto rounded-md object-contain border border-[#F0F2F6] bg-[#F8F7FF]"
+              className="h-32 w-auto rounded-xl bg-[#F8F7FF] object-contain"
               loadingMode="eager"
             />
             <button
               type="button"
               onClick={clearAttachment}
-              className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-[#F0F2F6] text-[#606266] hover:text-red-500 transition-colors"
+              aria-label="Remove attachment"
+              className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border border-[#F0F2F6] bg-white text-[#606266] shadow-sm outline-none transition-[transform,color] duration-100 ease-out active:scale-[0.94] [@media(hover:hover)]:hover:text-red-500"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <LuX aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -109,145 +118,98 @@ export default function MessageInput({
         onChange={handleFileSelect}
       />
 
-      <div className="relative flex items-center border border-[#F0F2F6] rounded-lg px-2 shadow-sm min-h-[50px]">
+      <div className="flex min-h-[3.25rem] items-end gap-1 rounded-[1.625rem] border border-[#F0F2F6] bg-white p-1.5 shadow-sm transition-colors duration-150 focus-within:border-[#8771FF]">
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between py-2 px-2">
-            <div className="flex items-center space-x-3 text-red-500 animate-pulse">
-              <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
-              <span className="font-mono font-medium text-sm">
+          <div className="flex h-10 flex-1 items-center justify-between pl-3">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+              <span className="text-sm font-semibold text-[#101011] tabular-nums">
                 {formatTime(recordingTime)}
               </span>
-              <span className="text-xs text-[#9A9CA2] font-normal">
-                Recording...
-              </span>
+              <span className="text-xs text-[#9A9CA2]">Recording...</span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={cancelRecording}
-                className="p-2 text-[#9A9CA2] hover:text-red-500 rounded-full hover:bg-[#F8F7FF] transition-colors"
+                className={`${TOOL_BUTTON_CLASS} text-[#9A9CA2] [@media(hover:hover)]:hover:bg-red-50 [@media(hover:hover)]:hover:text-red-500`}
                 title="Cancel"
+                aria-label="Cancel recording"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <LuTrash2
                   aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
+                  className="h-[1.125rem] w-[1.125rem]"
+                />
               </button>
               <button
                 type="button"
                 onClick={handleStopAndSend}
-                className="p-2 text-white bg-[#8771FF] rounded-full hover:bg-[#7660EE] transition-all shadow-sm hover:shadow-md hover:scale-105"
+                className={`${TOOL_BUTTON_CLASS} bg-[#8771FF] text-white [@media(hover:hover)]:hover:bg-[#6d5ed6]`}
                 title="Send"
+                aria-label="Send voice note"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <LuCheck
                   aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                  className="h-[1.125rem] w-[1.125rem]"
+                />
               </button>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex space-x-1 mr-2 text-[#B0B3BA]">
+            <div className="flex shrink-0 items-center">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-2 rounded-full transition-colors ${attachmentFile ? "text-[#8771FF] bg-[#8771FF]/10" : "hover:text-[#606266] hover:bg-[#F8F7FF]"}`}
+                className={`${TOOL_BUTTON_CLASS} ${
+                  attachmentFile
+                    ? "bg-[#F3F0FF] text-[#8771FF]"
+                    : TOOL_BUTTON_IDLE_CLASS
+                }`}
                 title="Attach Image"
+                aria-label="Attach image"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <LuImage
                   aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
+                  className="h-[1.125rem] w-[1.125rem]"
+                />
               </button>
 
               <button
                 type="button"
                 onClick={startRecording}
-                className="p-2 rounded-full hover:text-[#606266] hover:bg-[#F8F7FF] transition-colors"
+                className={`${TOOL_BUTTON_CLASS} ${TOOL_BUTTON_IDLE_CLASS}`}
                 title="Record Voice Note"
+                aria-label="Record voice note"
                 disabled={!user}
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <LuMic
                   aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                </svg>
+                  className="h-[1.125rem] w-[1.125rem]"
+                />
               </button>
 
               {showCalendlyButton ? (
                 <button
                   type="button"
                   onClick={onOpenCalendlyModal}
-                  className="p-2 rounded-full hover:text-[#606266] hover:bg-[#F8F7FF] transition-colors"
+                  className={`${TOOL_BUTTON_CLASS} ${TOOL_BUTTON_IDLE_CLASS}`}
                   title="Send Calendly Link"
+                  aria-label="Send Calendly link"
                   disabled={!user}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <LuCalendarPlus
                     aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10m-13 9h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v11a2 2 0 002 2z"
-                    />
-                  </svg>
+                    className="h-[1.125rem] w-[1.125rem]"
+                  />
                 </button>
               ) : null}
             </div>
 
             <textarea
               ref={textareaRef}
-              className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none resize-none min-h-[44px] max-h-[120px] py-3"
+              aria-label="Message"
+              className="max-h-[120px] min-h-10 flex-1 resize-none bg-transparent px-1 py-2.5 text-[0.9375rem] leading-5 text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
               placeholder="Write a message..."
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
@@ -271,6 +233,20 @@ export default function MessageInput({
               disabled={!user}
               rows={1}
             />
+
+            <button
+              type="button"
+              onClick={handleSendMessage}
+              disabled={!canSend}
+              aria-label="Send message"
+              title="Send"
+              className={`${TOOL_BUTTON_CLASS} bg-[#8771FF] text-white disabled:bg-[#F4F5F8] disabled:text-[#9A9CA2] disabled:opacity-100 [@media(hover:hover)]:enabled:hover:bg-[#6d5ed6]`}
+            >
+              <LuArrowUp
+                aria-hidden="true"
+                className="h-[1.125rem] w-[1.125rem]"
+              />
+            </button>
           </>
         )}
       </div>

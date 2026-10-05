@@ -24,14 +24,19 @@ const EMPTY_SECTION: ConversationSummarySection = {
 function SummarySection({ section }: { section: ConversationSummarySection }) {
   return (
     <>
-      <p className="font-bold text-gray-900 text-sm mb-3">{section.title}</p>
-      <ul className="space-y-3 pl-1 text-gray-600">
+      <p className="mb-3 text-sm font-semibold text-[#101011]">
+        {section.title}
+      </p>
+      <ul className="space-y-2.5 text-[#606266]">
         {section.points.map((point, index) => (
           <li
             key={`${section.title}-${index}-${point}`}
             className="flex items-start"
           >
-            <span className="mr-2 text-gray-300 text-[8px] mt-1.5">●</span>
+            <span
+              aria-hidden="true"
+              className="mr-2.5 mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C9BFFF]"
+            />
             <span>{point}</span>
           </li>
         ))}
@@ -154,11 +159,14 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
   }, [applySummary, conversationId]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 bg-white">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <LuInfo className="mr-2 h-5 w-6 text-[#606266]" aria-label="Info" />
-          <p className="text-xs text-gray-500 font-medium">
+    <div className="flex-1 overflow-y-auto bg-white p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <LuInfo
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#9A9CA2]"
+            aria-hidden="true"
+          />
+          <p className="text-xs leading-snug text-[#606266]">
             Summary is generated using info from this conversation.
           </p>
         </div>
@@ -167,14 +175,13 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
           onClick={runSummary}
           disabled={loading || hydrating || !conversationId}
           className={[
-            "ml-2 h-6 min-w-[110px] rounded-full px-3 text-[10px] font-bold transition-colors",
-            "inline-flex items-center justify-center",
+            "h-9 min-w-[6.5rem] shrink-0 rounded-full px-4 text-xs font-semibold outline-none",
+            "inline-flex items-center justify-center bg-[#8771FF] text-white",
+            "transition-[transform,background-color,opacity] duration-100 ease-out active:scale-[0.97]",
             loading
-              ? "bg-[#8771FF] text-white cursor-wait"
-              : "bg-[#A9A9AF] text-white hover:bg-[#8771FF]",
-            !conversationId || hydrating
-              ? "opacity-60 cursor-not-allowed hover:bg-[#A9A9AF]"
-              : "",
+              ? "cursor-wait"
+              : "[@media(hover:hover)]:enabled:hover:bg-[#6d5ed6]",
+            !conversationId || hydrating ? "cursor-not-allowed opacity-50" : "",
           ].join(" ")}
         >
           {loading ? (
@@ -190,7 +197,7 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-xs leading-relaxed">
+      <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 text-[0.8125rem] leading-relaxed">
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
             {error}
@@ -230,7 +237,7 @@ export default function SummaryTab({ conversationId }: SummaryTabProps) {
         ) : null}
 
         {!hasSummary && !loading && !hydrating && !error ? (
-          <p className="text-xs text-gray-500">
+          <p className="text-[0.8125rem] text-[#606266]">
             No summary yet. Click Summarize to generate one from recent
             messages.
           </p>

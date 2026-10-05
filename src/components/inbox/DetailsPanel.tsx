@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import {
   type ConversationDetailsCacheState,
   getCachedConversationDetailsState,
@@ -533,13 +534,6 @@ export default function DetailsPanel({
       window.removeEventListener("userStatusUpdated", handleLocalStatus);
   }, [appendStatusTimelineEvent, user.id]);
 
-  const getTabButtonClass = (tabName: DetailsTabName) => {
-    const isActive = activeTab === tabName;
-    return isActive
-      ? "px-5 py-1.5 bg-[#8771FF] text-white rounded-full shadow-md text-xs font-semibold"
-      : "px-3 py-1.5 text-xs font-semibold text-[#606266] hover:text-[#101011] cursor-pointer";
-  };
-
   const handleClearTimeline = useCallback(async () => {
     if (!user.id) return;
     setTimelineEvents([]);
@@ -576,19 +570,13 @@ export default function DetailsPanel({
         onCommitContactDetails={commitContactDetails}
       />
 
-      <hr className="border-[#F0F2F6]" />
-
-      <div className="flex items-center justify-around border-b border-[#F0F2F6] px-2 py-2 text-sm font-semibold text-[#606266]">
-        {detailsTabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={getTabButtonClass(tab)}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="border-b border-[#F0F2F6] px-4 pb-3">
+        <SegmentedControl
+          ariaLabel="Lead details section"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={detailsTabs.map((tab) => ({ value: tab, label: tab }))}
+        />
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden bg-white">

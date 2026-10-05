@@ -33,7 +33,7 @@ export default function LeadSourceBadge({ leadSource }: LeadSourceBadgeProps) {
     </>
   );
   const className =
-    "mt-3 flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-[#606266] shadow-sm";
+    "mt-3 flex min-h-11 w-full items-center gap-2 rounded-2xl bg-[#F8F7FF] px-3.5 py-2.5 text-[0.8125rem] font-medium text-[#606266] transition-colors duration-150";
 
   if (!linkUrl) {
     return <div className={className}>{content}</div>;
@@ -44,7 +44,7 @@ export default function LeadSourceBadge({ leadSource }: LeadSourceBadgeProps) {
       href={linkUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`${className} hover:bg-[#F8F7FF]`}
+      className={`${className} [@media(hover:hover)]:hover:bg-[#F3F0FF]`}
     >
       {content}
     </a>
