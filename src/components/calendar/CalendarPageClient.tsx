@@ -28,16 +28,28 @@ import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
 import { toCalendarMonthPath } from "@/lib/calendarRoute";
 
 interface CalendarPageClientProps {
-  initialDate?: Date;
+  // The month named in the URL, as a year and a 0-based month index. They are
+  // numbers rather than a Date so the month cannot shift between the
+  // server's timezone and the viewer's.
+  initialYear?: number;
+  initialMonthIndex?: number;
+}
+
+function toMonthStart(year?: number, monthIndex?: number): Date | null {
+  if (year === undefined || monthIndex === undefined) return null;
+  if (!Number.isInteger(year) || !Number.isInteger(monthIndex)) return null;
+  if (monthIndex < 0 || monthIndex > 11) return null;
+  return new Date(year, monthIndex, 1);
 }
 
 export default function CalendarPageClient({
-  initialDate,
+  initialYear,
+  initialMonthIndex,
 }: CalendarPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [currentDate, setCurrentDate] = useState(
-    () => initialDate ?? new Date(),
+    () => toMonthStart(initialYear, initialMonthIndex) ?? new Date(),
   );
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
@@ -77,20 +89,20 @@ export default function CalendarPageClient({
     eventId: selectedEvent?.id ?? null,
   });
 
+  // Follow the URL when it names a different month (back/forward, a link).
   useEffect(() => {
-    if (!initialDate) return;
-    const incomingMonth = initialDate.getMonth();
-    const incomingYear = initialDate.getFullYear();
+    const incoming = toMonthStart(initialYear, initialMonthIndex);
+    if (!incoming) return;
     setCurrentDate((prev) => {
       if (
-        prev.getMonth() === incomingMonth &&
-        prev.getFullYear() === incomingYear
+        prev.getMonth() === incoming.getMonth() &&
+        prev.getFullYear() === incoming.getFullYear()
       ) {
         return prev;
       }
-      return initialDate;
+      return incoming;
     });
-  }, [initialDate]);
+  }, [initialYear, initialMonthIndex]);
 
   useEffect(() => {
     const nextPath = toCalendarMonthPath(currentDate);

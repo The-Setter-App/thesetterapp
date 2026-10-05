@@ -25,5 +25,13 @@ export default async function CalendarMonthPage({
     redirect(toCalendarMonthPath(new Date()));
   }
 
-  return <CalendarPageClient initialDate={initialDate} />;
+  // The month goes to the browser as plain numbers. A Date would be sent as a
+  // UTC timestamp and read back in the viewer's timezone, where midnight on
+  // the 1st is still the previous month for anyone west of UTC.
+  return (
+    <CalendarPageClient
+      initialYear={initialDate.getFullYear()}
+      initialMonthIndex={initialDate.getMonth()}
+    />
+  );
 }
