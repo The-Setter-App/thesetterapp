@@ -15,6 +15,10 @@ export interface LeadRow {
   interacted: string;
   avatar?: string | null;
   updatedAtMs?: number;
+  // Contact details saved on the lead. Not shown in the table; they are
+  // carried so an export includes them.
+  email?: string;
+  phone?: string;
   selected?: boolean;
 }
 

@@ -74,6 +74,8 @@ export function mapInboxUserToLeadRow(user: User): LeadRow {
     interacted: toRelativeInteracted(user.updatedAt, user.time),
     avatar: user.avatar,
     updatedAtMs,
+    email: user.contactDetails?.email?.trim() || undefined,
+    phone: user.contactDetails?.phoneNumber?.trim() || undefined,
   };
 }
 

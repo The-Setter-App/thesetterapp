@@ -54,6 +54,8 @@ export default function LeadsPageClient() {
     selectedCount,
     headerCheckboxState,
     getStatusCount,
+    onExport,
+    exportCount,
     totalCount,
     filteredCount,
     currentPage,
@@ -89,6 +91,9 @@ export default function LeadsPageClient() {
         totalCount={filteredCount}
         search={search}
         onSearchChange={setSearch}
+        exportCount={exportCount}
+        exportsSelection={selectedCount > 0}
+        onExport={onExport}
       />
 
       <LeadsFilterBar

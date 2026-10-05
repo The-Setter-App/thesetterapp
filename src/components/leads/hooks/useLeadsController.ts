@@ -8,6 +8,7 @@ import {
   updateUserStatusAction,
 } from "@/app/actions/inbox";
 import { useToast } from "@/components/ui/Toast";
+import { downloadTextFile } from "@/lib/browser/downloadTextFile";
 import {
   getCachedLeads,
   getCachedLeadsTimestamp,
@@ -18,6 +19,10 @@ import {
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import { LEADS_CACHE_TTL_MS } from "@/lib/leads/cacheWarmup";
+import {
+  buildLeadsCsv,
+  buildLeadsCsvFileName,
+} from "@/lib/leads/exportLeadsCsv";
 import { mapInboxUsersToLeadRows } from "@/lib/leads/mapInboxUserToLeadRow";
 import {
   CONVERSATION_STATUS_SYNCED_EVENT,
@@ -495,6 +500,35 @@ export function useLeadsController() {
     [selectedIds, toast, updateRows],
   );
 
+  // An export covers the ticked leads, or everything the filters currently
+  // show when nothing is ticked.
+  const exportRows = useMemo(
+    () =>
+      selectedIds.size > 0
+        ? baseRows.filter((row) => selectedIds.has(row.id))
+        : filteredRows,
+    [baseRows, filteredRows, selectedIds],
+  );
+
+  const onExport = useCallback(() => {
+    if (exportRows.length === 0) return;
+    try {
+      downloadTextFile(
+        buildLeadsCsvFileName(),
+        buildLeadsCsv(exportRows),
+        "text/csv;charset=utf-8",
+      );
+      toast.success(
+        `Exported ${exportRows.length.toLocaleString()} lead${exportRows.length === 1 ? "" : "s"}`,
+      );
+    } catch (exportError) {
+      console.error("[Leads] Failed to export leads:", exportError);
+      toast.error("Could not export leads", {
+        description: "Please try again.",
+      });
+    }
+  }, [exportRows, toast]);
+
   const headerCheckboxState = useMemo((): boolean | "indeterminate" => {
     if (paginatedRows.length === 0) return false;
     const selectedCount = paginatedRows.filter((row) =>
@@ -633,6 +667,8 @@ export function useLeadsController() {
     isBulkUpdating,
     headerCheckboxState,
     getStatusCount,
+    onExport,
+    exportCount: exportRows.length,
     selectedCount: selectedIds.size,
     totalCount: baseRows.length,
     filteredCount: filteredRows.length,
