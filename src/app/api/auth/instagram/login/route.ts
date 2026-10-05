@@ -36,12 +36,7 @@ export async function GET(request: NextRequest) {
   // Store state in a cookie to verify it in the callback
   // In a production app, this should be signed or stored in a session
 
-  // Scopes required for the app functionality
-  // instagram_basic: Basic profile info
-  // instagram_manage_comments: Reply to comments
-  // instagram_manage_messages: Send/receive messages (DMs)
-  // pages_show_list: List pages to find the connected one
-  // pages_manage_metadata: Subscribe to webhooks
+  // What each permission is for is documented beside the list itself.
   const scopes = REQUIRED_INSTAGRAM_SCOPES.join(",");
 
   const url = new URL("https://www.facebook.com/v24.0/dialog/oauth");
