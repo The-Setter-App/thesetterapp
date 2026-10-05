@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export interface LeadsInlineSelectOption<T extends string> {
@@ -12,6 +12,7 @@ interface LeadsInlineSelectProps<T extends string> {
   value: T;
   options: readonly LeadsInlineSelectOption<T>[];
   onChange: (value: T) => void;
+  // True when the filter is set to something other than its default.
   active?: boolean;
   triggerClassName?: string;
 }
@@ -39,33 +40,35 @@ export default function LeadsInlineSelect<T extends string>({
 
   const selectedOption =
     options.find((option) => option.value === value) ?? options[0];
+  const highlighted = open || active;
 
   return (
     <div className="relative" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex h-11 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors ${
-          open
-            ? "border-[#DDD6FF] bg-[#F3F0FF] text-[#8771FF]"
-            : active
-              ? "border-[#E6E1FF] bg-[#F8F7FF] text-[#8771FF]"
-              : "border-[#F0F2F6] bg-white text-[#101011] hover:bg-[#F8F7FF]"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium outline-none transition-[transform,background-color,color] duration-100 ease-out active:scale-[0.97] ${
+          highlighted
+            ? "bg-[#F3F0FF] text-[#8771FF]"
+            : "bg-[#F4F5F8] text-[#101011] [@media(hover:hover)]:hover:bg-[#ECEEF3]"
         } ${triggerClassName}`}
       >
         {selectedOption?.label}
         <ChevronDown
-          size={16}
-          className={`transition-transform ${
-            open || active ? "text-[#8771FF]" : "text-[#9A9CA2]"
+          size={15}
+          aria-hidden="true"
+          className={`transition-transform duration-150 ${
+            highlighted ? "text-[#8771FF]" : "text-[#9A9CA2]"
           } ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 min-w-full rounded-2xl border border-[#F0F2F6] bg-white py-1 shadow-sm">
+        <div className="absolute left-0 top-full z-50 mt-2 min-w-full space-y-0.5 rounded-2xl border border-[#F0F2F6] bg-white p-1.5 shadow-[0_12px_32px_rgba(16,16,17,0.1)]">
           {options.map((option) => {
-            const active = option.value === value;
+            const selected = option.value === value;
             return (
               <button
                 key={option.value}
@@ -74,13 +77,20 @@ export default function LeadsInlineSelect<T extends string>({
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`mx-1 my-0.5 flex h-9 w-[calc(100%-0.5rem)] items-center rounded-lg px-3 text-left text-sm whitespace-nowrap ${
-                  active
-                    ? "bg-[#8771FF] text-white"
-                    : "text-[#101011] hover:bg-[#F8F7FF]"
+                className={`flex h-10 w-full items-center justify-between gap-4 whitespace-nowrap rounded-xl px-3 text-left text-sm outline-none transition-colors duration-100 ${
+                  selected
+                    ? "bg-[#F3F0FF] font-medium text-[#101011]"
+                    : "text-[#101011] [@media(hover:hover)]:hover:bg-[#F8F7FF]"
                 }`}
               >
                 {option.label}
+                {selected && (
+                  <Check
+                    size={15}
+                    aria-hidden="true"
+                    className="shrink-0 text-[#8771FF]"
+                  />
+                )}
               </button>
             );
           })}

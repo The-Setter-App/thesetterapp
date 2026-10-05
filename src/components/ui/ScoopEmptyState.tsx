@@ -1,24 +1,25 @@
 import Link from "next/link";
-import surface from "@/components/ui/brandSurface.module.css";
-import SetterScoopMark from "@/components/ui/SetterScoopMark";
+import surface from "./brandSurface.module.css";
+import SetterScoopMark from "./SetterScoopMark";
 
-interface InboxEmptyStateAction {
+interface ScoopEmptyStateAction {
   label: string;
   href: string;
 }
 
-interface InboxEmptyStateProps {
+interface ScoopEmptyStateProps {
   title: string;
   description: string;
-  action?: InboxEmptyStateAction;
+  action?: ScoopEmptyStateAction;
 }
 
-// Fills the chat area when there is no conversation to show.
-export default function InboxEmptyState({
+// Fills an area that has nothing to show yet, with the scoop character as
+// its illustration.
+export default function ScoopEmptyState({
   title,
   description,
   action,
-}: InboxEmptyStateProps) {
+}: ScoopEmptyStateProps) {
   return (
     <div
       className={`${surface.glow} flex h-full flex-1 items-center justify-center bg-white px-6`}

@@ -4,11 +4,14 @@ import { useEffect, useRef } from "react";
 interface CustomCheckboxProps {
   checked: boolean | "indeterminate";
   onChange: () => void;
+  // Read by screen readers, since the box has no visible text of its own.
+  label: string;
 }
 
 export default function CustomCheckbox({
   checked,
   onChange,
+  label,
 }: CustomCheckboxProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -18,38 +21,29 @@ export default function CustomCheckbox({
     }
   }, [checked]);
 
+  const isOn = checked === true || checked === "indeterminate";
+
   return (
-    <label className="relative inline-flex h-4 w-4 cursor-pointer">
+    // The label is larger than the box so it is an easy target to hit.
+    <label className="relative inline-flex h-8 w-8 cursor-pointer items-center justify-center">
       <input
         ref={inputRef}
         type="checkbox"
         checked={checked === true}
         onChange={onChange}
+        aria-label={label}
         className="sr-only"
       />
       <span
-        className={`w-4 h-4 flex items-center justify-center rounded-[5px] border transition-all duration-200
-        ${
-          checked === "indeterminate"
-            ? "border-2 border-[#8771FF] bg-white"
-            : checked
-              ? "bg-[#8771FF] border-[#8771FF] border-2"
-              : "bg-white border-[#F0F2F6] hover:border-[#F0F2F6] border-2"
-        }
-      `}
+        aria-hidden="true"
+        className={`flex h-[1.125rem] w-[1.125rem] items-center justify-center rounded-md border transition-colors duration-100 ${
+          isOn
+            ? "border-[#8771FF] bg-[#8771FF] text-white"
+            : "border-[#D8DBE2] bg-white"
+        }`}
       >
-        {checked === "indeterminate" && (
-          <Minus size={12} strokeWidth={2} className="text-[#8771FF]" />
-        )}
-        {checked === true && (
-          <Check
-            size={10}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-white mt-[1px] ml-[.5px]"
-          />
-        )}
+        {checked === "indeterminate" && <Minus size={12} strokeWidth={3} />}
+        {checked === true && <Check size={12} strokeWidth={3} />}
       </span>
     </label>
   );

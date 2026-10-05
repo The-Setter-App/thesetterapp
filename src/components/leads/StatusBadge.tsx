@@ -13,6 +13,9 @@ interface StatusBadgeProps {
   statusOptions?: TagRow[];
 }
 
+const BADGE_CLASS =
+  "inline-flex h-7 w-fit items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold";
+
 export default function StatusBadge({
   status,
   statusOptions,
@@ -23,12 +26,8 @@ export default function StatusBadge({
 
   if (!statusMeta) {
     return (
-      <span
-        className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold shadow-sm ${getStatusBadgeClass(
-          status,
-        )}`}
-      >
-        <StatusIcon status={status} className="h-3 w-3 text-white" />
+      <span className={`${BADGE_CLASS} ${getStatusBadgeClass(status)}`}>
+        <StatusIcon status={status} className="h-3.5 w-3.5 text-white" />
         {status}
       </span>
     );
@@ -36,14 +35,14 @@ export default function StatusBadge({
 
   return (
     <span
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold shadow-sm"
+      className={`${BADGE_CLASS} border`}
       style={buildStatusPillStyle(statusMeta.colorHex)}
     >
       <StatusIcon
         status={status}
         iconPack={statusMeta.iconPack}
         iconName={statusMeta.iconName}
-        className="h-3 w-3"
+        className="h-3.5 w-3.5"
       />
       {status}
     </span>

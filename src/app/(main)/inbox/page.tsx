@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import InboxEmptyState from "@/components/inbox/InboxEmptyState";
+import ScoopEmptyState from "@/components/ui/ScoopEmptyState";
 import { requireCurrentUser } from "@/lib/currentUser";
 import { canAccessInbox } from "@/lib/permissions";
 import {
@@ -20,7 +20,7 @@ export default async function InboxPage() {
 
   if (!hasConnectedAccounts) {
     return (
-      <InboxEmptyState
+      <ScoopEmptyState
         title="No connected accounts yet"
         description="Connect your Instagram account in Settings to start using Inbox."
         action={{ label: "Go to Settings", href: "/settings" }}
@@ -29,7 +29,7 @@ export default async function InboxPage() {
   }
 
   return (
-    <InboxEmptyState
+    <ScoopEmptyState
       title="Select a conversation"
       description="Choose a chat from the sidebar to start messaging."
     />

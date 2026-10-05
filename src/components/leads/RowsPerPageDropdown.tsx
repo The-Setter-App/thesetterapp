@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface RowsPerPageDropdownProps {
@@ -33,20 +33,24 @@ export default function RowsPerPageDropdown({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex h-9 min-w-[160px] items-center justify-between gap-2 rounded-lg border border-[#F0F2F6] bg-white px-3 text-xs font-medium text-[#606266]"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F5F8] px-3 text-xs font-medium text-[#606266] outline-none transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] [@media(hover:hover)]:hover:bg-[#ECEEF3]"
       >
-        <span className="inline-flex items-center gap-2">
-          Rows per page
-          <span className="text-sm font-semibold text-[#101011]">{value}</span>
+        Rows
+        <span className="font-semibold text-[#101011] tabular-nums">
+          {value}
         </span>
         <ChevronDown
           size={14}
-          className={`text-[#606266] transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+          className={`text-[#9A9CA2] transition-transform duration-150 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
+      {/* Opens upward: the control sits in the bar at the bottom of the page. */}
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-full rounded-xl border border-[#F0F2F6] bg-white py-1 shadow-sm">
+        <div className="absolute bottom-full left-0 z-50 mb-2 min-w-[7rem] space-y-0.5 rounded-2xl border border-[#F0F2F6] bg-white p-1.5 shadow-[0_12px_32px_rgba(16,16,17,0.1)]">
           {options.map((option) => {
             const selected = option === value;
             return (
@@ -57,13 +61,20 @@ export default function RowsPerPageDropdown({
                   onChange(option);
                   setOpen(false);
                 }}
-                className={`mx-1 my-0.5 flex h-9 w-[calc(100%-0.5rem)] items-center rounded-lg px-3 text-left text-sm ${
+                className={`flex h-9 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm tabular-nums outline-none transition-colors duration-100 ${
                   selected
-                    ? "bg-[#8771FF] text-white"
-                    : "text-[#101011] hover:bg-[#F8F7FF]"
+                    ? "bg-[#F3F0FF] font-medium text-[#101011]"
+                    : "text-[#101011] [@media(hover:hover)]:hover:bg-[#F8F7FF]"
                 }`}
               >
                 {option}
+                {selected && (
+                  <Check
+                    size={14}
+                    aria-hidden="true"
+                    className="shrink-0 text-[#8771FF]"
+                  />
+                )}
               </button>
             );
           })}

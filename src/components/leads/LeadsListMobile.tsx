@@ -18,7 +18,7 @@ export default function LeadsListMobile({
   onToggleSelect,
 }: LeadsListMobileProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto border-b border-[#F0F2F6] bg-white md:hidden">
+    <div className="flex-1 space-y-2 px-4 pb-4 md:hidden">
       {rows.map((lead) => (
         <LeadMobileCard
           key={lead.id}

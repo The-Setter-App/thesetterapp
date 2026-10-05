@@ -1,63 +1,78 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import RowsPerPageDropdown from "@/components/leads/RowsPerPageDropdown";
+import { getPageWindow } from "@/lib/leads/pageWindow";
 
 interface LeadsPaginationProps {
   page: number;
   pageCount: number;
   rowsPerPage: number;
+  rowsPerPageOptions: readonly number[];
   totalCount: number;
   onPageChange: (page: number) => void;
+  onRowsPerPageChange: (rowsPerPage: number) => void;
 }
 
+const STEP_BUTTON_CLASS =
+  "flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F5F8] text-[#606266] outline-none transition-[transform,background-color,opacity] duration-100 ease-out active:scale-[0.94] disabled:opacity-40 [@media(hover:hover)]:enabled:hover:bg-[#ECEEF3]";
+
+// The bar under the leads: how many are showing, how many per page, and the
+// page controls. Shown under both the table and the phone list.
 export default function LeadsPagination({
   page,
   pageCount,
   rowsPerPage,
+  rowsPerPageOptions,
   totalCount,
   onPageChange,
+  onRowsPerPageChange,
 }: LeadsPaginationProps) {
   const start = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
   const end = Math.min(page * rowsPerPage, totalCount);
 
-  const pageButtons = Array.from(
-    { length: Math.min(pageCount, 5) },
-    (_, index) => {
-      if (pageCount <= 5) return index + 1;
-      if (page <= 3) return index + 1;
-      if (page >= pageCount - 2) return pageCount - 4 + index;
-      return page - 2 + index;
-    },
-  );
-
   return (
-    <div className="flex items-center justify-between border-t border-[#F0F2F6] bg-[#FBFBFD] px-4 py-3 md:px-6">
-      <p className="text-xs text-[#606266] md:text-sm">
-        Showing <span className="font-semibold text-[#101011]">{start}</span>-
-        <span className="font-semibold text-[#101011]">{end}</span> of{" "}
-        <span className="font-semibold text-[#101011]">{totalCount}</span>
-      </p>
-      <div className="flex items-center gap-1.5">
+    <div className="sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[#F0F2F6] bg-white px-4 py-3 md:static md:px-6 lg:px-8">
+      <div className="flex items-center gap-3">
+        <p className="text-[0.8125rem] text-[#606266] tabular-nums">
+          <span className="font-semibold text-[#101011]">
+            {start}–{end}
+          </span>{" "}
+          of{" "}
+          <span className="font-semibold text-[#101011]">
+            {totalCount.toLocaleString()}
+          </span>
+        </p>
+        <RowsPerPageDropdown
+          value={rowsPerPage}
+          options={rowsPerPageOptions}
+          onChange={onRowsPerPageChange}
+        />
+      </div>
+
+      <nav aria-label="Pages" className="flex items-center gap-1">
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#F0F2F6] bg-white text-[#606266]"
+          aria-label="Previous page"
+          className={STEP_BUTTON_CLASS}
         >
-          <ChevronLeft size={16} className={page <= 1 ? "opacity-40" : ""} />
+          <ChevronLeft size={16} aria-hidden="true" />
         </button>
 
-        {pageButtons.map((pageNumber) => {
+        {getPageWindow(page, pageCount).map((pageNumber) => {
           const active = pageNumber === page;
           return (
             <button
               key={pageNumber}
               type="button"
               onClick={() => onPageChange(pageNumber)}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm ${
+              aria-current={active ? "page" : undefined}
+              className={`flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm tabular-nums outline-none transition-colors duration-100 ${
                 active
-                  ? "border-[#F0F2F6] bg-white font-semibold text-[#101011]"
-                  : "border-transparent bg-transparent font-medium text-[#9A9CA2]"
+                  ? "bg-[#F3F0FF] font-semibold text-[#8771FF]"
+                  : "font-medium text-[#606266] [@media(hover:hover)]:hover:bg-[#F8F7FF]"
               }`}
             >
               {pageNumber}
@@ -69,14 +84,12 @@ export default function LeadsPagination({
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= pageCount}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#F0F2F6] bg-white text-[#606266]"
+          aria-label="Next page"
+          className={STEP_BUTTON_CLASS}
         >
-          <ChevronRight
-            size={16}
-            className={page >= pageCount ? "opacity-40" : ""}
-          />
+          <ChevronRight size={16} aria-hidden="true" />
         </button>
-      </div>
+      </nav>
     </div>
   );
 }

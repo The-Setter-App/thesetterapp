@@ -1,7 +1,7 @@
 "use client";
 
-import { MoreVertical } from "lucide-react";
 import CustomCheckbox from "@/components/leads/CustomCheckbox";
+import OpenConversationLink from "@/components/leads/OpenConversationLink";
 import StatusBadge from "@/components/leads/StatusBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import type { LeadRow } from "@/types/leads";
@@ -14,58 +14,65 @@ interface LeadMobileCardProps {
   onToggleSelect: (id: string) => void;
 }
 
+interface LeadFact {
+  label: string;
+  value: string;
+}
+
 export default function LeadMobileCard({
   lead,
   statusOptions,
   selected,
   onToggleSelect,
 }: LeadMobileCardProps) {
+  const facts: LeadFact[] = [
+    { label: "Cash", value: lead.cash },
+    { label: "Interacted", value: lead.interacted },
+    { label: "Assigned to", value: lead.assignedTo },
+    { label: "Account", value: lead.account },
+  ];
+
   return (
-    <article className="border-b border-[#F0F2F6] px-4 py-4 last:border-b-0">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <CustomCheckbox
-            checked={selected}
-            onChange={() => onToggleSelect(lead.id)}
-          />
-          <Avatar src={lead.avatar} alt={lead.name} size="sm" />
-          <div>
-            <h3 className="text-sm font-semibold text-[#101011]">
-              {lead.name}
-            </h3>
-            <p className="text-xs text-[#606266]">{lead.handle || "N/A"}</p>
-          </div>
+    <article
+      className={`rounded-2xl border p-3 transition-colors duration-100 ${
+        selected ? "border-[#DCD5FF] bg-[#F8F7FF]" : "border-[#F0F2F6] bg-white"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <CustomCheckbox
+          checked={selected}
+          onChange={() => onToggleSelect(lead.id)}
+          label={`Select ${lead.name}`}
+        />
+        <Avatar
+          src={lead.avatar}
+          alt={lead.name}
+          size="sm"
+          className="shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[0.9375rem] font-semibold text-[#101011]">
+            {lead.name}
+          </h3>
+          <p className="truncate text-xs text-[#9A9CA2]">
+            {lead.handle || "N/A"}
+          </p>
         </div>
-        <button
-          type="button"
-          className="rounded-lg p-1 text-[#9A9CA2] hover:bg-[#F8F7FF] hover:text-[#606266]"
-        >
-          <MoreVertical size={16} />
-        </button>
+        <OpenConversationLink conversationId={lead.id} leadName={lead.name} />
       </div>
 
-      <div className="mt-3 space-y-3 pl-7">
+      <div className="mt-3 pl-10">
         <StatusBadge status={lead.status} statusOptions={statusOptions} />
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-[#9A9CA2]">
-              Cash
-            </p>
-            <p className="mt-0.5 text-[#606266]">{lead.cash}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-[#9A9CA2]">
-              Interacted
-            </p>
-            <p className="mt-0.5 text-[#606266]">{lead.interacted}</p>
-          </div>
-          <div className="col-span-2">
-            <p className="text-[10px] uppercase tracking-wide text-[#9A9CA2]">
-              Account
-            </p>
-            <p className="mt-0.5 text-[#606266]">{lead.account}</p>
-          </div>
-        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+          {facts.map((fact) => (
+            <div key={fact.label} className="min-w-0">
+              <dt className="text-[11px] text-[#9A9CA2]">{fact.label}</dt>
+              <dd className="mt-0.5 truncate text-[0.8125rem] font-medium text-[#101011] tabular-nums">
+                {fact.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </article>
   );

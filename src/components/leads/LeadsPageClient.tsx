@@ -1,41 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useLeadsController } from "@/components/leads/hooks/useLeadsController";
 import LeadsBulkActionBar from "@/components/leads/LeadsBulkActionBar";
 import LeadsFilterBar from "@/components/leads/LeadsFilterBar";
 import LeadsHeader from "@/components/leads/LeadsHeader";
 import LeadsListMobile from "@/components/leads/LeadsListMobile";
+import LeadsPagination from "@/components/leads/LeadsPagination";
 import LeadsTableDesktop from "@/components/leads/LeadsTableDesktop";
+import surface from "@/components/ui/brandSurface.module.css";
+import ScoopEmptyState from "@/components/ui/ScoopEmptyState";
 
-function NoConnectedAccountsState() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F7FF] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-[#F0F2F6] bg-white p-6 text-center shadow-sm">
-        <h2 className="text-lg font-semibold text-[#101011]">
-          No connected accounts yet
-        </h2>
-        <p className="mt-1 text-sm text-[#606266]">
-          Connect your Instagram account in Settings to load inbox leads.
-        </p>
-        <Link
-          href="/settings"
-          className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-[#8771FF] px-4 text-sm font-medium text-white transition-colors hover:bg-[#6d5ed6]"
-        >
-          Go to Settings
-        </Link>
-      </div>
-    </div>
-  );
+interface LeadsMessageProps {
+  children: string;
 }
 
-function EmptyLeadsState() {
+// A short centred line for the states that have no rows to show.
+function LeadsMessage({ children }: LeadsMessageProps) {
   return (
-    <div className="border-b border-[#F0F2F6] bg-white p-8 text-center">
-      <h2 className="text-lg font-semibold text-[#101011]">No leads yet</h2>
-      <p className="mt-1 text-sm text-[#606266]">
-        Conversations synced in inbox will appear here automatically.
-      </p>
+    <div className="flex flex-1 items-center justify-center p-8 text-center text-sm font-medium text-[#606266]">
+      {children}
     </div>
   );
 }
@@ -82,86 +65,104 @@ export default function LeadsPageClient() {
   } = useLeadsController();
 
   if (!hasConnectedAccounts) {
-    return <NoConnectedAccountsState />;
+    return (
+      <div className={`${surface.surface} flex h-full`}>
+        <ScoopEmptyState
+          title="No connected accounts yet"
+          description="Connect your Instagram account in Settings to load inbox leads."
+          action={{ label: "Go to Settings", href: "/settings" }}
+        />
+      </div>
+    );
   }
 
-  return (
-    <div className="min-h-screen bg-[#F8F7FF] text-[#101011]">
-      <div className="flex min-h-screen w-full flex-col">
-        <LeadsHeader
-          totalCount={filteredCount}
-          search={search}
-          onSearchChange={setSearch}
-        />
+  const isInitialLoad = totalCount === 0 && !initialLoadSettled && loading;
+  const hasRows = !error && totalCount > 0 && filteredRows.length > 0;
 
-        <LeadsFilterBar
-          selectedStatuses={selectedStatuses}
-          statusOptions={statusCatalog}
-          onToggleStatus={onToggleStatus}
-          getStatusCount={getStatusCount}
-          dateRangeFilter={dateRangeFilter}
-          onDateRangeFilterChange={onDateRangeFilterChange}
-          accountFilter={accountFilter}
-          accountFilterOptions={accountFilterOptions}
-          onAccountFilterChange={onAccountFilterChange}
-          paymentFilter={paymentFilter}
-          onPaymentFilterChange={onPaymentFilterChange}
-          currentPage={currentPage}
+  return (
+    // On phones the whole page scrolls so the header does not crowd out the
+    // list; from `md` up only the table scrolls and the rest stays in place.
+    <div
+      className={`${surface.surface} flex h-full w-full flex-col overflow-y-auto text-[#101011] md:overflow-hidden`}
+    >
+      <LeadsHeader
+        totalCount={filteredCount}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
+      <LeadsFilterBar
+        selectedStatuses={selectedStatuses}
+        statusOptions={statusCatalog}
+        onToggleStatus={onToggleStatus}
+        getStatusCount={getStatusCount}
+        dateRangeFilter={dateRangeFilter}
+        onDateRangeFilterChange={onDateRangeFilterChange}
+        accountFilter={accountFilter}
+        accountFilterOptions={accountFilterOptions}
+        onAccountFilterChange={onAccountFilterChange}
+        paymentFilter={paymentFilter}
+        onPaymentFilterChange={onPaymentFilterChange}
+      />
+
+      <LeadsBulkActionBar
+        selectedCount={selectedCount}
+        statusOptions={statusCatalog}
+        isBulkUpdating={isBulkUpdating}
+        onApplyStatus={onBulkApplyStatus}
+        onClearSelection={onClearSelection}
+      />
+
+      {error ? (
+        <div className="flex-1 px-4 md:px-6 lg:px-8">
+          <p
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
+            {error}
+          </p>
+        </div>
+      ) : isInitialLoad ? (
+        <LeadsMessage>Loading leads...</LeadsMessage>
+      ) : totalCount === 0 ? (
+        <ScoopEmptyState
+          title="No leads yet"
+          description="Conversations synced in inbox will appear here automatically."
+        />
+      ) : filteredRows.length === 0 ? (
+        <LeadsMessage>No leads match the current filters.</LeadsMessage>
+      ) : (
+        <>
+          <LeadsListMobile
+            rows={paginatedRows}
+            statusOptions={statusCatalog}
+            isSelected={isSelected}
+            onToggleSelect={onToggleSelect}
+          />
+          <LeadsTableDesktop
+            rows={paginatedRows}
+            statusOptions={statusCatalog}
+            sortConfig={sortConfig}
+            onSort={onSort}
+            onToggleSelect={onToggleSelect}
+            onToggleAllVisible={onToggleAllVisible}
+            isSelected={isSelected}
+            headerCheckboxState={headerCheckboxState}
+          />
+        </>
+      )}
+
+      {hasRows && (
+        <LeadsPagination
+          page={currentPage}
           pageCount={pageCount}
           rowsPerPage={rowsPerPage}
           rowsPerPageOptions={rowsPerPageOptions}
+          totalCount={filteredCount}
           onPageChange={onPageChange}
           onRowsPerPageChange={onRowsPerPageChange}
         />
-
-        <LeadsBulkActionBar
-          selectedCount={selectedCount}
-          statusOptions={statusCatalog}
-          isBulkUpdating={isBulkUpdating}
-          onApplyStatus={onBulkApplyStatus}
-          onClearSelection={onClearSelection}
-        />
-
-        {error ? (
-          <div className="flex-1 border-b border-red-200 bg-red-50 p-6 text-sm text-red-700">
-            {error}
-          </div>
-        ) : totalCount === 0 && !initialLoadSettled && loading ? (
-          <div className="flex-1 border-b border-[#F0F2F6] bg-white p-8 text-center text-sm text-[#606266]">
-            Loading leads...
-          </div>
-        ) : totalCount === 0 ? (
-          <EmptyLeadsState />
-        ) : filteredRows.length === 0 ? (
-          <div className="flex-1 border-b border-[#F0F2F6] bg-white p-8 text-center text-sm text-[#606266]">
-            No leads match the current filters.
-          </div>
-        ) : (
-          <>
-            <LeadsListMobile
-              rows={paginatedRows}
-              statusOptions={statusCatalog}
-              isSelected={isSelected}
-              onToggleSelect={onToggleSelect}
-            />
-            <LeadsTableDesktop
-              rows={paginatedRows}
-              statusOptions={statusCatalog}
-              sortConfig={sortConfig}
-              onSort={onSort}
-              onToggleSelect={onToggleSelect}
-              onToggleAllVisible={onToggleAllVisible}
-              isSelected={isSelected}
-              headerCheckboxState={headerCheckboxState}
-              currentPage={currentPage}
-              pageCount={pageCount}
-              rowsPerPage={rowsPerPage}
-              totalCount={filteredCount}
-              onPageChange={onPageChange}
-            />
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }
