@@ -1,18 +1,46 @@
-import SetterScoop from "./SetterScoop";
+import styles from "./brandSurface.module.css";
 
-// The scoop character sitting on the logo's three bars. Used as the
-// illustration for empty states.
+// The logo mark with a face: the half circle and its three bars, drawn with
+// the logo's own proportions so the scoop sits cleanly above the first bar.
+// Used as the illustration for empty states.
 export default function SetterScoopMark() {
   return (
-    <div aria-hidden="true" className="flex w-28 flex-col items-center">
-      <SetterScoop className="relative z-10 h-auto w-[5.25rem]" />
-      {/* Pulled up so the first bar meets the scoop's base and its drips
-          hang over the bar. */}
-      <div className="-mt-[1.2rem] flex w-full flex-col items-center gap-1.5">
-        <span className="h-2.5 w-full rounded-full bg-[#8771FF]" />
-        <span className="h-2.5 w-[68%] rounded-full bg-[#A999FF]" />
-        <span className="h-2.5 w-[37%] rounded-full bg-[#C9BFFF]" />
-      </div>
-    </div>
+    <svg
+      viewBox="18 14 84 90"
+      aria-hidden="true"
+      focusable="false"
+      className="h-auto w-28"
+    >
+      <path
+        d="M32 48A28 28 0 0 1 88 48Z"
+        fill="#8771FF"
+        stroke="#8771FF"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
+      <ellipse
+        cx="45"
+        cy="30"
+        rx="6"
+        ry="3"
+        transform="rotate(-34 45 30)"
+        fill="#ffffff"
+        opacity="0.35"
+      />
+      <g className={styles.blink} fill="#101011">
+        <circle cx="52.5" cy="38" r="2.6" />
+        <circle cx="67.5" cy="38" r="2.6" />
+      </g>
+      <path
+        d="M56 43Q60 46.5 64 43"
+        fill="none"
+        stroke="#101011"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <rect x="22" y="58" width="76" height="9" rx="4.5" fill="#8771FF" />
+      <rect x="34" y="74" width="52" height="9" rx="4.5" fill="#A999FF" />
+      <rect x="46" y="90" width="28" height="9" rx="4.5" fill="#C9BFFF" />
+    </svg>
   );
 }
