@@ -41,28 +41,28 @@ export default function CalendarWeekView({
   for (let h = START_HOUR; h <= END_HOUR; h++) hours.push(h);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white">
+    <div className="flex flex-1 flex-col overflow-hidden border-t border-[#F0F2F6] bg-white">
       {/* Shared scroll context keeps day headers and time-grid columns aligned */}
-      <div className="flex flex-1 overflow-y-auto bg-[#F8F7FF]">
+      <div className="flex flex-1 overflow-y-auto bg-white">
         <div className="flex min-h-full min-w-0 flex-1 flex-col">
           {/* ── Day Headers ── */}
-          <div className="sticky top-0 z-20 flex shrink-0 border-b border-[#E8E8EC] bg-white">
-            <div className="w-[52px] shrink-0 border-r border-[#E8E8EC]" />
+          <div className="sticky top-0 z-20 flex shrink-0 border-b border-[#F0F2F6] bg-white">
+            <div className="w-[52px] shrink-0 border-r border-[#F0F2F6]" />
             <div className="grid flex-1 grid-cols-7">
               {weekDays.map((day) => {
                 const t = isToday(day);
                 return (
                   <div
                     key={toDateKey(day)}
-                    className="flex flex-col items-center gap-0.5 border-r border-[#E8E8EC] py-2"
+                    className="flex flex-col items-center gap-0.5 border-r border-[#F0F2F6] py-2 last:border-r-0"
                   >
                     <span
-                      className={`text-[11px] font-semibold uppercase tracking-wider ${t ? "text-[#8771FF]" : "text-[#9A9CA2]"}`}
+                      className={`text-xs font-medium ${t ? "text-[#8771FF]" : "text-[#9A9CA2]"}`}
                     >
                       {DAY_NAMES[day.getDay()]}
                     </span>
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${t ? "bg-[#8771FF] text-white" : "text-[#101011]"}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold tabular-nums ${t ? "bg-[#8771FF] text-white" : "text-[#101011]"}`}
                     >
                       {day.getDate()}
                     </span>
@@ -73,9 +73,9 @@ export default function CalendarWeekView({
           </div>
 
           {/* ── Time Grid ── */}
-          <div className="flex flex-1 bg-[#F8F7FF]">
+          <div className="flex flex-1 bg-white">
             {/* Time gutter */}
-            <div className="min-h-full w-[52px] shrink-0 border-r border-[#E8E8EC] bg-[#F8F7FF]">
+            <div className="min-h-full w-[52px] shrink-0 border-r border-[#F0F2F6] bg-white">
               {hours.map((h) => (
                 <div
                   key={h}
@@ -83,7 +83,7 @@ export default function CalendarWeekView({
                   className="relative"
                 >
                   <span
-                    className={`absolute right-2 text-[10px] font-medium text-[#9A9CA2] ${h === START_HOUR ? "top-1" : "-top-[7px]"}`}
+                    className={`absolute right-2 text-[10px] font-medium text-[#9A9CA2] tabular-nums ${h === START_HOUR ? "top-1" : "-top-[7px]"}`}
                   >
                     {formatHour(h)}
                   </span>
@@ -102,13 +102,13 @@ export default function CalendarWeekView({
                 return (
                   <div
                     key={key}
-                    className={`relative border-r border-[#E8E8EC] ${t ? "bg-[#FBFAFF]" : "bg-[#F8F7FF]"}`}
+                    className={`relative border-r border-[#F0F2F6] last:border-r-0 ${t ? "bg-[#FBFAFF]" : "bg-white"}`}
                   >
                     {hours.map((h) => (
                       <div
                         key={h}
                         style={{ height: HOUR_HEIGHT }}
-                        className="border-b border-[#F0F0F4]"
+                        className="border-b border-[#F4F5F8]"
                       />
                     ))}
 
@@ -128,7 +128,7 @@ export default function CalendarWeekView({
                           key={ev.id}
                           type="button"
                           onClick={() => onEventClick(ev)}
-                          className={`absolute z-10 flex cursor-pointer flex-col overflow-hidden rounded-md border px-1.5 py-1 text-left transition-shadow hover:shadow-md ${c.bgClass} ${c.borderClass}`}
+                          className={`absolute z-10 flex cursor-pointer flex-col overflow-hidden rounded-lg border px-1.5 py-1 text-left outline-none transition-opacity duration-100 [@media(hover:hover)]:hover:opacity-80 ${c.bgClass} ${c.borderClass}`}
                           style={{
                             top: pos.top,
                             height: pos.height,
@@ -137,11 +137,11 @@ export default function CalendarWeekView({
                           }}
                         >
                           <span
-                            className={`block truncate text-[10px] font-bold leading-tight ${c.textClass}`}
+                            className={`block truncate text-[11px] font-semibold leading-tight ${c.textClass}`}
                           >
                             {ev.leadName}
                           </span>
-                          <span className="block truncate text-[9px] font-medium leading-tight text-[#606266]">
+                          <span className="block truncate text-[10px] leading-tight text-[#606266]">
                             {ev.assignedTo}
                           </span>
                         </button>

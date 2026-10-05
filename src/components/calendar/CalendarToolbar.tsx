@@ -1,13 +1,9 @@
 "use client";
 
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  LayoutGrid,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MONTH_NAMES } from "@/components/calendar/calendarUtils";
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 export type CalendarViewMode = "month" | "week" | "day";
 
@@ -18,14 +14,20 @@ interface CalendarToolbarProps {
   onNavigate: (direction: -1 | 0 | 1) => void;
 }
 
-const VIEW_MODE_META: Record<
-  CalendarViewMode,
-  { label: string; icon: typeof LayoutGrid }
-> = {
-  month: { label: "Month", icon: LayoutGrid },
-  week: { label: "Week", icon: CalendarDays },
-  day: { label: "Day", icon: Clock },
+const VIEW_MODE_OPTIONS: { value: CalendarViewMode; label: string }[] = [
+  { value: "month", label: "Month" },
+  { value: "week", label: "Week" },
+  { value: "day", label: "Day" },
+];
+
+const STEP_LABELS: Record<CalendarViewMode, string> = {
+  month: "month",
+  week: "week",
+  day: "day",
 };
+
+const STEP_BUTTON_CLASS =
+  "inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F5F8] text-[#606266] outline-none transition-[transform,background-color,color] duration-100 ease-out active:scale-[0.94] [@media(hover:hover)]:hover:bg-[#ECEEF3] [@media(hover:hover)]:hover:text-[#101011]";
 
 export default function CalendarToolbar({
   currentDate,
@@ -35,66 +37,53 @@ export default function CalendarToolbar({
 }: CalendarToolbarProps) {
   const month = MONTH_NAMES[currentDate.getMonth()];
   const year = currentDate.getFullYear();
+  const stepLabel = STEP_LABELS[viewMode];
 
   return (
-    <div className="border-b border-[#F0F2F6] bg-white px-4 py-3 md:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left: navigation */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onNavigate(0)}
-            className="inline-flex h-9 items-center rounded-xl border border-[#E8E8EC] bg-white px-4 text-xs font-semibold text-[#101011] shadow-sm transition-all hover:border-[#8771FF] hover:bg-[#F8F7FF] hover:text-[#6d5ed6] active:scale-[0.97]"
-          >
-            Today
-          </button>
+    <div
+      className={`${PAGE_GUTTER_CLASS} flex shrink-0 flex-col gap-3 pb-4 pt-4 sm:flex-row sm:items-center sm:justify-between`}
+    >
+      {/* On phones the month takes its own line so the buttons keep their
+          size; from `sm` up everything sits on one row. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="w-full text-xl font-semibold tracking-[-0.02em] text-[#101011] sm:mr-1 sm:w-auto sm:min-w-[9.5rem]">
+          {month}{" "}
+          <span className="font-normal text-[#9A9CA2] tabular-nums">
+            {year}
+          </span>
+        </h2>
+        <button
+          type="button"
+          onClick={() => onNavigate(-1)}
+          aria-label={`Previous ${stepLabel}`}
+          className={STEP_BUTTON_CLASS}
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate(1)}
+          aria-label={`Next ${stepLabel}`}
+          className={STEP_BUTTON_CLASS}
+        >
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate(0)}
+          className="inline-flex h-9 items-center rounded-full bg-[#F4F5F8] px-4 text-xs font-semibold text-[#101011] outline-none transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] [@media(hover:hover)]:hover:bg-[#ECEEF3]"
+        >
+          Today
+        </button>
+      </div>
 
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => onNavigate(-1)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-l-xl border border-[#E8E8EC] bg-white text-[#606266] transition-all hover:bg-[#F8F7FF] hover:text-[#8771FF] active:scale-[0.97]"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate(1)}
-              className="-ml-px inline-flex h-9 w-9 items-center justify-center rounded-r-xl border border-[#E8E8EC] bg-white text-[#606266] transition-all hover:bg-[#F8F7FF] hover:text-[#8771FF] active:scale-[0.97]"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <h2 className="text-sm font-bold text-[#101011] md:text-base">
-            {month} {year}
-          </h2>
-        </div>
-
-        {/* Right: view mode switcher — segmented control */}
-        <div className="inline-flex h-10 items-center rounded-xl border border-[#E8E8EC] bg-[#F5F5F7] p-1 shadow-sm">
-          {(["month", "week", "day"] as CalendarViewMode[]).map((mode) => {
-            const isActive = mode === viewMode;
-            const meta = VIEW_MODE_META[mode];
-            const Icon = meta.icon;
-
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => onViewModeChange(mode)}
-                className={`relative inline-flex h-8 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-all ${
-                  isActive
-                    ? "bg-white text-[#101011] shadow-sm"
-                    : "text-[#606266] hover:text-[#101011]"
-                }`}
-              >
-                <Icon size={13} className={isActive ? "text-[#8771FF]" : ""} />
-                {meta.label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="w-full sm:w-56">
+        <SegmentedControl
+          ariaLabel="Calendar view"
+          value={viewMode}
+          onChange={onViewModeChange}
+          options={VIEW_MODE_OPTIONS}
+        />
       </div>
     </div>
   );

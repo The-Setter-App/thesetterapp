@@ -1,8 +1,7 @@
 "use client";
 
-import { FileText, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/Button";
+import ModalShell from "@/components/ui/ModalShell";
 import type { CalendlyQuestionAnswer } from "@/types/calendly";
 
 interface CalendarPreCallAnswersModalProps {
@@ -20,71 +19,37 @@ export default function CalendarPreCallAnswersModal({
 }: CalendarPreCallAnswersModalProps) {
   if (!open || typeof document === "undefined") return null;
 
+  // Rendered at the end of the page, above the phone event dialog it can be
+  // opened from.
   return createPortal(
-    <div
-      className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#101011]/50 p-3 backdrop-blur-[2px] md:p-6"
-      role="dialog"
-      aria-modal="true"
+    <ModalShell
+      title={leadName}
+      description={`${answers.length} answer${answers.length === 1 ? "" : "s"} submitted in Calendly before the call.`}
+      onClose={onClose}
+      maxWidthClassName="md:max-w-2xl"
+      layerClassName="z-[1200]"
     >
-      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#F0F2F6] bg-white shadow-[0_24px_80px_rgba(16,16,17,0.18)]">
-        <div className="border-b border-[#F0F2F6] px-5 py-5 md:px-6">
-          <div className="flex items-start justify-between gap-4">
+      <ol className="space-y-2.5">
+        {answers.map((answer, index) => (
+          <li
+            key={`${answer.position}-${answer.question}`}
+            className="flex items-start gap-3 rounded-2xl bg-[#F8F7FF] p-4"
+          >
+            <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-white px-2 text-xs font-semibold text-[#8771FF] tabular-nums">
+              {index + 1}
+            </span>
             <div className="min-w-0 flex-1">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#F3F0FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6d5ed6]">
-                  <FileText size={14} />
-                  Pre-call intake
-                </span>
-                <span className="inline-flex items-center rounded-full bg-[#F8F7FF] px-2.5 py-1 text-[11px] font-semibold text-[#606266]">
-                  {answers.length} answer{answers.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <p className="text-xl font-bold tracking-tight text-[#101011]">
-                {leadName}
+              <p className="text-[0.8125rem] font-medium text-[#606266]">
+                {answer.question}
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#606266]">
-                Review the exact answers submitted in Calendly before the call.
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-[0.9375rem] leading-relaxed text-[#101011]">
+                {answer.answer}
               </p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-11 w-11 rounded-2xl border border-white/70 bg-white/80 text-[#606266] hover:bg-white"
-              aria-label="Close pre-call intake modal"
-            >
-              <X size={18} />
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto bg-[#F8F7FF] px-4 py-4 md:px-6 md:py-6">
-          <div className="space-y-3">
-            {answers.map((answer, index) => (
-              <div
-                key={`${answer.position}-${answer.question}`}
-                className="rounded-2xl border border-[#F0F2F6] bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full bg-[#F3F0FF] px-2 text-[11px] font-bold text-[#6d5ed6]">
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9A9CA2]">
-                      {answer.question}
-                    </p>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7 text-[#101011]">
-                      {answer.answer}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>,
+          </li>
+        ))}
+      </ol>
+    </ModalShell>,
     document.body,
   );
 }

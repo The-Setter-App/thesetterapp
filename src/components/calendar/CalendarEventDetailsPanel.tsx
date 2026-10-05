@@ -99,150 +99,135 @@ export default function CalendarEventDetailsPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-[#F0F2F6] p-4">
-        <h3 className="text-sm font-semibold text-[#101011]">Event Details</h3>
+      <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-5">
+        <h3 className="text-sm font-semibold text-[#101011]">Event details</h3>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#9A9CA2] transition-colors hover:bg-[#F8F7FF] hover:text-[#606266]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F5F8] text-[#606266] outline-none transition-[transform,color] duration-100 ease-out active:scale-[0.94] [@media(hover:hover)]:hover:text-[#101011]"
           aria-label="Close event details"
         >
-          <X size={18} />
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-white p-4">
-        <div className="mb-4">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${typeConfig.bgClass} ${typeConfig.textClass} ${typeConfig.borderClass}`}
-          >
-            <span className={`h-2 w-2 rounded-full ${typeConfig.dotClass}`} />
-            {typeConfig.label}
-          </span>
-        </div>
+      <div className="flex-1 overflow-y-auto bg-white px-5 pb-5">
+        <span
+          className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${typeConfig.bgClass} ${typeConfig.textClass}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${typeConfig.dotClass}`} />
+          {typeConfig.label}
+        </span>
 
-        <h4 className="mb-1 text-lg font-bold text-[#101011]">
+        <h4 className="mt-3 text-[1.375rem] font-semibold leading-tight tracking-[-0.02em] text-[#101011]">
           {event.leadName}
         </h4>
-        <p className="mb-4 text-sm text-[#606266]">{event.title}</p>
+        <p className="mt-1 text-sm text-[#606266]">{event.title}</p>
 
-        <div className="flex flex-col gap-3">
-          <InfoCard
-            icon={<Clock size={14} className="text-[#8771FF]" />}
-            label="Time"
-          >
-            <p className="text-sm font-medium text-[#101011]">
+        {/* The facts share one grouped list, split by hairlines. */}
+        <dl className="mt-5 divide-y divide-[#F0F2F6] overflow-hidden rounded-2xl border border-[#F0F2F6]">
+          <InfoRow icon={<Clock size={15} aria-hidden="true" />} label="Time">
+            <span className="tabular-nums">
               {formatHour(event.startHour)} ·{" "}
               {event.duration >= 1
                 ? `${event.duration}h`
                 : `${event.duration * 60}m`}
-            </p>
-          </InfoCard>
+            </span>
+          </InfoRow>
 
-          <InfoCard
-            icon={<User size={14} className="text-[#8771FF]" />}
-            label="Assigned To"
+          <InfoRow
+            icon={<User size={15} aria-hidden="true" />}
+            label="Assigned to"
           >
-            <p className="text-sm font-medium text-[#101011]">
-              {event.assignedTo}
-            </p>
-          </InfoCard>
+            {event.assignedTo}
+          </InfoRow>
 
-          <InfoCard
-            icon={<CalendarClock size={14} className="text-[#8771FF]" />}
+          <InfoRow
+            icon={<CalendarClock size={15} aria-hidden="true" />}
             label="Status"
           >
             <span
-              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusConfig.bgClass} ${statusConfig.textClass} ${statusConfig.borderClass}`}
+              className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold ${statusConfig.bgClass} ${statusConfig.textClass}`}
             >
               {statusConfig.label}
             </span>
-          </InfoCard>
+          </InfoRow>
 
           {event.amount ? (
-            <InfoCard
-              icon={<DollarSign size={14} className="text-emerald-600" />}
-              label="Deal Value"
-              iconBgClass="bg-emerald-50"
+            <InfoRow
+              icon={<DollarSign size={15} aria-hidden="true" />}
+              label="Deal value"
             >
-              <p className="text-sm font-bold text-emerald-700">
-                {event.amount}
-              </p>
-            </InfoCard>
+              <span className="font-semibold tabular-nums">{event.amount}</span>
+            </InfoRow>
           ) : null}
+        </dl>
 
-          <div className="overflow-hidden rounded-2xl border border-[#EAE6FF] bg-[#F8F7FF]">
-            <div className="px-4 py-4">
-              <div className="flex items-center gap-2">
-                <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0EAFF]">
-                  <FileText size={16} className="text-[#8771FF]" />
-                </div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8D8FA1]">
-                  Pre-call Answers
+        <section className="mt-4 rounded-2xl bg-[#F8F7FF] p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h5 className="flex items-center gap-2 text-sm font-semibold text-[#101011]">
+              <FileText
+                size={15}
+                aria-hidden="true"
+                className="text-[#8771FF]"
+              />
+              Pre-call answers
+            </h5>
+            {preCallAnswers.length > 0 ? (
+              <span className="inline-flex h-6 items-center rounded-full bg-white px-2.5 text-[11px] font-semibold text-[#8771FF] tabular-nums">
+                {preCallAnswers.length} captured
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-[#606266]">
+            Quick context pulled from Calendly before the call.
+          </p>
+
+          <div className="mt-3">
+            {detailLoading ? (
+              <div className="h-24 animate-pulse rounded-2xl bg-white/80" />
+            ) : detailError ? (
+              <div
+                role="alert"
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {detailError}
+              </div>
+            ) : previewAnswer ? (
+              <div className="rounded-2xl bg-white p-4">
+                <p className="text-xs font-medium text-[#9A9CA2]">
+                  {previewAnswer.question}
                 </p>
-                {preCallAnswers.length > 0 ? (
-                  <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#6d5ed6] shadow-sm">
-                    {preCallAnswers.length} captured
-                  </span>
+                <p className="mt-1.5 break-words text-sm font-medium leading-relaxed text-[#101011]">
+                  {truncateAnswer(previewAnswer.answer)}
+                </p>
+                {extraAnswersCount > 0 ? (
+                  <p className="mt-2.5 text-xs font-medium text-[#8771FF]">
+                    +{extraAnswersCount} more answer
+                    {extraAnswersCount === 1 ? "" : "s"} in full intake
+                  </p>
                 ) : null}
               </div>
-
-              <p className="mt-4 text-lg font-bold leading-tight text-[#101011]">
-                Lead intake snapshot
+            ) : (
+              <p className="rounded-2xl bg-white p-4 text-[0.8125rem] leading-snug text-[#606266]">
+                {detail?.preCallAnswersStatus === "unavailable"
+                  ? "Pre-call answers are unavailable for this booking."
+                  : "No pre-call answers were captured for this booking."}
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#606266]">
-                Quick context pulled from Calendly before the call.
-              </p>
-
-              {preCallAnswers.length > 0 ? (
-                <Button
-                  type="button"
-                  className="mt-4 h-12 w-full rounded-xl text-sm font-semibold"
-                  onClick={() => setIntakeOpen(true)}
-                  rightIcon={<FolderOpen size={16} />}
-                >
-                  Open Full Intake
-                </Button>
-              ) : null}
-            </div>
-
-            <div className="border-t border-[#ECE8FF] px-4 py-4">
-              {detailLoading ? (
-                <div className="space-y-3">
-                  <div className="h-24 animate-pulse rounded-2xl bg-white/80" />
-                  <div className="h-20 animate-pulse rounded-2xl bg-white/70" />
-                </div>
-              ) : detailError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-                  {detailError}
-                </div>
-              ) : previewAnswer ? (
-                <div className="rounded-2xl border border-white/80 bg-white px-4 py-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9A9CA2]">
-                    {previewAnswer.question}
-                  </p>
-                  <p className="mt-2 break-words text-sm font-medium leading-6 text-[#101011]">
-                    {truncateAnswer(previewAnswer.answer)}
-                  </p>
-                  {extraAnswersCount > 0 ? (
-                    <p className="mt-3 text-xs font-medium text-[#6d5ed6]">
-                      +{extraAnswersCount} more answer
-                      {extraAnswersCount === 1 ? "" : "s"} in full intake
-                    </p>
-                  ) : null}
-                </div>
-              ) : detail?.preCallAnswersStatus === "unavailable" ? (
-                <div className="rounded-2xl border border-white/80 bg-white px-4 py-4 text-sm leading-6 text-[#606266] shadow-sm">
-                  Pre-call answers are unavailable for this booking.
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-white/80 bg-white px-4 py-4 text-sm leading-6 text-[#606266] shadow-sm">
-                  No pre-call answers were captured for this booking.
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        </div>
+
+          {preCallAnswers.length > 0 ? (
+            <Button
+              type="button"
+              className="mt-3 h-11 w-full rounded-full text-sm font-semibold"
+              onClick={() => setIntakeOpen(true)}
+              rightIcon={<FolderOpen size={16} aria-hidden="true" />}
+            >
+              Open full intake
+            </Button>
+          ) : null}
+        </section>
       </div>
 
       <CalendarPreCallAnswersModal
@@ -255,30 +240,22 @@ export default function CalendarEventDetailsPanel({
   );
 }
 
-function InfoCard({
-  icon,
-  label,
-  children,
-  iconBgClass = "bg-[#F3F0FF]",
-}: {
+interface InfoRowProps {
   icon: React.ReactNode;
   label: string;
   children: React.ReactNode;
-  iconBgClass?: string;
-}) {
+}
+
+function InfoRow({ icon, label, children }: InfoRowProps) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-[#F0F2F6] bg-[#FBFBFD] p-3">
-      <div
-        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${iconBgClass}`}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase text-[#9A9CA2]">
-          {label}
-        </p>
+    <div className="flex min-h-12 items-center justify-between gap-3 px-3.5 py-2.5">
+      <dt className="flex items-center gap-2.5 text-[0.8125rem] text-[#606266]">
+        <span className="text-[#9A9CA2]">{icon}</span>
+        {label}
+      </dt>
+      <dd className="min-w-0 truncate text-right text-sm font-medium text-[#101011]">
         {children}
-      </div>
+      </dd>
     </div>
   );
 }

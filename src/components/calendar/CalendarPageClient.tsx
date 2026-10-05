@@ -20,6 +20,8 @@ import {
   addWeeks,
 } from "@/components/calendar/calendarUtils";
 import PageHeader from "@/components/layout/PageHeader";
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
+import surface from "@/components/ui/brandSurface.module.css";
 import { useCalendarEventDetail } from "@/hooks/useCalendarEventDetail";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
@@ -143,12 +145,16 @@ export default function CalendarPageClient({
   const showCalendarShell = !eventsError && !showIntegrationState;
 
   return (
-    <div className="flex h-full min-h-screen w-full flex-col bg-white text-[#101011]">
+    <div
+      className={`${surface.surface} flex h-full w-full flex-col overflow-hidden text-[#101011]`}
+    >
       <PageHeader
+        divider={false}
+        className="shrink-0"
         title="Calendar"
         description="All calls, outcomes, and revenue across your team in one place."
         titleBadge={
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3F0FF] px-2.5 py-1 text-xs font-semibold text-[#8771FF]">
+          <span className="inline-flex h-6 items-center rounded-full bg-[#F3F0FF] px-2.5 text-xs font-semibold text-[#8771FF] tabular-nums">
             {todayEventsCount} today
           </span>
         }
@@ -162,10 +168,13 @@ export default function CalendarPageClient({
       />
 
       {eventsError ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center bg-[#F8F7FF] p-6">
-          <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+        <div className={`${PAGE_GUTTER_CLASS} min-h-0 flex-1`}>
+          <p
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
             {eventsError}
-          </div>
+          </p>
         </div>
       ) : null}
 
@@ -206,6 +215,7 @@ export default function CalendarPageClient({
             currentDate={currentDate}
             events={events}
             onDateSelect={handleDateSelect}
+            onEventClick={handleEventClick}
             selectedEvent={selectedEvent}
             selectedEventDetail={selectedEventDetail}
             selectedEventDetailLoading={selectedEventDetailLoading}

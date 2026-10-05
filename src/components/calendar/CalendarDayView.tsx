@@ -16,6 +16,7 @@ import {
   MONTH_NAMES,
   toDateKey,
 } from "@/components/calendar/calendarUtils";
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 
 interface Props {
   currentDate: Date;
@@ -39,19 +40,23 @@ export default function CalendarDayView({
   const dayLabel = `${DAY_NAMES[currentDate.getDay()]}, ${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getDate()}`;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white">
+    <div className="flex flex-1 flex-col overflow-hidden border-t border-[#F0F2F6] bg-white">
       {/* ── Day Header ── */}
-      <div className="flex items-center gap-3 border-b border-[#E8E8EC] px-5 py-3">
+      <div
+        className={`${PAGE_GUTTER_CLASS} flex items-center gap-3 border-b border-[#F0F2F6] py-3`}
+      >
         <span
-          className={`flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold ${
-            today ? "bg-[#8771FF] text-white" : "bg-[#F3F0FF] text-[#6d5ed6]"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-semibold tabular-nums ${
+            today ? "bg-[#8771FF] text-white" : "bg-[#F3F0FF] text-[#8771FF]"
           }`}
         >
           {currentDate.getDate()}
         </span>
         <div>
-          <p className="text-sm font-semibold text-[#101011]">{dayLabel}</p>
-          <p className="text-xs text-[#606266]">
+          <p className="text-[0.9375rem] font-semibold text-[#101011]">
+            {dayLabel}
+          </p>
+          <p className="text-xs text-[#9A9CA2]">
             {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}{" "}
             scheduled
           </p>
@@ -59,13 +64,13 @@ export default function CalendarDayView({
       </div>
 
       {/* ── Scrollable Time Grid ── */}
-      <div className="flex flex-1 overflow-y-auto bg-[#F8F7FF]">
+      <div className="flex flex-1 overflow-y-auto bg-white">
         {/* Time gutter */}
-        <div className="min-h-full w-[60px] shrink-0 border-r border-[#E8E8EC] bg-[#F8F7FF]">
+        <div className="min-h-full w-[60px] shrink-0 border-r border-[#F0F2F6] bg-white">
           {hours.map((h) => (
             <div key={h} style={{ height: HOUR_HEIGHT }} className="relative">
               <span
-                className={`absolute right-3 text-[11px] font-medium text-[#9A9CA2] ${h === START_HOUR ? "top-1" : "-top-[7px]"}`}
+                className={`absolute right-3 text-[11px] font-medium text-[#9A9CA2] tabular-nums ${h === START_HOUR ? "top-1" : "-top-[7px]"}`}
               >
                 {formatHour(h)}
               </span>
@@ -75,13 +80,13 @@ export default function CalendarDayView({
 
         {/* Single day column */}
         <div
-          className={`relative min-h-full flex-1 ${today ? "bg-[#FBFAFF]" : "bg-[#F8F7FF]"}`}
+          className={`relative min-h-full flex-1 ${today ? "bg-[#FBFAFF]" : "bg-white"}`}
         >
           {hours.map((h) => (
             <div
               key={h}
               style={{ height: HOUR_HEIGHT }}
-              className="border-b border-[#F0F0F4]"
+              className="border-b border-[#F4F5F8]"
             />
           ))}
 
@@ -104,7 +109,7 @@ export default function CalendarDayView({
                 key={ev.id}
                 type="button"
                 onClick={() => onEventClick(ev)}
-                className={`absolute z-10 flex cursor-pointer flex-col overflow-hidden rounded-lg border px-3 py-2 text-left transition-shadow hover:shadow-md ${c.bgClass} ${c.borderClass}`}
+                className={`absolute z-10 flex cursor-pointer flex-col overflow-hidden rounded-xl border px-3 py-2 text-left outline-none transition-opacity duration-100 [@media(hover:hover)]:hover:opacity-80 ${c.bgClass} ${c.borderClass}`}
                 style={{
                   top: pos.top,
                   height: pos.height,
@@ -113,11 +118,11 @@ export default function CalendarDayView({
                 }}
               >
                 <span
-                  className={`block truncate text-xs font-bold leading-tight ${c.textClass}`}
+                  className={`block truncate text-[0.8125rem] font-semibold leading-tight ${c.textClass}`}
                 >
                   {ev.leadName}
                 </span>
-                <span className="block truncate text-[11px] font-medium leading-tight text-[#606266]">
+                <span className="mt-0.5 block truncate text-[11px] leading-tight text-[#606266]">
                   {ev.assignedTo}
                   {ev.amount ? ` · ${ev.amount}` : ""}
                 </span>

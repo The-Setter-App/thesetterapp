@@ -13,6 +13,8 @@ interface ModalShellProps {
   footer?: ReactNode;
   // Tailwind max-width class for the dialog on larger screens.
   maxWidthClassName?: string;
+  // Tailwind z-index class, for a dialog opened from inside another overlay.
+  layerClassName?: string;
 }
 
 // Frame shared by the app's dialogs: dimmed backdrop, rounded card, header
@@ -25,6 +27,7 @@ export default function ModalShell({
   children,
   footer,
   maxWidthClassName = "md:max-w-md",
+  layerClassName = "z-[90]",
 }: ModalShellProps) {
   const titleId = useId();
 
@@ -37,7 +40,9 @@ export default function ModalShell({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 md:p-4">
+    <div
+      className={`fixed inset-0 flex items-center justify-center p-3 md:p-4 ${layerClassName}`}
+    >
       <button
         type="button"
         tabIndex={-1}
