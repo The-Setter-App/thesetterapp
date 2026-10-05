@@ -19,6 +19,48 @@ interface GraphApiError {
   };
 }
 
+// Meta's code and subcode for a message sent after the reply window closed.
+const GRAPH_CODE_PERMISSION_DENIED = 10;
+const GRAPH_SUBCODE_OUTSIDE_MESSAGING_WINDOW = 2018278;
+
+// A request Meta answered with an error. Carries Meta's own codes so callers
+// can tell one refusal from another without reading the message text.
+export class GraphApiRequestError extends Error {
+  code: number | null;
+  subcode: number | null;
+
+  constructor(errorData: GraphApiError | null) {
+    const detail = errorData?.error;
+    super(
+      detail
+        ? `Graph API Error: ${detail.message} (Code: ${detail.code})`
+        : "Graph API Error: unreadable error response",
+    );
+    this.code = typeof detail?.code === "number" ? detail.code : null;
+    this.subcode =
+      typeof detail?.error_subcode === "number" ? detail.error_subcode : null;
+  }
+
+  // True when Instagram refused the message because too long has passed
+  // since the lead last wrote. Sending again cannot succeed.
+  get isOutsideMessagingWindow(): boolean {
+    if (this.subcode === GRAPH_SUBCODE_OUTSIDE_MESSAGING_WINDOW) return true;
+    return (
+      this.code === GRAPH_CODE_PERMISSION_DENIED &&
+      /outside of allowed window/i.test(this.message)
+    );
+  }
+}
+
+async function readGraphRequestError(
+  response: Response,
+): Promise<GraphApiRequestError> {
+  const errorData: GraphApiError | null = await response
+    .json()
+    .catch(() => null);
+  return new GraphApiRequestError(errorData?.error ? errorData : null);
+}
+
 const DEFAULT_GRAPH_VERSION = "v24.0";
 const DEFAULT_MESSAGE_TAG = "HUMAN_AGENT";
 const GRAPH_MIN_CHUNK = 5;
@@ -357,10 +399,7 @@ export async function sendMessage(
     });
 
     if (!response.ok) {
-      const errorData: GraphApiError = await response.json();
-      throw new Error(
-        `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
-      );
+      throw await readGraphRequestError(response);
     }
 
     const sendResponse = (await response.json()) as GraphSendResponse;
@@ -471,10 +510,7 @@ export async function sendAttachmentMessage(
     });
 
     if (!response.ok) {
-      const errorData: GraphApiError = await response.json();
-      throw new Error(
-        `Graph API Error: ${errorData.error.message} (Code: ${errorData.error.code})`,
-      );
+      throw await readGraphRequestError(response);
     }
 
     const sendResponse = (await response.json()) as GraphSendResponse;

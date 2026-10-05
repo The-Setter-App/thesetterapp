@@ -1,4 +1,5 @@
 import { formatCompactDuration } from "@/lib/inbox/duration";
+import type { Message } from "@/types/inbox";
 
 // Setter tags every outbound reply HUMAN_AGENT (see DEFAULT_MESSAGE_TAG in
 // graphApi.ts), which extends Instagram's bare 24-hour reply window to 7
@@ -34,4 +35,23 @@ export function getMessagingWindowState(
 
 export function formatMessagingWindowRemaining(remainingMs: number): string {
   return formatCompactDuration(remainingMs);
+}
+
+// Sent back by the send endpoints when Instagram refuses a message because
+// the window has closed, so the inbox can explain it instead of offering a
+// retry that cannot work.
+export const MESSAGING_WINDOW_CLOSED_ERROR_CODE = "messaging_window_closed";
+
+// When the lead last wrote, judged from the messages on screen. More
+// dependable than the time stored on the conversation, which older
+// conversations do not have. Null when none of the messages are the lead's.
+export function getLastInboundAt(
+  messages: Array<Pick<Message, "fromMe" | "timestamp" | "pending">>,
+): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.fromMe || message.pending || !message.timestamp) continue;
+    return message.timestamp;
+  }
+  return undefined;
 }

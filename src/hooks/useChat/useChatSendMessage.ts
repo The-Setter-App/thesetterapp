@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { optimizeImageForUpload } from "@/lib/imageCompression";
 import type { Message } from "@/types/inbox";
+import { describeSendFailure, toSendRejectedError } from "./sendFailure";
 import { scheduleStuckPendingFallback } from "./useChatPendingFallback";
 import { syncOutgoingConversationPreview } from "./useChatPreview";
 import type { UseChatSendMessageParams } from "./useChatSendTypes";
@@ -86,18 +87,6 @@ export function useChatSendMessage(
     setAttachmentFile(null);
     setAttachmentPreview("");
 
-    const previewTime = sendDate.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const previewText = messageText || (hasAttachment ? "Image" : "Message");
-    syncOutgoingConversationPreview({
-      selectedUserId,
-      previewText,
-      previewTime,
-      previewUpdatedAt: nowIso,
-    });
-
     try {
       if (currentFile) {
         let fileForUpload = currentFile;
@@ -131,8 +120,9 @@ export function useChatSendMessage(
           body: formData,
         });
         if (!response.ok) {
-          throw new Error(
-            (await response.json()).error || "Failed to send attachment",
+          throw await toSendRejectedError(
+            response,
+            "Failed to send attachment",
           );
         }
 
@@ -149,9 +139,7 @@ export function useChatSendMessage(
             },
           );
           if (!sendRes.ok) {
-            throw new Error(
-              (await sendRes.json()).error || "Failed to send message",
-            );
+            throw await toSendRejectedError(sendRes, "Failed to send message");
           }
         }
       } else {
@@ -167,11 +155,24 @@ export function useChatSendMessage(
           },
         );
         if (!sendRes.ok) {
-          throw new Error(
-            (await sendRes.json()).error || "Failed to send message",
-          );
+          throw await toSendRejectedError(sendRes, "Failed to send message");
         }
       }
+
+      // Only now, with the message accepted, is the conversation marked as
+      // answered. Doing it before the send would record a reply that a
+      // failed send never delivered.
+      const previewTime = sendDate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const previewText = messageText || (hasAttachment ? "Image" : "Message");
+      syncOutgoingConversationPreview({
+        selectedUserId,
+        previewText,
+        previewTime,
+        previewUpdatedAt: nowIso,
+      });
 
       markTempMessagesClientAcked(tempIds);
       scheduleStuckPendingFallback({
@@ -193,9 +194,11 @@ export function useChatSendMessage(
         setAttachmentFile(currentFile);
         setAttachmentPreview(currentPreview);
       }
-      toast.error("Failed to send message", {
+      const notice = describeSendFailure(error, {
+        title: "Failed to send message",
         description: "Your message wasn't delivered. Please try again.",
       });
+      toast.error(notice.title, { description: notice.description });
     }
   }, [
     attachmentFile,

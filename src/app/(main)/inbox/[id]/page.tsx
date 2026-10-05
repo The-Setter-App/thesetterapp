@@ -7,9 +7,18 @@ import ChatWindow from "@/components/inbox/ChatWindow";
 import DetailsPanel from "@/components/inbox/DetailsPanel";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
 import MessageInput from "@/components/inbox/MessageInput";
+import MessagingWindowClosedNotice from "@/components/inbox/MessagingWindowClosedNotice";
 import ReplySuggestions from "@/components/inbox/suggestions/ReplySuggestions";
 import { useCalendlyConnectionState } from "@/hooks/useCalendlyConnectionState";
 import { useChat } from "@/hooks/useChat";
+import { useNow } from "@/hooks/useNow";
+import {
+  getLastInboundAt,
+  getMessagingWindowState,
+} from "@/lib/inbox/messagingWindow";
+
+// How often the reply window is checked against the clock.
+const WINDOW_CLOCK_INTERVAL_MS = 60_000;
 
 export default function ChatPage({
   params,
@@ -97,6 +106,15 @@ export default function ChatPage({
     markChatReady(epoch);
   }, [initialLoadSettled, markChatReady, epoch]);
 
+  // Once the reply window has closed Instagram refuses every message, so the
+  // composer gives way to an explanation. The lead's last message on screen
+  // is the best evidence of when they wrote; the time stored on the
+  // conversation covers a history that has not loaded yet.
+  const now = useNow(WINDOW_CLOCK_INTERVAL_MS);
+  const lastInboundAt = getLastInboundAt(chatHistory) ?? user?.lastInboundAt;
+  const isWindowClosed =
+    getMessagingWindowState(lastInboundAt, now)?.status === "closed";
+
   // A chosen draft goes into the composer for the setter to edit and send.
   const handleUseSuggestion = useCallback(
     (text: string) => {
@@ -131,6 +149,7 @@ export default function ChatPage({
       <main className="flex-1 flex flex-col min-w-0 bg-white">
         <ChatHeader
           user={user}
+          lastInboundAt={lastInboundAt}
           showVisible={showVisible}
           onToggleVisible={handleToggleDetails}
         />
@@ -146,28 +165,34 @@ export default function ChatPage({
           statusUpdate={statusUpdate}
         />
 
-        {user ? (
-          <ReplySuggestions
-            conversationId={user.id}
-            onUseSuggestion={handleUseSuggestion}
-          />
-        ) : null}
+        {isWindowClosed ? (
+          <MessagingWindowClosedNotice />
+        ) : (
+          <>
+            {user ? (
+              <ReplySuggestions
+                conversationId={user.id}
+                onUseSuggestion={handleUseSuggestion}
+              />
+            ) : null}
 
-        <MessageInput
-          focusRequest={composerFocusRequest}
-          messageInput={messageInput}
-          setMessageInput={setMessageInput}
-          handleSendMessage={handleSendMessage}
-          user={user}
-          attachmentFile={attachmentFile}
-          attachmentPreview={attachmentPreview}
-          handleFileSelect={handleFileSelect}
-          handleAttachmentPaste={handleAttachmentPaste}
-          clearAttachment={clearAttachment}
-          handleSendAudio={handleSendAudio}
-          showCalendlyButton
-          onOpenCalendlyModal={() => setShowCalendlyModal(true)}
-        />
+            <MessageInput
+              focusRequest={composerFocusRequest}
+              messageInput={messageInput}
+              setMessageInput={setMessageInput}
+              handleSendMessage={handleSendMessage}
+              user={user}
+              attachmentFile={attachmentFile}
+              attachmentPreview={attachmentPreview}
+              handleFileSelect={handleFileSelect}
+              handleAttachmentPaste={handleAttachmentPaste}
+              clearAttachment={clearAttachment}
+              handleSendAudio={handleSendAudio}
+              showCalendlyButton
+              onOpenCalendlyModal={() => setShowCalendlyModal(true)}
+            />
+          </>
+        )}
       </main>
 
       {(showVisible || showMobileDetails) && (

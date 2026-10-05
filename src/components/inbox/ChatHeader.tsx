@@ -12,12 +12,15 @@ import type { User } from "@/types/inbox";
 
 interface ChatHeaderProps {
   user: User | null;
+  // When the lead last wrote, as far as the open conversation can tell.
+  lastInboundAt?: string;
   showVisible: boolean;
   onToggleVisible: () => void;
 }
 
 export default function ChatHeader({
   user,
+  lastInboundAt,
   showVisible,
   onToggleVisible,
 }: ChatHeaderProps) {
@@ -51,7 +54,7 @@ export default function ChatHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <MessagingWindowCountdown lastInboundAt={user?.lastInboundAt} />
+        <MessagingWindowCountdown lastInboundAt={lastInboundAt} />
         <button
           type="button"
           onClick={onToggleVisible}

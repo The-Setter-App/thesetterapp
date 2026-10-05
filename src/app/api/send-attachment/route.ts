@@ -6,6 +6,7 @@ import {
 import { decryptData } from "@/lib/crypto";
 import { sendAttachmentMessage } from "@/lib/graphApi";
 import { assignConversationOnFirstReply } from "@/lib/inbox/repository/conversationWriteStore";
+import { toSendErrorResponse } from "@/lib/inbox/sendErrorResponse";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import {
   findConversationById,
@@ -215,7 +216,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("[SendAttachment] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toSendErrorResponse(error);
   }
 }

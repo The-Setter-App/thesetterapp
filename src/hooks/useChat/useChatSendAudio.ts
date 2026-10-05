@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import type { Message } from "@/types/inbox";
+import { describeSendFailure, toSendRejectedError } from "./sendFailure";
 import { syncOutgoingConversationPreview } from "./useChatPreview";
 import type { UseChatSendAudioParams } from "./useChatSendTypes";
 import {
@@ -48,17 +49,6 @@ export function useChatSendAudio(
       });
       pendingTempIdsRef.current.push(tempId);
 
-      const previewTime = sendDate.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      syncOutgoingConversationPreview({
-        selectedUserId,
-        previewText: "You sent a voice message",
-        previewTime,
-        previewUpdatedAt: nowIso,
-      });
-
       try {
         const formData = new FormData();
         const ext = blob.type.includes("mp4") ? "mp4" : "webm";
@@ -77,19 +67,32 @@ export function useChatSendAudio(
           body: formData,
         });
         if (!response.ok) {
-          throw new Error(
-            (await response.json()).error || "Failed to send audio",
-          );
+          throw await toSendRejectedError(response, "Failed to send audio");
         }
+
+        // Marked as answered only once the voice note has been accepted.
+        const previewTime = sendDate.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        syncOutgoingConversationPreview({
+          selectedUserId,
+          previewText: "You sent a voice message",
+          previewTime,
+          previewUpdatedAt: nowIso,
+        });
+
         markTempMessagesClientAcked([tempId]);
       } catch (error) {
         console.error("Error sending audio:", error);
         setChatHistory((prev) =>
           prev.filter((message) => message.id !== tempId),
         );
-        toast.error("Failed to send voice note", {
+        const notice = describeSendFailure(error, {
+          title: "Failed to send voice note",
           description: "Please try recording again.",
         });
+        toast.error(notice.title, { description: notice.description });
       }
     },
     [

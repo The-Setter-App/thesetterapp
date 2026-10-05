@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { decryptData } from "@/lib/crypto";
 import { sendMessage } from "@/lib/graphApi";
 import { assignConversationOnFirstReply } from "@/lib/inbox/repository/conversationWriteStore";
+import { toSendErrorResponse } from "@/lib/inbox/sendErrorResponse";
 import { emitWorkspaceSseEvent } from "@/lib/inbox/sseBus";
 import { findConversationById } from "@/lib/inboxRepository";
 import { getInstagramAccountById } from "@/lib/userRepository";
@@ -97,7 +98,6 @@ export async function POST(
       );
     }
     console.error("[InboxSendAPI] Failed to send message:", error);
-    const message = error instanceof Error ? error.message : "Failed to send";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toSendErrorResponse(error);
   }
 }

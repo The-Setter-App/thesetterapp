@@ -63,6 +63,13 @@ export function getFollowUpTask(
   // Every message, in either direction, moves this forward.
   const lastActivityMs = toTimestampMs(user.updatedAt);
 
+  // Past the messaging window Instagram refuses the message, so there is
+  // nothing the team can send, whoever spoke last.
+  const windowOpenedMs = lastInboundMs ?? lastActivityMs;
+  if (windowOpenedMs !== null && now - windowOpenedMs >= MESSAGING_WINDOW_MS) {
+    return null;
+  }
+
   if (user.needsReply || (user.unread ?? 0) > 0) {
     // Older conversations have no recorded inbound time; their last activity
     // is the lead's message, since the lead spoke last.
@@ -79,13 +86,6 @@ export function getFollowUpTask(
 
   const quietMs = elapsedSince(lastActivityMs, now);
   if (quietMs === null || quietMs < CHECK_IN_AFTER_MS) return null;
-
-  // Past the messaging window Instagram refuses the message, so there is
-  // nothing the team can send.
-  const windowOpenedMs = lastInboundMs ?? lastActivityMs;
-  if (windowOpenedMs !== null && now - windowOpenedMs >= MESSAGING_WINDOW_MS) {
-    return null;
-  }
 
   return {
     kind: "check_in",
@@ -116,5 +116,5 @@ export function formatFollowUpLabel(task: FollowUpTask): string {
 export function describeFollowUpTask(task: FollowUpTask): string {
   return task.kind === "awaiting_reply"
     ? "This lead is waiting on a reply."
-    : "You spoke last and this lead has gone quiet. Their messaging window is still open.";
+    : "You spoke last and this lead has gone quiet.";
 }
