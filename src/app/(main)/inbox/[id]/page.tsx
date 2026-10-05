@@ -17,7 +17,11 @@ export default function ChatPage({
 }) {
   const { id } = use(params);
   const { epoch, markChatReady } = useInboxSync();
+  // The details panel is a third column from `md` up, open by default. On
+  // phones it covers the chat instead, so it starts closed there and has its
+  // own state.
   const [showVisible, setShowVisible] = useState(true);
+  const [showMobileDetails, setShowMobileDetails] = useState(false);
   const [showCalendlyModal, setShowCalendlyModal] = useState(false);
   const [rightWidth, setRightWidth] = useState(400);
   const isResizingRightRef = useRef(false);
@@ -91,6 +95,18 @@ export default function ChatPage({
     markChatReady(epoch);
   }, [initialLoadSettled, markChatReady, epoch]);
 
+  const handleToggleDetails = useCallback(() => {
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      setShowVisible((visible) => !visible);
+    } else {
+      setShowMobileDetails((visible) => !visible);
+    }
+  }, []);
+
+  const detailsVisibilityClass = `${
+    showMobileDetails ? "absolute inset-0 z-30 flex" : "hidden"
+  } ${showVisible ? "md:relative md:inset-auto md:z-auto md:flex" : "md:hidden"}`;
+
   if (!user && !loading && initialLoadSettled) {
     return (
       <div className="flex flex-1 items-center justify-center bg-white px-6">
@@ -100,12 +116,12 @@ export default function ChatPage({
   }
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
+    <div className="relative flex h-full flex-1 overflow-hidden">
       <main className="flex-1 flex flex-col min-w-0 bg-white">
         <ChatHeader
           user={user}
           showVisible={showVisible}
-          onToggleVisible={() => setShowVisible(!showVisible)}
+          onToggleVisible={handleToggleDetails}
         />
 
         <ChatWindow
@@ -135,14 +151,16 @@ export default function ChatPage({
         />
       </main>
 
-      {showVisible && (
+      {(showVisible || showMobileDetails) && (
         <>
-          <button
-            type="button"
-            className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
-            onMouseDown={handleRightResizeStart}
-            aria-label="Resize right sidebar"
-          />
+          {showVisible && (
+            <button
+              type="button"
+              className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
+              onMouseDown={handleRightResizeStart}
+              aria-label="Resize right sidebar"
+            />
+          )}
           {!user ? (
             <aside
               className="hidden bg-white md:flex md:flex-col"
@@ -156,6 +174,8 @@ export default function ChatPage({
             <DetailsPanel
               user={user}
               width={rightWidth}
+              className={detailsVisibilityClass}
+              onClose={() => setShowMobileDetails(false)}
               syncedDetails={conversationDetails}
               calendlyConnectionLoading={calendlyConnectionLoading}
               calendlyConnected={calendlyConnected}

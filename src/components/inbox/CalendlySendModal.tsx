@@ -1,8 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import ModalShell from "@/components/ui/ModalShell";
 
 interface CalendlySendModalProps {
   open: boolean;
@@ -118,77 +118,20 @@ export default function CalendlySendModal({
 
   if (!open) return null;
 
+  const fieldLabelClass = "mb-1.5 block text-sm font-semibold text-[#101011]";
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[#F0F2F6] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#F0F2F6] px-5 py-4">
-          <div>
-            <h3 className="text-base font-semibold text-[#101011]">
-              Send Calendly Link
-            </h3>
-            <p className="mt-0.5 text-xs text-[#606266]">
-              Add an optional note before sending your booking link.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[#606266] hover:bg-[#F8F7FF]"
-            aria-label="Close modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4 px-5 py-5">
-          {!calendlyConnected ? (
-            <div className="rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-4 py-3 text-sm text-[#606266]">
-              {canManageCalendlyIntegration
-                ? "Calendly is not connected yet. Connect it first to send booking links."
-                : "Calendly is not connected yet. Ask your team owner to set up Calendly in Settings > Integration."}
-            </div>
-          ) : null}
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
-          <div className={calendlyConnected ? "" : "opacity-60"}>
-            <p className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]">
-              Booking Link
-            </p>
-            <div className="rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-2 text-xs text-[#101011] break-all">
-              {loading
-                ? "Preparing link..."
-                : bookingUrl || "No link available"}
-            </div>
-          </div>
-
-          <div className={calendlyConnected ? "" : "opacity-60"}>
-            <label
-              htmlFor="calendly-optional-message"
-              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#606266]"
-            >
-              Optional Message
-            </label>
-            <textarea
-              id="calendly-optional-message"
-              value={optionalMessage}
-              onChange={(event) => setOptionalMessage(event.target.value)}
-              rows={3}
-              className="w-full rounded-xl border border-[#F0F2F6] bg-white px-3 py-2 text-sm text-[#101011] placeholder:text-[#9A9CA2] focus:outline-none"
-              placeholder="Quick note before the booking link (optional)"
-              disabled={!calendlyConnected}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col-reverse gap-2 border-t border-[#F0F2F6] px-5 py-4 md:flex-row md:justify-end">
+    <ModalShell
+      title="Send Calendly link"
+      description="Add an optional note before sending your booking link."
+      onClose={onClose}
+      maxWidthClassName="md:max-w-lg"
+      footer={
+        <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
           {!calendlyConnected && canManageCalendlyIntegration ? (
             <a
               href="/settings/integration"
-              className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#8771FF] px-4 text-sm font-semibold text-white hover:bg-[#6d5ed6] md:w-auto"
+              className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#8771FF] px-5 text-sm font-semibold text-white transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] md:w-auto [@media(hover:hover)]:hover:bg-[#6d5ed6]"
             >
               Open Integration Settings
             </a>
@@ -196,7 +139,7 @@ export default function CalendlySendModal({
           <Button
             type="button"
             variant="secondary"
-            className="h-12 w-full md:w-auto"
+            className="w-full rounded-full md:w-auto"
             onClick={onClose}
             disabled={sending}
           >
@@ -204,14 +147,57 @@ export default function CalendlySendModal({
           </Button>
           <Button
             type="button"
-            className="h-12 w-full md:w-auto"
+            className="w-full rounded-full md:w-auto"
             onClick={handleSend}
             disabled={!canSend || !calendlyConnected}
           >
-            {sending ? "Sending..." : "Send Link"}
+            {sending ? "Sending..." : "Send link"}
           </Button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        {!calendlyConnected ? (
+          <div className="rounded-2xl bg-[#F8F7FF] px-4 py-3 text-sm text-[#606266]">
+            {canManageCalendlyIntegration
+              ? "Calendly is not connected yet. Connect it first to send booking links."
+              : "Calendly is not connected yet. Ask your team owner to set up Calendly in Settings > Integration."}
+          </div>
+        ) : null}
+        {error ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {error}
+          </div>
+        ) : null}
+
+        <div className={calendlyConnected ? "" : "opacity-60"}>
+          <p className={fieldLabelClass}>Booking link</p>
+          <div className="break-all rounded-2xl bg-[#F8F7FF] px-4 py-3 text-[0.8125rem] text-[#101011]">
+            {loading ? "Preparing link..." : bookingUrl || "No link available"}
+          </div>
+        </div>
+
+        <div className={calendlyConnected ? "" : "opacity-60"}>
+          <label
+            htmlFor="calendly-optional-message"
+            className={fieldLabelClass}
+          >
+            Optional message
+          </label>
+          <textarea
+            id="calendly-optional-message"
+            value={optionalMessage}
+            onChange={(event) => setOptionalMessage(event.target.value)}
+            rows={3}
+            className="w-full resize-none rounded-2xl border border-[#F0F2F6] bg-white px-4 py-3 text-[0.9375rem] text-[#101011] outline-none transition-colors duration-150 placeholder:text-[#9A9CA2] focus:border-[#8771FF] focus:outline-none focus:ring-0"
+            placeholder="Quick note before the booking link (optional)"
+            disabled={!calendlyConnected}
+          />
+        </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }

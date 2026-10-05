@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { LuChevronLeft } from "react-icons/lu";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import {
   type ConversationDetailsCacheState,
@@ -48,9 +55,19 @@ function isContactDetailsValid(details: ConversationContactDetails): boolean {
   return digitsCount >= 7 && digitsCount <= 16;
 }
 
+const DEFAULT_WIDTH_PX = 400;
+
+type PanelWidthStyle = CSSProperties & { "--details-width": string };
+
 interface DetailsPanelProps {
   user: User;
+  // Width from `md` up; on phones the panel fills the chat area.
   width?: number;
+  // Position and display classes from the parent, which decides where and
+  // when the panel shows at each breakpoint. Defaults to an in-flow column.
+  className?: string;
+  // Closes the phone view of the panel.
+  onClose?: () => void;
   syncedDetails?: ConversationDetails | null;
   calendlyConnectionLoading?: boolean;
   calendlyConnected?: boolean;
@@ -59,7 +76,9 @@ interface DetailsPanelProps {
 
 export default function DetailsPanel({
   user,
-  width,
+  width = DEFAULT_WIDTH_PX,
+  className = "relative flex",
+  onClose,
   syncedDetails,
   calendlyConnectionLoading = true,
   calendlyConnected = false,
@@ -534,6 +553,10 @@ export default function DetailsPanel({
       window.removeEventListener("userStatusUpdated", handleLocalStatus);
   }, [appendStatusTimelineEvent, user.id]);
 
+  const panelWidthStyle: PanelWidthStyle = {
+    "--details-width": `${width}px`,
+  };
+
   const handleClearTimeline = useCallback(async () => {
     if (!user.id) return;
     setTimelineEvents([]);
@@ -560,9 +583,20 @@ export default function DetailsPanel({
 
   return (
     <aside
-      className="relative flex shrink-0 flex-col bg-white"
-      style={width ? { width: `${width}px` } : { width: "400px" }}
+      className={`w-full shrink-0 flex-col overflow-y-auto bg-white md:w-[var(--details-width)] md:overflow-visible ${className}`}
+      style={panelWidthStyle}
     >
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to chat"
+          className="absolute left-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F5F8] text-[#606266] outline-none transition-[transform,color] duration-100 ease-out active:scale-[0.94] md:hidden"
+        >
+          <LuChevronLeft aria-hidden="true" className="h-5 w-5" />
+        </button>
+      )}
+
       <DetailsPanelHeader
         user={user}
         contactDetails={contactDetails}
@@ -579,7 +613,9 @@ export default function DetailsPanel({
         />
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden bg-white">
+      {/* On phones the whole panel scrolls, so the tab keeps a usable height
+          instead of being squeezed under the header. */}
+      <div className="flex min-h-[24rem] flex-1 flex-col overflow-hidden bg-white md:min-h-0">
         {activeTab === "Summary" && <SummaryTab conversationId={user.id} />}
         {activeTab === "Notes" && (
           <NotesTab notes={notes} onChange={handleNotesChange} />

@@ -152,12 +152,12 @@ export default function CallsTab({
 
   if (!calendlyConnected) {
     return (
-      <div className="p-6 bg-[#F8F7FF] h-full overflow-y-auto">
-        <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+      <div className="h-full overflow-y-auto bg-white p-5">
+        <div className="rounded-2xl bg-[#F8F7FF] p-5">
           <p className="text-sm font-semibold text-[#101011]">
             Calendly integration required
           </p>
-          <p className="mt-1 text-xs text-[#606266]">
+          <p className="mt-1 text-[0.8125rem] leading-snug text-[#606266]">
             {canManageCalendlyIntegration
               ? "Connect Calendly in Settings > Integration to sync calls here."
               : "Ask the team owner to set up Calendly in Settings > Integration."}
@@ -165,7 +165,7 @@ export default function CallsTab({
           {canManageCalendlyIntegration ? (
             <a
               href="/settings/integration"
-              className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-[#8771FF] px-4 text-xs font-semibold text-white hover:bg-[#6d5ed6]"
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-[#8771FF] px-4 text-xs font-semibold text-white transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] [@media(hover:hover)]:hover:bg-[#6d5ed6]"
             >
               Open Integration Settings
             </a>
@@ -181,8 +181,11 @@ export default function CallsTab({
 
   if (error) {
     return (
-      <div className="p-6 bg-[#F8F7FF] h-full overflow-y-auto">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+      <div className="h-full overflow-y-auto bg-white p-5">
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        >
           {error}
         </div>
       </div>
@@ -191,10 +194,10 @@ export default function CallsTab({
 
   if (sortedCalls.length === 0) {
     return (
-      <div className="p-6 bg-[#F8F7FF] h-full overflow-y-auto">
-        <div className="rounded-2xl border border-[#F0F2F6] bg-white p-5 shadow-sm">
+      <div className="h-full overflow-y-auto bg-white p-5">
+        <div className="rounded-2xl bg-[#F8F7FF] p-5">
           <p className="text-sm font-semibold text-[#101011]">No calls yet</p>
-          <p className="mt-1 text-xs text-[#606266]">
+          <p className="mt-1 text-[0.8125rem] leading-snug text-[#606266]">
             Calls booked through Calendly will appear here.
           </p>
         </div>
@@ -203,29 +206,40 @@ export default function CallsTab({
   }
 
   return (
-    <div className="p-6 bg-[#F8F7FF] space-y-4 h-full overflow-y-auto">
+    <div className="h-full space-y-3 overflow-y-auto bg-white p-5">
       {sortedCalls.map((call) => (
         <div
           key={call.id}
-          className="bg-white rounded-2xl p-4 border border-[#F0F2F6] shadow-sm"
+          className="rounded-2xl border border-[#F0F2F6] bg-white p-4"
         >
           <div className="mb-3 flex items-start justify-between gap-3">
-            <h4 className="font-bold text-[#101011] text-sm">{call.title}</h4>
-            <span className="rounded-full bg-[#F3F0FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8771FF]">
+            <h4 className="text-sm font-semibold text-[#101011]">
+              {call.title}
+            </h4>
+            <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[#F3F0FF] px-2.5 text-[11px] font-semibold capitalize text-[#8771FF]">
               {call.status}
             </span>
           </div>
 
-          <div className="flex items-center text-sm text-[#606266] mb-2">
-            <LuCalendar className="mr-3 h-5 w-5" aria-label="Calendar" />
+          <div className="mb-2 flex items-center text-[0.8125rem] text-[#606266]">
+            <LuCalendar
+              className="mr-2.5 h-4 w-4 shrink-0 text-[#9A9CA2]"
+              aria-hidden="true"
+            />
             {formatDateRange(call.startTime, call.endTime)}
           </div>
-          <div className="flex items-center text-sm text-[#606266] mb-2">
-            <LuGlobe className="mr-3 h-5 w-5" aria-label="World" />
+          <div className="mb-2 flex items-center text-[0.8125rem] text-[#606266]">
+            <LuGlobe
+              className="mr-2.5 h-4 w-4 shrink-0 text-[#9A9CA2]"
+              aria-hidden="true"
+            />
             {call.timezone || "UTC"}
           </div>
-          <div className="flex items-center text-sm text-[#606266] mb-4">
-            <LuVideo className="mr-3 h-5 w-5" aria-label="Video" />
+          <div className="mb-4 flex items-center text-[0.8125rem] text-[#606266]">
+            <LuVideo
+              className="mr-2.5 h-4 w-4 shrink-0 text-[#9A9CA2]"
+              aria-hidden="true"
+            />
             {call.joinUrl ? "Online meeting" : "Meeting details in Calendly"}
           </div>
 
@@ -235,7 +249,7 @@ export default function CallsTab({
                 href={call.joinUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="bg-[#8771FF] text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-[#6d5ed6]"
+                className="inline-flex h-9 items-center rounded-full bg-[#8771FF] px-4 text-xs font-semibold text-white transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] [@media(hover:hover)]:hover:bg-[#6d5ed6]"
               >
                 Join Call
               </a>

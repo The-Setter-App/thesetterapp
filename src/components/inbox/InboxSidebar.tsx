@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import ConversationList from "@/components/inbox/ConversationList";
 import { useInboxSync } from "@/components/inbox/InboxSyncContext";
 import FilterModal from "./FilterModal";
@@ -16,11 +16,24 @@ import SidebarTabs from "./sidebar/SidebarTabs";
 import useInboxSidebarData from "./sidebar/useInboxSidebarData";
 import useSidebarFilters from "./sidebar/useSidebarFilters";
 
+const DEFAULT_WIDTH_PX = 380;
+
+type SidebarWidthStyle = CSSProperties & { "--inbox-sidebar-width": string };
+
 interface InboxSidebarProps {
+  // Width from `md` up; on phones the list always fills the screen.
   width?: number;
+  // True while a conversation is open, so the list steps aside on phones.
+  hiddenOnMobile?: boolean;
 }
 
-export default function InboxSidebar({ width }: InboxSidebarProps) {
+export default function InboxSidebar({
+  width = DEFAULT_WIDTH_PX,
+  hiddenOnMobile = false,
+}: InboxSidebarProps) {
+  const widthStyle: SidebarWidthStyle = {
+    "--inbox-sidebar-width": `${width}px`,
+  };
   const router = useRouter();
   const params = useParams();
   const selectedUserId = params?.id as string;
@@ -57,8 +70,10 @@ export default function InboxSidebar({ width }: InboxSidebarProps) {
 
   return (
     <aside
-      className="flex h-full flex-shrink-0 flex-col bg-white"
-      style={width ? { width: `${width}px` } : undefined}
+      className={`h-full w-full flex-shrink-0 flex-col bg-white md:w-[var(--inbox-sidebar-width)] ${
+        hiddenOnMobile ? "hidden md:flex" : "flex"
+      }`}
+      style={widthStyle}
     >
       <SidebarHeader />
 

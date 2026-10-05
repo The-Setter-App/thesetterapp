@@ -210,7 +210,7 @@ export default function MessageInput({
               ref={textareaRef}
               aria-label="Message"
               className="max-h-[120px] min-h-10 flex-1 resize-none bg-transparent px-1 py-2.5 text-[0.9375rem] leading-5 text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0"
-              placeholder="Write a message..."
+              placeholder="Message"
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyDown={(e) => {

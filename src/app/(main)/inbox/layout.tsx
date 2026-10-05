@@ -136,7 +136,12 @@ export default function InboxLayout({
         className={`${surface.surface} relative flex h-full overflow-hidden text-[#101011]`}
       >
         <div className="flex h-full w-full overflow-hidden">
-          <InboxSidebar width={leftWidth} />
+          {/* On phones the list and the conversation take turns: the list
+              shows until a conversation is opened, then gives way to it. */}
+          <InboxSidebar
+            width={leftWidth}
+            hiddenOnMobile={isConversationRoute}
+          />
           <button
             type="button"
             className="hidden md:flex w-px cursor-ew-resize select-none touch-none bg-[#F0F2F6]"
@@ -144,7 +149,13 @@ export default function InboxLayout({
             aria-label="Resize left sidebar"
             tabIndex={0}
           />
-          {children}
+          <div
+            className={`h-full min-w-0 flex-1 ${
+              isConversationRoute ? "flex" : "hidden md:flex"
+            }`}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </InboxSyncProvider>

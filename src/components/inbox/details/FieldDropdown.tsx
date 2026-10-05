@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { LuCheck, LuChevronDown } from "react-icons/lu";
 import { AppImage } from "@/components/ui/AppImage";
 
 export interface DropdownOption {
@@ -45,7 +46,9 @@ export default function FieldDropdown({
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
-        className="h-11 w-full border border-[#F0F2F6] rounded-lg px-3 bg-white text-sm text-[#101011] flex items-center justify-between"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-white px-3 text-sm text-[#101011] outline-none transition-colors duration-150 ${isOpen ? "border-[#8771FF]" : "border-[#F0F2F6]"}`}
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <span className="flex items-center min-w-0">
@@ -63,30 +66,19 @@ export default function FieldDropdown({
             {selected?.label || placeholder || "Select an option"}
           </span>
         </span>
-        <svg
-          className="w-4 h-4 text-[#9A9CA2] shrink-0"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+        <LuChevronDown
           aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+          className={`h-4 w-4 shrink-0 text-[#9A9CA2] transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {isOpen ? (
-        <div className="absolute z-20 mt-1 w-full bg-white rounded-lg shadow-md max-h-64 overflow-auto border border-[#F0F2F6]">
+        <div className="absolute z-20 mt-1.5 max-h-64 w-full space-y-0.5 overflow-auto rounded-2xl border border-[#F0F2F6] bg-white p-1.5 shadow-[0_12px_32px_rgba(16,16,17,0.1)]">
           {options.map((option) => (
             <button
               key={option.value}
               type="button"
-              className="w-full text-left flex items-center justify-between p-2.5 hover:bg-[#F8F7FF]"
+              className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl px-2.5 text-left outline-none transition-colors duration-100 ${value === option.value ? "bg-[#F3F0FF]" : "[@media(hover:hover)]:hover:bg-[#F8F7FF]"}`}
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);
@@ -106,19 +98,10 @@ export default function FieldDropdown({
                 </span>
               </span>
               {value === option.value ? (
-                <svg
-                  className="w-4 h-4 text-emerald-600"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+                <LuCheck
                   aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.704 5.29a1 1 0 010 1.42l-8.25 8.25a1 1 0 01-1.42 0l-3.75-3.75a1 1 0 111.414-1.42l3.04 3.043 7.54-7.543a1 1 0 011.426 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                  className="h-4 w-4 shrink-0 text-[#8771FF]"
+                />
               ) : null}
             </button>
           ))}
