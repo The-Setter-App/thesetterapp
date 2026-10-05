@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { setCachedInboxTags } from "@/lib/cache";
 import { broadcastInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
 import {
@@ -61,10 +61,6 @@ export function useTagsSettingsController({
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
-  const customTags = useMemo(
-    () => allTags.filter((tag) => tag.source === "Custom"),
-    [allTags],
-  );
   const normalizedTagName = normalizeTagText(tagName);
   const normalizedTagDescription = normalizeTagText(tagDescription);
   const canAddTag = normalizedTagName.length > 0 && !isCreating && !isUpdating;
@@ -96,44 +92,46 @@ export function useTagsSettingsController({
     setEditTagRole(tag.role ?? null);
   }
 
-  async function handleAddCustomTag(event: FormEvent<HTMLFormElement>) {
+  async function handleAddCustomTag(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<boolean> {
     event.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
 
     if (!normalizedTagName) {
       setErrorMessage("Status name is required.");
-      return;
+      return false;
     }
 
     if (normalizedTagName.length > MAX_TAG_NAME_LENGTH) {
       setErrorMessage(
         `Status name must be ${MAX_TAG_NAME_LENGTH} characters or fewer.`,
       );
-      return;
+      return false;
     }
 
     if (normalizedTagDescription.length > MAX_TAG_DESCRIPTION_LENGTH) {
       setErrorMessage(
         `Description must be ${MAX_TAG_DESCRIPTION_LENGTH} characters or fewer.`,
       );
-      return;
+      return false;
     }
 
     if (hasDuplicateTagName(normalizedTagName, allTags)) {
       setErrorMessage("Status name already exists. Use a different name.");
-      return;
+      return false;
     }
 
     const normalizedColor = normalizeStatusColorHex(tagColorHex);
     if (!normalizedColor) {
       setErrorMessage("A valid color is required.");
-      return;
+      return false;
     }
 
     if (!tagIconName.trim()) {
       setErrorMessage("An icon is required.");
-      return;
+      return false;
     }
 
     setIsCreating(true);
@@ -175,10 +173,12 @@ export function useTagsSettingsController({
         }.`,
       );
       await syncStatusCatalogCache(nextAllTags);
+      return true;
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to create status tag.",
       );
+      return false;
     } finally {
       setIsCreating(false);
     }
@@ -323,7 +323,6 @@ export function useTagsSettingsController({
 
   return {
     allTags,
-    customTags,
     messages: {
       errorMessage,
       successMessage,

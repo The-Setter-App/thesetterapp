@@ -23,12 +23,12 @@ function getChipLabel(status: InboxCacheWarmupStatus): string {
 
 function getChipClasses(status: InboxCacheWarmupStatus): string {
   if (status.state === "completed") {
-    return "border-[#D8D2FF] bg-[#F3F0FF] text-[#6d5ed6]";
+    return "bg-[#F3F0FF] text-[#6d5ed6]";
   }
   if (status.state === "failed") {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "bg-red-50 text-red-700";
   }
-  return "border-[#F0F2F6] bg-[#F8F7FF] text-[#606266]";
+  return "bg-[#F4F5F8] text-[#606266]";
 }
 
 export default function ConnectSyncWarmupStatus({
@@ -72,7 +72,8 @@ export default function ConnectSyncWarmupStatus({
 
   return (
     <div
-      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${getChipClasses(status)}`}
+      aria-live="polite"
+      className={`inline-flex h-7 items-center rounded-full px-3 text-xs font-semibold tabular-nums ${getChipClasses(status)}`}
     >
       {getChipLabel(status)}
     </div>

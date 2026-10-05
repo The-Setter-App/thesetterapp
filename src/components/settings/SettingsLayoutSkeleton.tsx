@@ -1,6 +1,5 @@
-"use client";
-
 import PageHeaderSkeleton from "@/components/layout/PageHeaderSkeleton";
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 import {
   SettingsIntegrationContentSkeleton,
   SettingsProfileContentSkeleton,
@@ -8,6 +7,7 @@ import {
   SettingsTagsContentSkeleton,
   SettingsTeamContentSkeleton,
 } from "@/components/settings/SettingsPageSkeletons";
+import surface from "@/components/ui/brandSurface.module.css";
 
 export type SettingsSkeletonVariant =
   | "profile"
@@ -28,78 +28,48 @@ export function resolveSettingsSkeletonVariant(
       return "tags";
     case "/settings/team":
       return "team";
-    case "/settings/profile":
-      return "profile";
     default:
       return "profile";
   }
 }
 
-const sidebarItemKeys = [
-  "profile",
-  "team",
-  "socials",
-  "tags",
-  "integration",
-] as const;
+const CONTENT_SKELETONS: Record<
+  SettingsSkeletonVariant,
+  () => React.ReactNode
+> = {
+  profile: SettingsProfileContentSkeleton,
+  integration: SettingsIntegrationContentSkeleton,
+  socials: SettingsSocialsContentSkeleton,
+  tags: SettingsTagsContentSkeleton,
+  team: SettingsTeamContentSkeleton,
+};
 
-function SettingsSidebarSkeleton() {
-  return (
-    <aside className="h-auto border-r border-[#F0F2F6] bg-white md:h-full">
-      <div className="flex h-full flex-col p-4 md:p-6">
-        <nav className="flex gap-2 overflow-x-auto md:block md:space-y-2 md:overflow-visible">
-          {sidebarItemKeys.map((itemKey, index) => (
-            <div
-              key={itemKey}
-              className={`h-12 min-w-[120px] animate-pulse rounded-xl border px-4 md:w-full ${
-                index === 0
-                  ? "border-[#D8D2FF] bg-[#F3F0FF]"
-                  : "border-[#F0F2F6] bg-white"
-              }`}
-            />
-          ))}
-        </nav>
-      </div>
-    </aside>
-  );
+interface SettingsLayoutSkeletonProps {
+  variant?: SettingsSkeletonVariant;
 }
 
-function renderSettingsSkeletonContent(variant: SettingsSkeletonVariant) {
-  switch (variant) {
-    case "integration":
-      return <SettingsIntegrationContentSkeleton />;
-    case "socials":
-      return <SettingsSocialsContentSkeleton />;
-    case "tags":
-      return <SettingsTagsContentSkeleton />;
-    case "team":
-      return <SettingsTeamContentSkeleton />;
-    default:
-      return <SettingsProfileContentSkeleton />;
-  }
-}
-
+// The whole settings page while its layout loads: title, tabs and content.
 export default function SettingsLayoutSkeleton({
   variant = "profile",
-}: {
-  variant?: SettingsSkeletonVariant;
-}) {
+}: SettingsLayoutSkeletonProps) {
+  const ContentSkeleton = CONTENT_SKELETONS[variant];
+
   return (
-    <div className="flex h-full min-h-screen flex-col overflow-hidden bg-white text-[#101011]">
+    <div
+      className={`${surface.surface} flex h-full min-h-0 flex-col overflow-hidden text-[#101011]`}
+    >
       <PageHeaderSkeleton
+        divider={false}
         titleWidthClass="w-28"
         descriptionWidthClass="w-[360px]"
       />
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="shrink-0 md:h-full">
-          <SettingsSidebarSkeleton />
+      <div className={`${PAGE_GUTTER_CLASS} pb-4 pt-4`}>
+        <div className="h-11 w-full max-w-md animate-pulse rounded-full bg-[#F4F5F8]" />
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden border-t border-[#F0F2F6]">
+        <div className={`${PAGE_GUTTER_CLASS} w-full max-w-5xl pt-6`}>
+          <ContentSkeleton />
         </div>
-
-        <section className="min-h-0 overflow-y-auto bg-white">
-          <div className="w-full px-4 py-6 md:px-8 md:py-8 lg:px-10">
-            {renderSettingsSkeletonContent(variant)}
-          </div>
-        </section>
       </div>
     </div>
   );

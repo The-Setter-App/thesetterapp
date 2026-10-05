@@ -1,32 +1,56 @@
 import type { ReactNode } from "react";
-import { Card } from "@/components/ui/Card";
 
+interface SettingsSectionCardProps {
+  title: string;
+  description: string;
+  badge?: string;
+  // Lets other pages link straight to this section.
+  id?: string;
+  // Sits beside the heading, e.g. a button that adds to the section.
+  action?: ReactNode;
+  // Lets a menu inside the card open past its edge instead of being cut off.
+  allowOverflow?: boolean;
+  children: ReactNode;
+}
+
+// One topic within a settings tab: a heading with a line of explanation, and
+// a card holding its controls.
 export default function SettingsSectionCard({
   title,
   description,
   badge,
+  id,
+  action,
+  allowOverflow = false,
   children,
-}: {
-  title: string;
-  description: string;
-  badge?: string;
-  children: ReactNode;
-}) {
+}: SettingsSectionCardProps) {
   return (
-    <Card
-      noPadding
-      className="overflow-hidden rounded-2xl border border-[#F0F2F6] bg-white shadow-sm"
-    >
-      <div className="border-b border-[#F0F2F6] px-6 py-6 md:px-8">
-        {badge ? (
-          <div className="mb-2 inline-flex items-center rounded-full bg-[rgba(135,113,255,0.1)] px-3 py-1 text-xs font-semibold text-[#8771FF]">
-            {badge}
+    <section id={id} className="scroll-mt-6">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#101011]">
+              {title}
+            </h2>
+            {badge ? (
+              <span className="inline-flex h-6 items-center rounded-full bg-[#F3F0FF] px-2.5 text-xs font-semibold text-[#8771FF]">
+                {badge}
+              </span>
+            ) : null}
           </div>
-        ) : null}
-        <h2 className="text-lg font-bold text-[#101011]">{title}</h2>
-        <p className="mt-0.5 text-sm text-[#606266]">{description}</p>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#606266]">
+            {description}
+          </p>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children}
-    </Card>
+      <div
+        className={`rounded-3xl border border-[#F0F2F6] bg-white shadow-sm ${
+          allowOverflow ? "" : "overflow-hidden"
+        }`}
+      >
+        {children}
+      </div>
+    </section>
   );
 }

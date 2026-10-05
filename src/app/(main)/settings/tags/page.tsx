@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import TagsSettingsContent from "@/components/settings/TagsSettingsContent";
+import TagsSettingsContent from "@/components/settings/tags-settings/TagsSettingsContent";
 import { canAccessTagsSettings } from "@/lib/permissions";
 import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
 import { requireWorkspaceContext } from "@/lib/workspace";

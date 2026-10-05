@@ -42,13 +42,31 @@ export interface TagsSettingsCreateFormState {
   tagRole: StatusRole | null;
   canSubmit: boolean;
   isSubmitting: boolean;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  // Resolves to true once the status has been created.
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<boolean>;
   onTagNameChange: (value: string) => void;
   onTagDescriptionChange: (value: string) => void;
   onTagColorHexChange: (value: string) => void;
   onTagRoleChange: (value: StatusRole | null) => void;
   openIconPicker: () => void;
 }
+
+// The fields a status is made of. Both the create and the edit form carry
+// them, so one set of inputs serves both.
+export type TagFieldsState = Pick<
+  TagsSettingsCreateFormState,
+  | "tagName"
+  | "tagDescription"
+  | "tagColorHex"
+  | "tagIconPack"
+  | "tagIconName"
+  | "tagRole"
+  | "onTagNameChange"
+  | "onTagDescriptionChange"
+  | "onTagColorHexChange"
+  | "onTagRoleChange"
+  | "openIconPicker"
+>;
 
 export interface TagsSettingsEditFormState {
   activeTagId: string | null;
@@ -81,7 +99,6 @@ export interface TagsSettingsIconPickerState {
 
 export interface UseTagsSettingsControllerResult {
   allTags: TagRow[];
-  customTags: TagRow[];
   messages: TagsSettingsMessages;
   createForm: TagsSettingsCreateFormState;
   editForm: TagsSettingsEditFormState;

@@ -1,12 +1,19 @@
 "use client";
 
-import { Camera, KeyRound, Mail, Trash2, User } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
+import SettingsNotice from "@/components/settings/SettingsNotice";
 import SettingsSectionCard from "@/components/settings/SettingsSectionCard";
+import {
+  SETTINGS_BLOCK_CLASS,
+  SETTINGS_HINT_CLASS,
+  SETTINGS_INPUT_CLASS,
+  SETTINGS_LABEL_CLASS,
+  SETTINGS_PRIMARY_BUTTON_CLASS,
+  SETTINGS_SECONDARY_BUTTON_CLASS,
+} from "@/components/settings/settingsStyles";
 import { AppImage } from "@/components/ui/AppImage";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { fileToOptimizedProfileDataUrl } from "@/lib/profileImage";
 import {
   exceedsProfileImageSizeLimit,
@@ -125,165 +132,130 @@ export default function ProfileSettingsContent({ user }: { user: AppUser }) {
   }
 
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="space-y-3">
       {success ? (
-        <div className="rounded-2xl border border-[#D8D2FF] bg-[#F3F0FF] px-5 py-3 text-sm font-medium text-[#6d5ed6]">
-          {success}
-        </div>
+        <SettingsNotice tone="success">{success}</SettingsNotice>
       ) : null}
-
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <SettingsNotice tone="error">{error}</SettingsNotice> : null}
 
       <SettingsSectionCard
-        title="Your account profile"
-        description="Set your name and avatar used throughout the workspace."
+        title="Your profile"
+        description="Your name and picture, shown to your team across the workspace."
       >
-        <div className="px-6 py-6 md:px-8">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#606266]">
-                  Preview
-                </p>
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="h-16 w-16 overflow-hidden rounded-full border border-[#F0F2F6] bg-white">
-                    <AppImage
-                      src={profileImageBase64 || "/images/no_profile.jpg"}
-                      alt="Profile preview"
-                      className="h-full w-full object-cover"
-                      loadingMode="eager"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#101011]">
-                      {normalizedDisplayName || "Your name"}
-                    </p>
-                    <p className="truncate text-xs text-[#606266]">
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#F0F2F6] bg-white p-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#606266]">
-                  Account details
-                </p>
-                <div className="space-y-2">
-                  <div className="rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-2">
-                    <div className="mb-1 flex items-center gap-2 text-[#606266]">
-                      <Mail size={14} />
-                      <span className="text-xs font-medium">Email</span>
-                    </div>
-                    <p className="truncate font-mono text-xs text-[#101011]">
-                      {user.email}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-2">
-                    <div className="mb-1 flex items-center gap-2 text-[#606266]">
-                      <KeyRound size={14} />
-                      <span className="text-xs font-medium">Role</span>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="border-[#F0F2F6] bg-[rgba(135,113,255,0.1)] px-3 py-1 text-xs capitalize text-[#8771FF]"
-                    >
-                      {roleLabel}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#F0F2F6] bg-white p-4 md:p-5">
-              <label
-                htmlFor="display-name"
-                className="mb-2 block text-sm font-medium text-[#101011]"
-              >
-                Account name
-              </label>
-              <input
-                id="display-name"
-                name="display-name"
-                type="text"
-                value={displayName}
-                maxLength={MAX_DISPLAY_NAME_LENGTH}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Enter your name"
-                className="h-11 w-full rounded-xl border border-[#F0F2F6] bg-white px-3 text-sm text-[#101011] outline-none transition-colors placeholder:text-[#9B9DA5] hover:bg-[#F8F7FF] focus:outline-none focus:ring-0"
-              />
-              <p className="mt-2 text-xs text-[#606266]">
-                {normalizedDisplayName.length}/{MAX_DISPLAY_NAME_LENGTH}
-              </p>
-
-              <div className="mt-4 rounded-xl border border-[#F0F2F6] bg-[#F8F7FF] p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-11 rounded-xl"
-                    leftIcon={<Camera size={16} />}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Upload image
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 rounded-xl border-[#F0F2F6]"
-                    leftIcon={<Trash2 size={16} />}
-                    onClick={() => setProfileImageBase64("")}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <p className="mt-2 text-xs text-[#606266]">
-                  PNG/JPG up to{" "}
-                  {Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB
-                </p>
-              </div>
-
-              <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                    hasUnsavedChanges
-                      ? "border border-[#D8D2FF] bg-[#F3F0FF] text-[#6d5ed6]"
-                      : "border border-[#F0F2F6] bg-[#F8F7FF] text-[#606266]"
-                  }`}
-                >
-                  <span
-                    className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${
-                      hasUnsavedChanges ? "bg-[#8771FF]" : "bg-[#9A9CA2]"
-                    }`}
-                  />
-                  {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
-                </div>
-                <Button
-                  type="button"
-                  className="h-12 w-full rounded-xl md:w-auto"
-                  disabled={!canSave}
-                  isLoading={saving}
-                  onClick={saveProfile}
-                >
-                  <User size={16} />
-                  <span className="ml-2">Save profile</span>
-                </Button>
-              </div>
-            </div>
+        <div
+          className={`${SETTINGS_BLOCK_CLASS} flex flex-col gap-4 border-b border-[#F0F2F6] sm:flex-row sm:items-center`}
+        >
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[#F4F5F8]">
+            <AppImage
+              src={profileImageBase64 || "/images/no_profile.jpg"}
+              alt="Your profile picture"
+              className="h-full w-full object-cover"
+              loadingMode="eager"
+            />
           </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={SETTINGS_SECONDARY_BUTTON_CLASS}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera size={15} aria-hidden="true" />
+                Upload picture
+              </button>
+              {profileImageBase64 ? (
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold text-[#606266] outline-none transition-[transform,background-color,color] duration-100 ease-out active:scale-[0.97] [@media(hover:hover)]:hover:bg-red-50 [@media(hover:hover)]:hover:text-red-600"
+                  onClick={() => setProfileImageBase64("")}
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            <p className={SETTINGS_HINT_CLASS}>
+              PNG or JPG, up to{" "}
+              {Math.floor(MAX_PROFILE_IMAGE_BYTES / 1_000_000)}MB.
+            </p>
+          </div>
+        </div>
 
+        <div className={`${SETTINGS_BLOCK_CLASS} border-b border-[#F0F2F6]`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="display-name" className={SETTINGS_LABEL_CLASS}>
+              Name
+            </label>
+            <span className="text-xs text-[#9A9CA2] tabular-nums">
+              {normalizedDisplayName.length}/{MAX_DISPLAY_NAME_LENGTH}
+            </span>
+          </div>
           <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
+            id="display-name"
+            name="display-name"
+            type="text"
+            value={displayName}
+            maxLength={MAX_DISPLAY_NAME_LENGTH}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="Enter your name"
+            className={`${SETTINGS_INPUT_CLASS} max-w-md`}
           />
         </div>
+
+        <dl className="divide-y divide-[#F0F2F6] border-b border-[#F0F2F6]">
+          <div
+            className={`${SETTINGS_BLOCK_CLASS} flex items-center justify-between gap-4 !py-3.5`}
+          >
+            <dt className="text-sm text-[#606266]">Email</dt>
+            <dd className="min-w-0 truncate text-sm font-medium text-[#101011]">
+              {user.email}
+            </dd>
+          </div>
+          <div
+            className={`${SETTINGS_BLOCK_CLASS} flex items-center justify-between gap-4 !py-3.5`}
+          >
+            <dt className="text-sm text-[#606266]">Role</dt>
+            <dd>
+              <span className="inline-flex h-6 items-center rounded-full bg-[#F3F0FF] px-2.5 text-xs font-semibold text-[#8771FF]">
+                {roleLabel}
+              </span>
+            </dd>
+          </div>
+        </dl>
+
+        <div
+          className={`${SETTINGS_BLOCK_CLASS} flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between`}
+        >
+          <p
+            className={`inline-flex items-center gap-2 text-[0.8125rem] font-medium ${
+              hasUnsavedChanges ? "text-[#8771FF]" : "text-[#9A9CA2]"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 rounded-full ${
+                hasUnsavedChanges ? "bg-[#8771FF]" : "bg-[#C4C6CC]"
+              }`}
+            />
+            {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
+          </p>
+          <button
+            type="button"
+            className={`${SETTINGS_PRIMARY_BUTTON_CLASS} w-full sm:w-auto`}
+            disabled={!canSave}
+            onClick={saveProfile}
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </SettingsSectionCard>
     </div>
   );
