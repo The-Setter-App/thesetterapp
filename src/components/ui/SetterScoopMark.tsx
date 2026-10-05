@@ -3,13 +3,20 @@ import styles from "./brandSurface.module.css";
 // The logo mark with a face: the half circle and its three bars, drawn with
 // the logo's own proportions so the scoop sits cleanly above the first bar.
 // Used as the illustration for empty states.
-export default function SetterScoopMark() {
+interface SetterScoopMarkProps {
+  // Size classes; defaults to the empty-state size.
+  className?: string;
+}
+
+export default function SetterScoopMark({
+  className = "h-auto w-28",
+}: SetterScoopMarkProps) {
   return (
     <svg
       viewBox="18 14 84 90"
       aria-hidden="true"
       focusable="false"
-      className="h-auto w-28"
+      className={className}
     >
       <path
         d="M32 48A28 28 0 0 1 88 48Z"

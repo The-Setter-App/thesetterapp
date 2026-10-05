@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Bot, Square, X } from "lucide-react";
+import { ArrowUp, AtSign, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LeadMentionMenu from "@/components/setter-ai/LeadMentionMenu";
 import type { LeadConversationSummary } from "@/types/setterAiLeadContext";
@@ -25,7 +25,11 @@ function getMentionQuery(
   return { atIndex, query };
 }
 
+const MAX_TEXTAREA_HEIGHT_PX = 160;
+
 export default function ChatComposer(props: {
+  // Width classes shared with the message column above.
+  columnClassName: string;
   input: string;
   setInput: (val: string) => void;
   isLoading: boolean;
@@ -37,6 +41,7 @@ export default function ChatComposer(props: {
   onClearLead: () => void;
 }) {
   const {
+    columnClassName,
     input,
     setInput,
     isLoading,
@@ -48,7 +53,7 @@ export default function ChatComposer(props: {
     onClearLead,
   } = props;
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastCaretRef = useRef(0);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,6 +83,24 @@ export default function ChatComposer(props: {
     setMentionQuery(query);
     setHighlightedIndex(0);
   }, []);
+
+  // Opens the lead picker from its button, with no "@" typed in the message.
+  const openLeadPicker = useCallback(() => {
+    setMenuOpen(true);
+    setMentionAtIndex(null);
+    setMentionQuery("");
+    setHighlightedIndex(0);
+  }, []);
+
+  // Grow the field with its content, up to a few lines. Re-measured whenever
+  // the text changes, including when it is cleared after sending.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the text is the trigger; the measurement reads the DOM.
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+  }, [input]);
 
   const handleMentionMenuSearchChange = useCallback((value: string) => {
     setMentionQuery(value);
@@ -172,7 +195,7 @@ export default function ChatComposer(props: {
     [closeMenu, input, mentionAtIndex, onLinkLead, setInput],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (menuOpen) {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -206,10 +229,10 @@ export default function ChatComposer(props: {
   };
 
   return (
-    <div className="shrink-0 px-4 pb-4 md:px-6 md:pb-6">
+    <div className="shrink-0 px-4 pb-3 md:px-6 md:pb-4">
       <div
         data-composer-root
-        className="relative mx-auto flex w-full flex-col gap-2 rounded-2xl border border-[#F0F2F6] bg-white p-2.5 shadow-sm md:w-[50%]"
+        className={`${columnClassName} relative flex flex-col rounded-[1.75rem] border border-[#F0F2F6] bg-white p-2 shadow-[0_8px_30px_rgba(16,16,17,0.07)] transition-colors duration-150 focus-within:border-[#8771FF]`}
       >
         <LeadMentionMenu
           open={menuOpen}
@@ -224,30 +247,28 @@ export default function ChatComposer(props: {
         />
 
         {linkedLead?.conversationId ? (
-          <div className="flex items-center justify-between gap-2 rounded-2xl border border-[#F0F2F6] bg-[#F8F7FF] px-3 py-2">
-            <div className="min-w-0">
-              <div className="text-[11px] font-semibold text-[#8771FF]">
-                Using lead context
-              </div>
-              <div className="truncate text-xs text-[#101011]">
+          <div className="mb-1 flex items-center justify-between gap-2 rounded-[1.25rem] bg-[#F8F7FF] py-1.5 pl-3.5 pr-1.5">
+            <p className="min-w-0 truncate text-[0.8125rem] text-[#606266]">
+              <span className="font-semibold text-[#8771FF]">Using lead</span>{" "}
+              <span className="font-medium text-[#101011]">
                 {linkedLead.label}
-              </div>
-            </div>
+              </span>
+            </p>
             <button
               type="button"
               onClick={onClearLead}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#F0F2F6] bg-white text-[#606266] transition-colors hover:bg-[#F3F0FF] outline-none focus-visible:outline-none"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#606266] outline-none transition-[transform,background-color,color] duration-100 ease-out active:scale-[0.94] disabled:opacity-50 [@media(hover:hover)]:enabled:hover:bg-white [@media(hover:hover)]:enabled:hover:text-[#101011]"
               aria-label="Clear lead context"
               disabled={isLoading}
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           </div>
         ) : null}
 
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={input}
           onChange={(e) =>
             handleChange(
@@ -256,30 +277,35 @@ export default function ChatComposer(props: {
             )
           }
           onKeyDown={handleKeyDown}
-          placeholder='Type a message... (use "@" to pick a lead)'
-          className="h-10 w-full rounded-xl bg-white px-3 text-sm text-[#101011] placeholder:text-[#9A9CA2] outline-none focus:ring-0 focus-visible:outline-none"
+          aria-label="Message Setter AI"
+          placeholder="Ask Setter AI"
+          className="max-h-40 min-h-11 w-full resize-none bg-transparent px-3 py-2.5 text-[0.9375rem] leading-6 text-[#101011] outline-none placeholder:text-[#9A9CA2] focus:outline-none focus:ring-0 disabled:opacity-60"
           disabled={isLoading}
         />
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-auto max-w-[180px] items-center gap-2 rounded-full border border-[#F0F2F6] bg-[#F8F7FF] px-3 text-xs font-medium text-[#606266] transition-colors hover:border-[#D9D2FF] hover:bg-[#F3F0FF] outline-none focus-visible:outline-none"
+            onClick={menuOpen ? closeMenu : openLeadPicker}
+            aria-expanded={menuOpen}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold outline-none transition-[transform,background-color,color] duration-100 ease-out active:scale-[0.97] ${
+              menuOpen || linkedLead?.conversationId
+                ? "bg-[#F3F0FF] text-[#8771FF]"
+                : "bg-[#F4F5F8] text-[#606266] [@media(hover:hover)]:hover:bg-[#ECEEF3] [@media(hover:hover)]:hover:text-[#101011]"
+            }`}
           >
-            <Bot size={13} className="text-[#8771FF]" />
-            <span className="max-w-[120px] truncate whitespace-nowrap">
-              SetterAI
-            </span>
+            <AtSign size={13} aria-hidden="true" />
+            {linkedLead?.conversationId ? "Change lead" : "Add lead"}
           </button>
           {isStreaming ? (
             <button
               type="button"
               onClick={onStopStreaming}
               aria-label="Stop streaming"
-              className="inline-flex h-10 min-w-[44px] items-center justify-center gap-1 rounded-full border border-[#F0F2F6] bg-[#F3F0FF] px-3 text-xs font-medium text-[#8771FF] transition-colors hover:bg-[#EBE5FF] outline-none focus-visible:outline-none"
+              title="Stop"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#101011] text-white outline-none transition-transform duration-100 ease-out active:scale-[0.94]"
             >
-              <Square size={12} fill="currentColor" />
-              Stop
+              <Square size={12} fill="currentColor" aria-hidden="true" />
             </button>
           ) : (
             <button
@@ -287,19 +313,16 @@ export default function ChatComposer(props: {
               onClick={() => onSend()}
               disabled={!input.trim()}
               aria-label="Send message"
-              className="flex h-10 w-10 min-w-[40px] items-center justify-center rounded-full bg-[#8771FF] text-white transition-all hover:bg-[#6d5ed6] hover:scale-[1.02] active:scale-95 outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8771FF] text-white outline-none transition-[transform,background-color] duration-100 ease-out active:scale-[0.94] disabled:bg-[#F4F5F8] disabled:text-[#9A9CA2] [@media(hover:hover)]:enabled:hover:bg-[#6d5ed6]"
             >
-              <ArrowUp size={16} />
+              <ArrowUp size={17} aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
-      <div className="mt-2 text-center">
-        <p className="inline-block rounded-full bg-[#F8F7FF]/95 px-2 py-0.5 text-[11px] text-[#606266]">
-          Setter AI Copilot Real-time guidance for lead replies, follow-ups, and
-          conversion-focused conversations.
-        </p>
-      </div>
+      <p className="mt-2 text-center text-[11px] text-[#9A9CA2]">
+        Setter AI drafts from your lead conversations. Review before you send.
+      </p>
     </div>
   );
 }

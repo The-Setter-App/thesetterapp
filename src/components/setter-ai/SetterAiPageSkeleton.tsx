@@ -1,78 +1,70 @@
-"use client";
-
 import PageHeaderSkeleton from "@/components/layout/PageHeaderSkeleton";
+import surface from "@/components/ui/brandSurface.module.css";
 
-const SIDEBAR_CHAT_SKELETON_IDS = [
-  "sidebar-chat-1",
-  "sidebar-chat-2",
-  "sidebar-chat-3",
-  "sidebar-chat-4",
-  "sidebar-chat-5",
-  "sidebar-chat-6",
-  "sidebar-chat-7",
-] as const;
-const MESSAGE_BUBBLE_SKELETON_IDS = [
-  "message-bubble-1",
-  "message-bubble-2",
-  "message-bubble-3",
-  "message-bubble-4",
-  "message-bubble-5",
-  "message-bubble-6",
-] as const;
+const SIDEBAR_ROW_WIDTHS = ["w-40", "w-32", "w-44", "w-28", "w-36", "w-40"];
+const MESSAGE_ROWS = [
+  { id: "a", mine: true, width: "w-56" },
+  { id: "b", mine: false, width: "w-[70%]" },
+  { id: "c", mine: true, width: "w-40" },
+  { id: "d", mine: false, width: "w-[82%]" },
+];
 
+const PULSE = "animate-pulse rounded-full bg-[#F4F5F8]";
+
+// Mirrors the Setter AI page so the layout does not jump when it loads.
 export default function SetterAiPageSkeleton() {
   return (
-    <div className="flex h-full min-h-screen w-full flex-col overflow-hidden bg-[#F8F7FF] text-[#101011]">
-      <PageHeaderSkeleton titleWidthClass="w-36" descriptionWidthClass="w-96" />
+    <div
+      aria-busy="true"
+      className={`${surface.surface} flex h-full w-full flex-col overflow-hidden text-[#101011]`}
+    >
+      <span className="sr-only">Loading Setter AI</span>
+      <PageHeaderSkeleton
+        divider={false}
+        titleWidthClass="w-36"
+        descriptionWidthClass="w-96"
+      />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="w-full border-b border-[#F0F2F6] bg-white px-4 py-4 md:px-6 lg:h-full lg:w-[320px] lg:shrink-0 lg:border-b-0 lg:border-r">
-          <div className="flex h-full min-h-0 flex-col gap-3">
-            <div className="h-3 w-20 animate-pulse rounded bg-[#F4F5F8]" />
-            <div className="h-10 animate-pulse rounded-xl bg-[#F4F5F8]" />
-            <div className="h-11 animate-pulse rounded-xl bg-[#F3F0FF]" />
-            <div className="min-h-[220px] flex-1 space-y-2 overflow-hidden">
-              {SIDEBAR_CHAT_SKELETON_IDS.map((chatId) => (
-                <div
-                  key={chatId}
-                  className="rounded-xl border border-[#F0F2F6] bg-white px-3 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-4 w-4 animate-pulse rounded bg-[#EEEAFD]" />
-                    <div className="min-w-0 flex-1">
-                      <div className="h-3 w-32 animate-pulse rounded bg-[#ECE9FF]" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="mt-4 flex min-h-0 flex-1 overflow-hidden border-t border-[#F0F2F6]">
+        <div className="hidden w-[320px] shrink-0 flex-col border-r border-[#F0F2F6] lg:flex">
+          <div className="space-y-2 px-8 pb-3 pt-4">
+            <div className="h-11 animate-pulse rounded-full bg-[#F3F0FF]" />
+            <div className={`h-11 ${PULSE}`} />
+          </div>
+          <div className="space-y-1 px-5 pt-5">
+            {SIDEBAR_ROW_WIDTHS.map((width, index) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders that never reorder.
+                key={index}
+                className="flex h-11 items-center px-3"
+              >
+                <div className={`h-3.5 ${width} ${PULSE}`} />
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col bg-[#F8F7FF]">
+        <div
+          className={`${surface.glow} flex min-h-0 flex-1 flex-col bg-white`}
+        >
           <div className="min-h-0 flex-1 overflow-hidden px-4 md:px-6">
-            <div className="mx-auto flex h-full w-full flex-col gap-4 pb-12 pt-3 md:w-[48%] md:pt-4">
-              {MESSAGE_BUBBLE_SKELETON_IDS.map((bubbleId, index) => (
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pt-6">
+              {MESSAGE_ROWS.map((row) => (
                 <div
-                  key={bubbleId}
-                  className={`flex ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
+                  key={row.id}
+                  className={`flex ${row.mine ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`h-16 animate-pulse rounded-2xl ${
-                      index % 2 === 0
-                        ? "w-[72%] border border-[#F0F2F6] bg-white"
-                        : "w-[72%] bg-[#F3F0FF]"
+                    className={`animate-pulse rounded-[1.25rem] ${row.width} ${
+                      row.mine ? "h-10 bg-[#ECE9FF]" : "h-20 bg-[#F4F5F8]"
                     }`}
                   />
                 </div>
               ))}
             </div>
           </div>
-
-          <div className="border-t border-[#F0F2F6] bg-white px-4 py-4 md:px-6">
-            <div className="mx-auto w-full md:w-[48%]">
-              <div className="h-12 animate-pulse rounded-2xl bg-[#F4F5F8]" />
-            </div>
+          <div className="px-4 pb-6 md:px-6">
+            <div className="mx-auto h-[6.25rem] w-full max-w-3xl animate-pulse rounded-[1.75rem] bg-[#F4F5F8]" />
           </div>
         </div>
       </div>
