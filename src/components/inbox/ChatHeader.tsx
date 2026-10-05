@@ -6,8 +6,8 @@ import {
   LuPanelRightClose,
   LuPanelRightOpen,
 } from "react-icons/lu";
+import LeadAvatar from "@/components/inbox/LeadAvatar";
 import MessagingWindowCountdown from "@/components/inbox/MessagingWindowCountdown";
-import { AppImage } from "@/components/ui/AppImage";
 import type { User } from "@/types/inbox";
 
 interface ChatHeaderProps {
@@ -36,8 +36,9 @@ export default function ChatHeader({
         >
           <LuChevronLeft aria-hidden="true" className="h-5 w-5" />
         </Link>
-        <AppImage
-          src={user?.avatar || "/images/no_profile.jpg"}
+        <LeadAvatar
+          conversationId={user?.id}
+          src={user?.avatar}
           alt={user?.name || "User"}
           className="hidden h-10 w-10 shrink-0 rounded-full object-cover sm:block"
           loadingMode="eager"

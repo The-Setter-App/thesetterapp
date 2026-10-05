@@ -1,5 +1,5 @@
 import { StatusIcon } from "@/components/icons/StatusIcon";
-import { AppImage } from "@/components/ui/AppImage";
+import LeadAvatar from "@/components/inbox/LeadAvatar";
 import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import { getMessagingWindowState } from "@/lib/inbox/messagingWindow";
 import { buildStatusPillStyle } from "@/lib/status/config";
@@ -56,8 +56,9 @@ export default function ConversationRow({
         className="flex w-full min-w-0 items-center gap-3 rounded-2xl p-3 text-left outline-none"
       >
         <div className="relative shrink-0">
-          <AppImage
-            src={user.avatar || "/images/no_profile.jpg"}
+          <LeadAvatar
+            conversationId={user.id}
+            src={user.avatar}
             alt={user.name}
             className="h-11 w-11 rounded-full object-cover"
             loadingMode={eagerAvatar ? "eager" : "lazy"}

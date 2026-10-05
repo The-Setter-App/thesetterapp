@@ -5,7 +5,7 @@ import { LuCheck, LuChevronDown, LuCopy } from "react-icons/lu";
 import { updateUserStatusAction } from "@/app/actions/inbox";
 import { StatusIcon } from "@/components/icons/StatusIcon";
 import LeadSourceBadge from "@/components/inbox/details/LeadSourceBadge";
-import { AppImage } from "@/components/ui/AppImage";
+import LeadAvatar from "@/components/inbox/LeadAvatar";
 import { INBOX_SSE_EVENT } from "@/lib/inbox/clientRealtimeEvents";
 import { loadInboxStatusCatalog } from "@/lib/inbox/clientStatusCatalog";
 import { subscribeInboxStatusCatalogChanged } from "@/lib/inbox/clientStatusCatalogSync";
@@ -204,8 +204,9 @@ export default function DetailsPanelHeader({
 
   return (
     <div className="flex flex-col items-center px-5 pb-5 pt-8">
-      <AppImage
-        src={user.avatar || "/images/no_profile.jpg"}
+      <LeadAvatar
+        conversationId={user.id}
+        src={user.avatar}
         alt={user.name}
         className="h-[4.5rem] w-[4.5rem] rounded-full object-cover"
         loadingMode="eager"

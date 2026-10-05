@@ -70,6 +70,10 @@ async function handleExternalImageRequest(
   });
 
   if (!upstream.ok) {
+    // Host and status only: the path and query carry signed access tokens.
+    console.warn(
+      `[ExternalImages] Upstream ${target.hostname} answered ${upstream.status}`,
+    );
     return NextResponse.json(
       { error: "Failed to fetch image" },
       { status: 502 },

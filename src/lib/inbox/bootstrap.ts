@@ -4,6 +4,7 @@ import {
   fetchMessagesChunk,
   fetchUserProfile,
 } from "@/lib/graphApi";
+import { resolveConversationAccount } from "@/lib/inbox/conversationAccount";
 import {
   getConversationSyncState,
   getConversationsFromDb,
@@ -144,30 +145,6 @@ export async function backfillMissingAvatars(
       // Non-blocking: leave the avatar empty and continue.
     }
   }
-}
-
-function resolveConversationAccount(
-  conversation: User,
-  accounts: InstagramAccountConnection[],
-): InstagramAccountConnection | null {
-  if (conversation.accountId) {
-    const matchedByAccountId =
-      accounts.find(
-        (account) => account.accountId === conversation.accountId,
-      ) || null;
-    if (matchedByAccountId) return matchedByAccountId;
-  }
-
-  if (conversation.ownerInstagramUserId) {
-    const matchedByInstagramUser =
-      accounts.find(
-        (account) =>
-          account.instagramUserId === conversation.ownerInstagramUserId,
-      ) || null;
-    if (matchedByInstagramUser) return matchedByInstagramUser;
-  }
-
-  return accounts.length === 1 ? accounts[0] : null;
 }
 
 async function syncConversationMessages(

@@ -1,10 +1,10 @@
 "use client";
 
 import { LuMessageCircle } from "react-icons/lu";
+import LeadAvatar from "@/components/inbox/LeadAvatar";
 import CustomCheckbox from "@/components/leads/CustomCheckbox";
 import OpenConversationLink from "@/components/leads/OpenConversationLink";
 import StatusBadge from "@/components/leads/StatusBadge";
-import { Avatar } from "@/components/ui/Avatar";
 import type { LeadRow } from "@/types/leads";
 import type { TagRow } from "@/types/tags";
 
@@ -39,11 +39,11 @@ export default function LeadDesktopRow({
       </td>
       <td className={CELL_CLASS}>
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar
+          <LeadAvatar
+            conversationId={lead.id}
             src={lead.avatar}
             alt={lead.name}
-            size="sm"
-            className="shrink-0"
+            className="h-8 w-8 shrink-0 rounded-full bg-[#F4F5F8] object-cover"
           />
           <span className="truncate font-semibold text-[#101011]">
             {lead.name}

@@ -1,9 +1,9 @@
 "use client";
 
+import LeadAvatar from "@/components/inbox/LeadAvatar";
 import CustomCheckbox from "@/components/leads/CustomCheckbox";
 import OpenConversationLink from "@/components/leads/OpenConversationLink";
 import StatusBadge from "@/components/leads/StatusBadge";
-import { Avatar } from "@/components/ui/Avatar";
 import type { LeadRow } from "@/types/leads";
 import type { TagRow } from "@/types/tags";
 
@@ -44,11 +44,11 @@ export default function LeadMobileCard({
           onChange={() => onToggleSelect(lead.id)}
           label={`Select ${lead.name}`}
         />
-        <Avatar
+        <LeadAvatar
+          conversationId={lead.id}
           src={lead.avatar}
           alt={lead.name}
-          size="sm"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0 rounded-full bg-[#F4F5F8] object-cover"
         />
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[0.9375rem] font-semibold text-[#101011]">
