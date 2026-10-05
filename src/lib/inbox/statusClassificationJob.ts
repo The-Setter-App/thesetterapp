@@ -4,11 +4,11 @@ import {
   findConversationById,
   getMessagesPageFromDb,
 } from "@/lib/inboxRepository";
+import { EMPTY_TAG_DESCRIPTION } from "@/lib/tags/config";
 import { listWorkspaceAssignableTags } from "@/lib/tagsRepository";
 
 const CLASSIFICATION_COOLDOWN_MS = 5 * 60 * 1000;
 const CLASSIFICATION_MESSAGE_LIMIT = 40;
-const EMPTY_DESCRIPTION_PLACEHOLDER = "No description added";
 
 /**
  * Re-runs status classification for a conversation after a genuine inbound
@@ -31,7 +31,7 @@ export async function maybeClassifyConversationStatus(
       .filter(
         (tag) =>
           tag.description.trim() &&
-          tag.description.trim() !== EMPTY_DESCRIPTION_PLACEHOLDER,
+          tag.description.trim() !== EMPTY_TAG_DESCRIPTION,
       )
       .map((tag) => ({ name: tag.name, description: tag.description }));
     if (statusOptions.length === 0) return;

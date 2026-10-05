@@ -6,6 +6,8 @@ export interface TranscriptOptions {
   // What each side is called in the transcript.
   teamLabel?: string;
   leadLabel?: string;
+  // Adds when each message was sent, for jobs that reason about timing.
+  includeTimestamps?: boolean;
 }
 
 // The words of a message, or a stand-in for media that carries none.
@@ -22,14 +24,22 @@ function describeMessage(message: Message): string {
 // model to read.
 export function buildConversationTranscript(
   messages: Message[],
-  { maxChars, teamLabel = "Setter", leadLabel = "Lead" }: TranscriptOptions,
+  {
+    maxChars,
+    teamLabel = "Setter",
+    leadLabel = "Lead",
+    includeTimestamps = false,
+  }: TranscriptOptions,
 ): string {
   const lines: string[] = [];
   for (const message of messages) {
     if (message.isEmpty) continue;
     const text = describeMessage(message);
     if (!text) continue;
-    lines.push(`${message.fromMe ? teamLabel : leadLabel}: ${text}`);
+    const speaker = message.fromMe ? teamLabel : leadLabel;
+    const sentAt =
+      includeTimestamps && message.timestamp ? ` (${message.timestamp})` : "";
+    lines.push(`${speaker}${sentAt}: ${text}`);
   }
 
   const transcript = lines.join("\n");

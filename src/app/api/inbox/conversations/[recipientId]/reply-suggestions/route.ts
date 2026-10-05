@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AiConfigurationError, AiUpstreamError } from "@/lib/ai/chatCompletion";
+import { AiConfigurationError, AiUpstreamError } from "@/lib/ai/claude";
 import { getCalendlyConnectionState } from "@/lib/calendly/service";
 import { generateReplySuggestions } from "@/lib/inbox/replySuggestions";
 import {
@@ -130,7 +130,7 @@ export async function POST(
     }
     if (error instanceof AiUpstreamError && error.isSetupProblem) {
       console.error(
-        "[ReplySuggestionsAPI] The AI provider rejected the request. Check that NVIDIA_MODEL is a model the provider still serves and that NVIDIA_API_KEY is valid.",
+        "[ReplySuggestionsAPI] The AI provider rejected the request. Check that ANTHROPIC_API_KEY is valid and that ANTHROPIC_MODEL, if set, names a current model.",
         error.message,
       );
       return errorResponse("Suggested replies are unavailable right now.", 503);

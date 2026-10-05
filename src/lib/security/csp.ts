@@ -11,7 +11,6 @@ const BASE_DIRECTIVES: Record<string, string[]> = {
     "'self'",
     "https://graph.facebook.com",
     "https://www.facebook.com",
-    "https://integrate.api.nvidia.com",
   ],
 };
 

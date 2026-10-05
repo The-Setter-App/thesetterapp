@@ -9,6 +9,7 @@ import {
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { WorkspaceTagRowDb } from "@/lib/supabase/types";
 import {
+  EMPTY_TAG_DESCRIPTION,
   MAX_TAG_DESCRIPTION_LENGTH,
   MAX_TAG_NAME_LENGTH,
   normalizeTagText,
@@ -348,7 +349,7 @@ export async function createWorkspaceCustomTag(input: {
     workspace_owner_email: normalizedWorkspaceOwnerEmail,
     normalized_name: normalizeStatusKey(normalizedName),
     name: normalizedName,
-    description: normalizedDescription || "No description added",
+    description: normalizedDescription || EMPTY_TAG_DESCRIPTION,
     source: "Custom" as const,
     color_hex: normalizedColorHex,
     icon_pack: input.iconPack,
@@ -462,7 +463,7 @@ export async function updateWorkspaceCustomTag(input: {
     .update({
       normalized_name: normalizeStatusKey(normalizedName),
       name: normalizedName,
-      description: normalizedDescription || "No description added",
+      description: normalizedDescription || EMPTY_TAG_DESCRIPTION,
       color_hex: normalizedColorHex,
       icon_pack: input.iconPack,
       icon_name: normalizedIconName,
