@@ -1,3 +1,4 @@
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { isLeadCooling } from "@/lib/inbox/leadCooling";
 import type { User } from "@/types/inbox";
@@ -39,7 +40,7 @@ export default function SidebarTabs({
   onTabChange,
 }: SidebarTabsProps) {
   return (
-    <div className="px-4 pb-3">
+    <div className={`${PAGE_GUTTER_CLASS} pb-3`}>
       <SegmentedControl
         ariaLabel="Conversation filter"
         value={activeTab}

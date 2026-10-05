@@ -1,3 +1,4 @@
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 import surface from "@/components/ui/brandSurface.module.css";
 
 const STAT_TILE_IDS = ["reply-time", "revenue-call", "rate", "reply-rate"];
@@ -16,11 +17,12 @@ export default function DashboardPageSkeleton() {
       aria-busy="true"
       className={`${surface.surface} ${surface.glow} h-full w-full overflow-hidden`}
     >
-      <div className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-6 md:px-6 md:pb-14 md:pt-10 lg:px-8">
+      <div
+        className={`${PAGE_GUTTER_CLASS} w-full max-w-[1400px] pb-10 pt-6 md:pb-14`}
+      >
         <span className="sr-only">Loading dashboard</span>
-        <div className={`h-7 w-24 ${PULSE}`} />
-        <div className="mt-3 h-10 w-64 max-w-full animate-pulse rounded-2xl bg-[#ECE9FF]" />
-        <div className={`mt-3 h-5 w-56 max-w-full ${PULSE}`} />
+        <div className="h-[1.925rem] w-56 max-w-full animate-pulse rounded-full bg-[#ECE9FF]" />
+        <div className={`mt-2 h-5 w-56 max-w-full ${PULSE}`} />
 
         <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-12">
           <div className="min-h-[15rem] animate-pulse rounded-3xl bg-[#DCD5FF] md:min-h-[17rem] lg:col-span-7" />

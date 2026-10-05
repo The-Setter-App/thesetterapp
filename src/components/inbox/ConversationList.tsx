@@ -24,7 +24,9 @@ export default function ConversationList({
   statusLookup,
 }: ConversationListProps) {
   return (
-    <ul className="space-y-0.5 px-2 pb-3">
+    // Rows have 12px of their own padding, so this inset puts their content
+    // on the page gutter (16 / 24 / 32px) while the hover tint extends past it.
+    <ul className="space-y-0.5 px-1 pb-3 md:px-3 lg:px-5">
       {users.map((user, index) => (
         <ConversationRow
           key={user.id}

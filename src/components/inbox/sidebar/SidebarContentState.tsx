@@ -25,7 +25,7 @@ export function SidebarLoadingState() {
   const skeletonRows = Array.from({ length: 7 }, (_, index) => index);
 
   return (
-    <div className="h-full space-y-1 px-2">
+    <div className="h-full space-y-1 px-1 md:px-3 lg:px-5">
       {skeletonRows.map((row) => (
         <div key={row} className="flex items-center gap-3 rounded-2xl p-3">
           <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-[#F3F0FF]" />

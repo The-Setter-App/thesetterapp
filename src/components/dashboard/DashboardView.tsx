@@ -1,3 +1,4 @@
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 import surface from "@/components/ui/brandSurface.module.css";
 import type { DashboardSnapshot } from "@/types/dashboard";
 import DashboardGreeting from "./DashboardGreeting";
@@ -22,33 +23,37 @@ export default function DashboardView({
     <div
       className={`${surface.surface} ${surface.glow} h-full w-full overflow-y-auto`}
     >
-      <div className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-6 md:px-6 md:pb-14 md:pt-10 lg:px-8">
+      {/* Left-aligned like every other page, so the title starts at the same
+          edge; the cap only stops the tiles stretching on very wide screens. */}
+      <div className="w-full max-w-[1400px] pb-10 md:pb-14">
         <DashboardGreeting displayName={displayName} />
 
-        {/* The top margin leaves room for the scoop on the revenue tile. */}
-        <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <RevenueHero
-              totalRevenue={snapshot.metrics.totalRevenue}
-              wonCount={snapshot.funnel.won}
-            />
+        <div className={PAGE_GUTTER_CLASS}>
+          {/* The top margin leaves room for the scoop on the revenue tile. */}
+          <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <RevenueHero
+                totalRevenue={snapshot.metrics.totalRevenue}
+                wonCount={snapshot.funnel.won}
+              />
+            </div>
+            <div className="lg:col-span-5">
+              <DashboardStatGrid metrics={snapshot.metrics} />
+            </div>
           </div>
-          <div className="lg:col-span-5">
-            <DashboardStatGrid metrics={snapshot.metrics} />
-          </div>
-        </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <PipelineFunnel funnel={snapshot.funnel} />
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              <PipelineFunnel funnel={snapshot.funnel} />
+            </div>
+            <div className="flex lg:col-span-4 [&>*]:flex-1">
+              <OffFunnelTile funnel={snapshot.funnel} />
+            </div>
           </div>
-          <div className="flex lg:col-span-4 [&>*]:flex-1">
-            <OffFunnelTile funnel={snapshot.funnel} />
-          </div>
-        </div>
 
-        <div className="mt-4">
-          <PaymentsTiles />
+          <div className="mt-4">
+            <PaymentsTiles />
+          </div>
         </div>
       </div>
     </div>

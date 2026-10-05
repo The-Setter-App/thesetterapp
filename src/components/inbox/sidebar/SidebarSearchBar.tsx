@@ -1,4 +1,5 @@
 import { LuSearch, LuSlidersHorizontal } from "react-icons/lu";
+import { PAGE_GUTTER_CLASS } from "@/components/layout/pageGutter";
 
 interface SidebarSearchBarProps {
   search: string;
@@ -16,7 +17,7 @@ export default function SidebarSearchBar({
   const hasFilters = selectedStatusesCount > 0;
 
   return (
-    <div className="flex gap-2 px-4 pb-3 pt-4">
+    <div className={`${PAGE_GUTTER_CLASS} flex gap-2 pb-3 pt-4`}>
       <label className="relative flex-1">
         <span className="sr-only">Search conversations</span>
         <LuSearch
