@@ -15,14 +15,19 @@ import type { DashboardSnapshot } from "@/types/dashboard";
 
 const DASHBOARD_REFRESH_DEBOUNCE_MS = 900;
 
+// A snapshot cached before the leaderboard existed has no team list.
+function withTeam(snapshot: DashboardSnapshot): DashboardSnapshot {
+  return Array.isArray(snapshot.team) ? snapshot : { ...snapshot, team: [] };
+}
+
 export function useDashboardSnapshot(initialSnapshot: DashboardSnapshot) {
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [snapshot, setSnapshot] = useState(() => withTeam(initialSnapshot));
   const bootstrapStartedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
   const inFlightRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    setSnapshot(initialSnapshot);
+    setSnapshot(withTeam(initialSnapshot));
   }, [initialSnapshot]);
 
   const refreshSnapshot = useCallback(async () => {
@@ -41,7 +46,9 @@ export function useDashboardSnapshot(initialSnapshot: DashboardSnapshot) {
         );
       }
 
-      const nextSnapshot = (await response.json()) as DashboardSnapshot;
+      const nextSnapshot = withTeam(
+        (await response.json()) as DashboardSnapshot,
+      );
       if (controller.signal.aborted) return;
       window.clearTimeout(refreshTimerRef.current ?? undefined);
       startTransition(() => {

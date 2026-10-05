@@ -1,3 +1,7 @@
+import {
+  buildTeamLeaderboard,
+  type TeamRosterEntry,
+} from "@/lib/dashboard/buildTeamLeaderboard";
 import type {
   DashboardMessageStats,
   DashboardSnapshot,
@@ -154,6 +158,7 @@ export function createEmptyDashboardSnapshot(
       unqualified: 0,
       noShow: 0,
     },
+    team: [],
   };
 }
 
@@ -162,6 +167,7 @@ export function buildDashboardSnapshot(
   messageStatsByConversationId: Map<string, DashboardMessageStats>,
   hasConnectedAccounts: boolean,
   roleByStatusName: Record<string, StatusRole | null | undefined> = {},
+  teamRoster: TeamRosterEntry[] = [],
 ): DashboardSnapshot {
   const snapshot = createEmptyDashboardSnapshot(hasConnectedAccounts);
   if (users.length === 0) {
@@ -210,5 +216,11 @@ export function buildDashboardSnapshot(
       unqualified: conversationSummary.unqualified,
       noShow: conversationSummary.noShow,
     },
+    team: buildTeamLeaderboard(
+      users,
+      messageStatsByConversationId,
+      roleByStatusName,
+      teamRoster,
+    ),
   };
 }

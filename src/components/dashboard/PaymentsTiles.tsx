@@ -50,12 +50,12 @@ export default function PaymentsTiles() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <PaymentTile
-        order={8}
+        order={9}
         title="Upcoming payments"
         figures={[{ label: "Total pending", value: "$0" }]}
       />
       <PaymentTile
-        order={9}
+        order={10}
         title="Recent collections"
         figures={[
           { label: "Cash collected", value: "$0" },

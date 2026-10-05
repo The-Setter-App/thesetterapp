@@ -8,6 +8,12 @@ const CURRENCY_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+const WHOLE_CURRENCY_FORMAT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
 export interface CurrencyParts {
   // Symbol, sign and whole units, e.g. "$12,480".
   whole: string;
@@ -17,6 +23,11 @@ export interface CurrencyParts {
 
 export function formatCurrency(value: number): string {
   return CURRENCY_FORMAT.format(value);
+}
+
+// Rounded to whole units, for dense tables where cents are noise.
+export function formatWholeCurrency(value: number): string {
+  return WHOLE_CURRENCY_FORMAT.format(value);
 }
 
 // Splits an amount so the cents can be set smaller than the whole units.

@@ -7,6 +7,7 @@ import OffFunnelTile from "./OffFunnelTile";
 import PaymentsTiles from "./PaymentsTiles";
 import PipelineFunnel from "./PipelineFunnel";
 import RevenueHero from "./RevenueHero";
+import TeamLeaderboard from "./team/TeamLeaderboard";
 
 interface DashboardViewProps {
   displayName: string;
@@ -49,6 +50,10 @@ export default function DashboardView({
             <div className="flex lg:col-span-4 [&>*]:flex-1">
               <OffFunnelTile funnel={snapshot.funnel} />
             </div>
+          </div>
+
+          <div className="mt-4">
+            <TeamLeaderboard members={snapshot.team} order={8} />
           </div>
 
           <div className="mt-4">
